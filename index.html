@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>TreetSheet</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header with App Name and Toggle -->
+    <div id="header">
+        <h1>TreetSheet</h1>
+        <div id="headerButtons">
+            <div id="toggleContainer">
+                <label for="delimiterToggle">Copy as:</label>
+                <select id="delimiterToggle">
+                    <option value=",">CSV</option>
+                    <option value="tab">TSV</option>
+                </select>
+            </div>
+            <button id="toggleSidePanel">Hide Side Panel</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainContainer">
+        <!-- Grid Container -->
+        <div id="gridContainer">
+            <!-- Input Container -->
+            <div id="container">
+                <span id="cellLabel">Select a cell</span>
+                <input type="text" id="inputBox" placeholder="Enter cell value">
+            </div>
+            <!-- Spreadsheet Table -->
+            <table id="spreadsheet">
+                <!-- Table content will be generated dynamically -->
+            </table>
+        </div>
+        <!-- Side Panel -->
+        <div id="sidePanel">
+            <div class="sidePanelSection">
+                <h3>Contents</h3>
+                <textarea id="contentsTextArea" disabled></textarea>
+            </div>
+            <div class="sidePanelSection">
+                <h3>Parsing</h3>
+                <textarea id="parsingTextArea" disabled></textarea>
+            </div>
+            <div class="sidePanelSection">
+                <h3>Output</h3>
+                <textarea id="outputTextArea" disabled></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Scripts -->
+    <script src="script.js"></script>
+    <script src="parsing.js"></script>
+</body>
+</html>
