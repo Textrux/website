@@ -1,0 +1,26 @@
+{
+  "name": "@treetsheet/parser",
+  "version": "0.1.0",
+  "description": "Treetsheet parser",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest"
+  },
+  "keywords": [
+    "treetsheet",
+    "treets",
+    "bss"
+  ],
+  "author": "treetsheet",
+  "license": "CC-PDDC",
+  "peerDependencies": {},
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.14"
+  }
+}

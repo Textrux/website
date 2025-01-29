@@ -1,0 +1,20 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+      "outDir": "dist",
+      "rootDir": "src",
+      "module": "commonjs",
+      "target": "ES6",
+      "declaration": true,
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "composite": true
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "**/__tests__/*"],
+    "references": [
+      { "path": "../parser" } 
+    ]
+  }
+  

@@ -1,0 +1,28 @@
+{
+  "name": "treetsheet-website",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "description": "The source code for treetsheet.org.",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3"
+  },
+  "keywords": [
+    "treetsheet",
+    "treets",
+    "bss"
+  ],
+  "author": "treetsheet",
+  "license": "CC-PDDC"
+}

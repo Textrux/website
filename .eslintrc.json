@@ -1,0 +1,13 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+		// Warn for unused imports
+		"no-unused-vars": [
+			"warn",
+			{
+				"vars": "all",
+				"args": "none"
+			}
+		]
+	}
+}

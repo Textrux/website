@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@treetsheet/parser": ["packages/parser/src"],
+			"@treetsheet/formatter": ["packages/formatter/src"],
+			"@treetsheet/ui": ["packages/ui/src"]
+		},
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"composite": true // Enable project references
+	},
+	"references": [{ "path": "./packages/parser" }, { "path": "./packages/formatter" }, { "path": "./packages/ui" }],
+	"include": ["packages/**/*"]
+}
