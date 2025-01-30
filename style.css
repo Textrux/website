@@ -1,244 +1,266 @@
 /* Basic Styles */
+html {
+  touch-action: manipulation; /* Prevents double-tap zoom */
+}
+
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
+  touch-action: manipulation; /* Prevents double-tap zoom */
+  margin: 0;
+  font-family: Arial, sans-serif;
 }
 
 #header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #336699;
-    color: white;
-    padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #336699;
+  color: white;
+  padding: 10px;
 }
 
 #header h1 {
-    margin: 0;
-    font-size: 24px;
+  margin: 0;
+  font-size: 24px;
 }
 
 #headerButtons {
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 #toggleContainer {
-    display: flex;
-    align-items: center;
-    margin-right: 10px;
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
 }
 
 #toggleContainer label {
-    margin-right: 5px;
+  margin-right: 5px;
 }
 
 #toggleContainer select {
-    font-size: 14px;
+  font-size: 14px;
 }
 
 #mainContainer {
-    display: flex;
-    height: calc(100vh - 50px); /* Adjust based on header height */
+  display: flex;
+  height: calc(100vh - 50px); /* Adjust based on header height */
 }
 
 #gridContainer {
-    flex-grow: 1;
-    overflow: auto;
-    border-right: 1px solid #ccc;
+  flex-grow: 1;
+  overflow: auto;
+  border-right: 1px solid #ccc;
 }
 
 #sidePanel {
-    flex-basis: 20%;
-    overflow: auto;
-    padding: 10px;
-    box-sizing: border-box;
-    transition: flex-basis 0.3s, width 0.3s;
-    display: flex;
-    flex-direction: column;
+  flex-basis: 20%;
+  overflow: auto;
+  padding: 10px;
+  box-sizing: border-box;
+  transition: flex-basis 0.3s, width 0.3s;
+  display: flex;
+  flex-direction: column;
 }
 
 #sidePanel.hidden {
-    flex-basis: 0;
-    width: 0;
-    padding: 0;
-    overflow: hidden;
+  flex-basis: 0;
+  width: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .sidePanelSection {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
 }
 
 .sidePanelSection h3 {
-    margin: 0;
-    font-size: 16px;
+  margin: 0;
+  font-size: 16px;
 }
 
 .sidePanelSection textarea {
-    flex: 1;
-    width: 100%;
-    resize: none;
-    margin-top: 5px;
+  flex: 1;
+  width: 100%;
+  resize: none;
+  margin-top: 5px;
 }
 
 #spreadsheet {
-    border-collapse: collapse;
-    user-select: none;
-    position: relative;
-    width: 100%;
+  border-collapse: collapse;
+  user-select: none;
+  position: relative;
+  width: 100%;
 }
 
-#spreadsheet td, #spreadsheet th {
-    border: 1px solid #ccc;
-    width: 80px;
-    min-width: 50px;
-    height: 25px;
-    text-align: left;
-    padding: 2px;
-    position: relative;
-    vertical-align: top;
+#spreadsheet td,
+#spreadsheet th {
+  border: 1px solid #ccc;
+  width: 80px;
+  min-width: 50px;
+  height: 25px;
+  text-align: left;
+  padding: 2px;
+  position: relative;
+  vertical-align: top;
 }
 
 #spreadsheet th {
-    background-color: #f0f0f0;
-    position: relative;
+  position: sticky;
+  left: 0;
+  background-color: #f0f0f0;
+  z-index: 2; /* Higher than table cells */
+  text-align: center;
 }
 
 #spreadsheet thead th {
-    position: sticky;
-    top: 52px; /* Adjust based on the height of #container */
-    background-color: #f0f0f0;
-    z-index: 1; /* So it stays above the table cells */
+  position: sticky;
+  top: 52px; /* Adjust based on the height of #container */
+  background-color: #f0f0f0;
+  z-index: 2; /* So it stays above the table cells */
+}
+
+#selectAllCell {
+  position: sticky !important;
+  top: 52px !important; /* Adjust if necessary */
+  left: 0 !important;
+  z-index: 10 !important; /* Increase to ensure it's above other headers */
+  background-color: #f0f0f0 !important;
+  text-align: center !important;
 }
 
 #spreadsheet td.selected {
-    background-color: #cceeff;
+  background-color: #cceeff;
 }
 
-#spreadsheet td:hover, #spreadsheet th:hover {
-    border: 2px solid #3399ff;
-    box-sizing: border-box;
+#spreadsheet td:hover,
+#spreadsheet th:hover {
+  border: 2px solid #3399ff;
+  box-sizing: border-box;
 }
 
-#spreadsheet td input, #spreadsheet td textarea {
-    width: calc(100% - 4px);
-    height: calc(100% - 4px);
-    margin: 0;
-    padding: 0;
-    border: none;
-    outline: none;
-    resize: none;
-    background: transparent;
-    font-family: inherit;
-    font-size: inherit;
+#spreadsheet td input,
+#spreadsheet td textarea {
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 #inputBox {
-    flex-grow: 1; /* Allow the input box to take up remaining space */
-    margin-bottom: 0; /* Remove any bottom margin */
-    padding: 5px;
-    font-size: 16px;
+  flex-grow: 1; /* Allow the input box to take up remaining space */
+  margin-bottom: 0; /* Remove any bottom margin */
+  padding: 5px;
+  font-size: 16px;
 }
 
 #cellLabel {
-    font-weight: bold;
-    margin-right: 10px;
-    width: auto; /* Change from fixed width to auto */
-    display: inline-block;
+  font-weight: bold;
+  margin-right: 10px;
+  width: auto; /* Change from fixed width to auto */
+  display: inline-block;
 }
 #container {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    position: sticky;
-    top: 0;
-    background-color: white;
-    z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 4;
+  left: 0;
+  right: 0;
 }
 
 /* Resizer Styles */
 .resizer {
-    position: absolute;
-    width: 10px; /* Increased width */
-    height: 100%;
-    right: -5px; /* Adjusted position */
-    top: 0;
-    cursor: col-resize;
-    user-select: none;
-    z-index: 1;
+  position: absolute;
+  width: 10px; /* Increased width */
+  height: 100%;
+  right: -5px; /* Adjusted position */
+  top: 0;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 1;
 }
 
 .resizer-row {
-    position: absolute;
-    width: 100%;
-    height: 10px; /* Increased height */
-    bottom: -5px; /* Adjusted position */
-    left: 0;
-    cursor: row-resize;
-    user-select: none;
-    z-index: 1;
+  position: absolute;
+  width: 100%;
+  height: 10px; /* Increased height */
+  bottom: -5px; /* Adjusted position */
+  left: 0;
+  cursor: row-resize;
+  user-select: none;
+  z-index: 1;
 }
 
 /* Treet Parsing Styles */
 .canvas-cell {
-    background-color: white;
-    color: black;
-    font-weight: bold; /* Optional: remove if not needed */
-    text-align: left;
+  background-color: white;
+  color: black;
+  font-weight: bold; /* Optional: remove if not needed */
+  text-align: left;
 }
 
 .empty-cell-cluster {
-    background-color: lightblue;
+  background-color: lightblue;
 }
 
 .border-cell {
-    background-color: lightyellow;
+  background-color: lightyellow;
 }
 
 .frame-cell {
-    background-color: yellow;
+  background-color: yellow;
 }
 
 /* Scrollbars */
 #gridContainer::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  width: 10px;
+  height: 10px;
 }
 
 #gridContainer::-webkit-scrollbar-thumb {
-    background: #ccc;
+  background: #ccc;
 }
 
 /* Transition for gridContainer */
 #gridContainer {
-    transition: width 0.3s;
+  transition: width 0.3s;
 }
 
 /* For empty cells on the canvas but not in any cluster */
 .canvas-empty-cell {
-    background-color: lightgray;
+  background-color: lightgray;
 }
 
 /* For empty cells in cell clusters */
 .cluster-cell {
-    background-color: lightblue;
+  background-color: lightblue;
 }
 
 /* Blue border around the canvas */
 .canvas-border-cell {
-    border: 2px solid blue; /* Adjust thickness as needed */
+  border: 2px solid blue; /* Adjust thickness as needed */
 }
 
 /* Gray border around cell clusters */
 .cluster-border-cell {
-    border: 2px solid gray; /* Adjust thickness as needed */
+  border: 2px solid gray; /* Adjust thickness as needed */
 }
 
 /* Ensure borders don't overlap with existing cell borders */
 #spreadsheet td {
-    border: 1px solid #ccc;
-    box-sizing: border-box;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
 }

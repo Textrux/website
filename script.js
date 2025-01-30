@@ -1,6 +1,6 @@
 // Variable Declarations
-let NUMBER_OF_COLUMNS = 15;
-let NUMBER_OF_ROWS = 30;
+let NUMBER_OF_COLUMNS = 50;
+let NUMBER_OF_ROWS = 50;
 const ADDITIONAL_ROWS_COLUMNS = 10; // Configurable number
 
 let numberOfColumns = NUMBER_OF_COLUMNS;
@@ -16,6 +16,34 @@ let endCell = null;
 let cellToBlockMap = {}; // To map cells to their blocks
 let blockList = []; // List of all blocks
 
+// For Touch and Gestures
+let isTouchPanning = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let scrollStartX = 0;
+let scrollStartY = 0;
+const PAN_THRESHOLD = 10; // Minimum pixels to detect panning
+let longPressTimeout = null;
+let longPressDuration = 500; // 0.5 second (you can adjust)
+let touchStartTime = 0;
+let isLongPressFired = false;
+
+// For Selection or Drag
+let isTouchSelecting = false;
+let touchSelectStartCell = null;
+
+// For "Tap" Detection
+let tapMaxTime = 300; // If < 300 ms and no movement, treat as a tap
+
+// For dragging a block or selection
+let isDraggingBlock = false;
+let dragOffsetRow = 0;
+let dragOffsetCol = 0;
+let draggedBlock = null; // If we're dragging a block
+let draggedSelection = null; // If we're dragging a custom multi-cell selection
+let dragShadowCells = [];
+
+// DOM Elements
 const inputBox = document.getElementById("inputBox");
 const spreadsheet = document.getElementById("spreadsheet");
 const cellLabel = document.getElementById("cellLabel");
@@ -87,11 +115,11 @@ function generateSpreadsheet() {
 
   // Add row for the addRowButton
   const addRowTr = document.createElement("tr");
-  // Create a th for the addRowButton
   const addRowTh = document.createElement("th");
   addRowTh.id = "addRowButton";
   addRowTh.textContent = "+";
   addRowTr.appendChild(addRowTh);
+
   // Add empty td cells to match the number of columns
   for (let col = 1; col <= numberOfColumns; col++) {
     const emptyTd = document.createElement("td");
@@ -155,7 +183,7 @@ function attachEventListeners() {
 // Initialize the spreadsheet
 generateSpreadsheet();
 
-// Event Listeners for Cell Selection and Interaction
+// Event Listeners for Mouse Cell Selection
 spreadsheet.addEventListener("mousedown", function (event) {
   let target = event.target;
   if (target.tagName === "TD") {
@@ -176,7 +204,7 @@ spreadsheet.addEventListener("mousemove", function (event) {
   }
 });
 
-document.addEventListener("mouseup", function (event) {
+document.addEventListener("mouseup", function () {
   if (isSelecting) {
     isSelecting = false;
   }
@@ -212,21 +240,24 @@ inputBox.addEventListener("keydown", function (event) {
     moveSelection(1, 0); // Move to cell below
   } else if (event.key === "Tab") {
     event.preventDefault();
-    moveSelection(0, 1); // Move to cell to the right
+    if (event.shiftKey) {
+      moveSelection(0, -1); // Move to cell to the left
+    } else {
+      moveSelection(0, 1); // Move to cell to the right
+    }
   }
 });
 
-// Keydown event handling
+// Keyboard Shortcuts
 document.addEventListener("keydown", function (event) {
   if (!selectedCell) return;
 
-  // Check if we are in edit mode
+  // If cell has a textarea or input, do not override
   if (selectedCell.querySelector("textarea, input")) {
-    // In edit mode, do nothing
     return;
   }
 
-  // Handle key presses
+  // Arrow keys
   if (event.key.startsWith("Arrow")) {
     event.preventDefault();
     if (event.ctrlKey || event.metaKey) {
@@ -238,10 +269,10 @@ document.addEventListener("keydown", function (event) {
         moveBlock(event.key, false);
       }
     } else if (event.altKey) {
-      // Alt + Arrow: Select nearest block in that direction
+      // Alt + Arrow: Select nearest block
       selectNearestBlock(event.key);
     } else {
-      // Normal arrow key navigation
+      // Move selection
       switch (event.key) {
         case "ArrowUp":
           moveSelection(-1, 0);
@@ -260,7 +291,7 @@ document.addEventListener("keydown", function (event) {
   } else if (event.key === "Delete") {
     deleteSelectedCells();
   } else {
-    // Focus on inputBox when typing
+    // If user types a normal character, focus input box
     if (
       event.key.length === 1 &&
       !event.ctrlKey &&
@@ -272,7 +303,7 @@ document.addEventListener("keydown", function (event) {
   }
 });
 
-// Move Block Functionality
+// ------------------ MOVE BLOCK FUNCTIONS (unchanged except references) ------------------
 function moveBlock(direction, allowMerge) {
   if (selectedCells.length !== 1) return;
   const cell = selectedCells[0];
@@ -286,11 +317,10 @@ function moveBlock(direction, allowMerge) {
         c.col === parseInt(cell.getAttribute("data-col"))
     )
   ) {
-    // Cell is not part of any block canvas
+    // Cell not in a canvas block
     return;
   }
 
-  // Determine deltaRow and deltaCol based on direction
   let deltaRow = 0;
   let deltaCol = 0;
   switch (direction) {
@@ -308,7 +338,7 @@ function moveBlock(direction, allowMerge) {
       break;
   }
 
-  // Check if moving the block would go out of bounds
+  // Check bounds
   if (
     block.topRow + deltaRow < 1 ||
     block.bottomRow + deltaRow > numberOfRows ||
@@ -318,12 +348,12 @@ function moveBlock(direction, allowMerge) {
     return;
   }
 
-  // Check if block can be moved
-  const canMove = canMoveBlock(block, deltaRow, deltaCol, allowMerge);
-  if (canMove) {
+  // Check if block can move
+  if (canMoveBlock(block, deltaRow, deltaCol, allowMerge)) {
     moveBlockCells(block, deltaRow, deltaCol, allowMerge);
-    parseAndFormatGrid(); // Re-parse and format the grid
-    // Reselect the cell in the new position
+    parseAndFormatGrid();
+
+    // Reselect cell in new position
     const newCell = getCellElement(
       parseInt(cell.getAttribute("data-row")) + deltaRow,
       parseInt(cell.getAttribute("data-col")) + deltaCol
@@ -343,7 +373,7 @@ function canMoveBlock(block, deltaRow, deltaCol, allowMerge) {
       newCol < 1 ||
       newCol > numberOfColumns
     ) {
-      return false; // Out of bounds
+      return false;
     }
     movedPositions.add(newRow + "," + newCol);
   }
@@ -353,7 +383,7 @@ function canMoveBlock(block, deltaRow, deltaCol, allowMerge) {
     for (let otherCell of otherBlock.canvasCells) {
       const key = otherCell.row + "," + otherCell.col;
       if (movedPositions.has(key)) {
-        // There's an overlap
+        // Overlap
         if (!allowMerge) {
           return false;
         } else {
@@ -363,7 +393,7 @@ function canMoveBlock(block, deltaRow, deltaCol, allowMerge) {
     }
   }
 
-  // Check proximity
+  // If not merging, check proximity
   if (!allowMerge) {
     for (let otherBlock of blockList) {
       if (otherBlock === block) continue;
@@ -378,32 +408,26 @@ function canMoveBlock(block, deltaRow, deltaCol, allowMerge) {
 }
 
 function moveBlockCells(block, deltaRow, deltaCol, allowMerge) {
-  // Create a new cellsData object
   const newCellsData = {};
-  // Remove old cells from cellsData and add new ones
-  for (let cell of block.canvasCells) {
-    const oldKey = "R" + cell.row + "C" + cell.col;
-    const newRow = cell.row + deltaRow;
-    const newCol = cell.col + deltaCol;
+  for (let c of block.canvasCells) {
+    const oldKey = "R" + c.row + "C" + c.col;
+    const newRow = c.row + deltaRow;
+    const newCol = c.col + deltaCol;
     const newKey = "R" + newRow + "C" + newCol;
 
-    // Update cellsData
     newCellsData[newKey] = cellsData[oldKey];
     delete cellsData[oldKey];
 
-    // Update cell coordinates
-    cell.row = newRow;
-    cell.col = newCol;
+    c.row = newRow;
+    c.col = newCol;
   }
-
-  // Add back other cells to newCellsData
+  // Put back everything else
   for (let key in cellsData) {
     newCellsData[key] = cellsData[key];
   }
-
   cellsData = newCellsData;
 
-  // Update block boundaries
+  // Update boundaries
   block.topRow += deltaRow;
   block.bottomRow += deltaRow;
   block.leftCol += deltaCol;
@@ -411,49 +435,44 @@ function moveBlockCells(block, deltaRow, deltaCol, allowMerge) {
 }
 
 function getCanvasDistance(blockA, blockB, deltaRow, deltaCol) {
-  // Get the boundaries of blockA after moving
-  const movedTopRow = blockA.topRow + deltaRow;
-  const movedBottomRow = blockA.bottomRow + deltaRow;
-  const movedLeftCol = blockA.leftCol + deltaCol;
-  const movedRightCol = blockA.rightCol + deltaCol;
+  const movedTop = blockA.topRow + deltaRow;
+  const movedBot = blockA.bottomRow + deltaRow;
+  const movedLeft = blockA.leftCol + deltaCol;
+  const movedRight = blockA.rightCol + deltaCol;
 
-  // Get the boundaries of blockB
-  const otherTopRow = blockB.topRow;
-  const otherBottomRow = blockB.bottomRow;
-  const otherLeftCol = blockB.leftCol;
-  const otherRightCol = blockB.rightCol;
+  const otherTop = blockB.topRow;
+  const otherBot = blockB.bottomRow;
+  const otherLeft = blockB.leftCol;
+  const otherRight = blockB.rightCol;
 
-  // Compute vertical distance
+  // Vertical
   let verticalDistance = 0;
-  if (movedBottomRow < otherTopRow) {
-    verticalDistance = otherTopRow - movedBottomRow - 1;
-  } else if (otherBottomRow < movedTopRow) {
-    verticalDistance = movedTopRow - otherBottomRow - 1;
+  if (movedBot < otherTop) {
+    verticalDistance = otherTop - movedBot - 1;
+  } else if (otherBot < movedTop) {
+    verticalDistance = movedTop - otherBot - 1;
   } else {
     verticalDistance = 0;
   }
 
-  // Compute horizontal distance
+  // Horizontal
   let horizontalDistance = 0;
-  if (movedRightCol < otherLeftCol) {
-    horizontalDistance = otherLeftCol - movedRightCol - 1;
-  } else if (otherRightCol < movedLeftCol) {
-    horizontalDistance = movedLeftCol - otherRightCol - 1;
+  if (movedRight < otherLeft) {
+    horizontalDistance = otherLeft - movedRight - 1;
+  } else if (otherRight < movedLeft) {
+    horizontalDistance = movedLeft - otherRight - 1;
   } else {
     horizontalDistance = 0;
   }
 
-  // Return the maximum of vertical and horizontal distances
   return Math.max(verticalDistance, horizontalDistance);
 }
 
-// Select Nearest Block Functionality
+// Select Nearest Block
 function selectNearestBlock(direction) {
   if (!selectedCell) return;
-
   const cellKey = getCellKey(selectedCell);
   const currentBlock = cellToBlockMap[cellKey];
-
   if (!currentBlock) return;
 
   let minDistance = Infinity;
@@ -461,13 +480,11 @@ function selectNearestBlock(direction) {
 
   for (let otherBlock of blockList) {
     if (otherBlock === currentBlock) continue;
-
     const distance = getBlockDistanceInDirection(
       currentBlock,
       otherBlock,
       direction
     );
-
     if (distance !== null && distance < minDistance) {
       minDistance = distance;
       nearestBlock = otherBlock;
@@ -475,50 +492,47 @@ function selectNearestBlock(direction) {
   }
 
   if (nearestBlock) {
-    // Select the middle cell of the nearest block
-    const middleRow = Math.floor(
+    const midRow = Math.floor(
       (nearestBlock.topRow + nearestBlock.bottomRow) / 2
     );
-    const middleCol = Math.floor(
+    const midCol = Math.floor(
       (nearestBlock.leftCol + nearestBlock.rightCol) / 2
     );
-    const newCell = getCellElement(middleRow, middleCol);
+    const newCell = getCellElement(midRow, midCol);
     if (newCell) {
       selectCell(newCell);
     }
   }
 }
 
-function getBlockDistanceInDirection(currentBlock, otherBlock, direction) {
-  let distance = null;
-
+function getBlockDistanceInDirection(currBlock, otherBlock, direction) {
+  let dist = null;
   switch (direction) {
     case "ArrowUp":
-      if (otherBlock.bottomRow < currentBlock.topRow) {
-        distance = currentBlock.topRow - otherBlock.bottomRow - 1;
+      if (otherBlock.bottomRow < currBlock.topRow) {
+        dist = currBlock.topRow - otherBlock.bottomRow - 1;
       }
       break;
     case "ArrowDown":
-      if (otherBlock.topRow > currentBlock.bottomRow) {
-        distance = otherBlock.topRow - currentBlock.bottomRow - 1;
+      if (otherBlock.topRow > currBlock.bottomRow) {
+        dist = otherBlock.topRow - currBlock.bottomRow - 1;
       }
       break;
     case "ArrowLeft":
-      if (otherBlock.rightCol < currentBlock.leftCol) {
-        distance = currentBlock.leftCol - otherBlock.rightCol - 1;
+      if (otherBlock.rightCol < currBlock.leftCol) {
+        dist = currBlock.leftCol - otherBlock.rightCol - 1;
       }
       break;
     case "ArrowRight":
-      if (otherBlock.leftCol > currentBlock.rightCol) {
-        distance = otherBlock.leftCol - currentBlock.rightCol - 1;
+      if (otherBlock.leftCol > currBlock.rightCol) {
+        dist = otherBlock.leftCol - currBlock.rightCol - 1;
       }
       break;
   }
-
-  return distance;
+  return dist;
 }
 
-// Cell Selection Functions
+// ------------------ SELECTION HELPERS ------------------
 function selectCells(cell1, cell2) {
   clearSelection();
 
@@ -534,9 +548,9 @@ function selectCells(cell1, cell2) {
 
   selectedCells = [];
 
-  for (let row = minRow; row <= maxRow; row++) {
-    for (let col = minCol; col <= maxCol; col++) {
-      let cell = getCellElement(row, col);
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      let cell = getCellElement(r, c);
       if (cell) {
         cell.classList.add("selected");
         selectedCells.push(cell);
@@ -544,18 +558,20 @@ function selectCells(cell1, cell2) {
     }
   }
 
-  // Update selectedCell to be the top-left cell
+  // Update selectedCell to be top-left
   if (selectedCells.length > 0) {
     if (selectedCell) {
       selectedCell.classList.remove("selected");
     }
     selectedCell = getCellElement(minRow, minCol);
-    selectedCell.classList.add("selected");
-    inputBox.value = selectedCell.textContent;
-    inputBox.focus();
-    let row = selectedCell.getAttribute("data-row");
-    let col = selectedCell.getAttribute("data-col");
-    cellLabel.textContent = "R" + row + "C" + col;
+    if (selectedCell) {
+      selectedCell.classList.add("selected");
+      inputBox.value = selectedCell.textContent;
+      inputBox.focus();
+      let row = selectedCell.getAttribute("data-row");
+      let col = selectedCell.getAttribute("data-col");
+      cellLabel.textContent = "R" + row + "C" + col;
+    }
   }
 }
 
@@ -582,18 +598,13 @@ function selectCell(cell) {
 // Move Selection
 function moveSelection(deltaRow, deltaCol) {
   if (!selectedCell) return;
-
   let row = parseInt(selectedCell.getAttribute("data-row"));
   let col = parseInt(selectedCell.getAttribute("data-col"));
-
   let newRow = row + deltaRow;
   let newCol = col + deltaCol;
+  if (newRow < 1 || newCol < 1) return;
 
-  if (newRow < 1 || newCol < 1) {
-    return; // Out of bounds
-  }
-
-  // Grow grid if necessary
+  // Grow grid if needed
   if (newRow > numberOfRows) {
     addRows(newRow - numberOfRows);
   }
@@ -618,17 +629,16 @@ function deleteSelectedCells() {
   parseAndFormatGrid();
 }
 
-// Add Rows and Columns
+// ------------------ ADD ROWS/COLUMNS ------------------
 function addRows(count) {
   let tbody = spreadsheet.querySelector("tbody");
-  // Remove the addRowButton row temporarily
+  // Remove addRowButton row
   const addRowButtonRow = tbody.lastElementChild;
   tbody.removeChild(addRowButtonRow);
 
   for (let i = 1; i <= count; i++) {
     numberOfRows++;
     let tr = document.createElement("tr");
-    // Row header
     let th = document.createElement("th");
     th.setAttribute("data-row", numberOfRows);
     th.textContent = numberOfRows;
@@ -646,11 +656,8 @@ function addRows(count) {
     }
     tbody.appendChild(tr);
   }
-
-  // Reattach the addRowButton row
+  // Re-append addRowButton row
   tbody.appendChild(addRowButtonRow);
-
-  // Reattach event listeners
   attachEventListeners();
 }
 
@@ -672,20 +679,17 @@ function addColumns(count) {
 
     // Add cells to each row
     tbodyRows.forEach((tr, index) => {
-      // Skip the last row if it's the addRowButton row
-      if (index === tbodyRows.length - 1) return;
+      if (index === tbodyRows.length - 1) return; // skip addRow row
       let td = document.createElement("td");
       td.setAttribute("data-row", index + 1);
       td.setAttribute("data-col", numberOfColumns);
       tr.appendChild(td);
     });
   }
-
-  // Reattach event listeners
   attachEventListeners();
 }
 
-// Resizing Columns and Rows
+// ------------------ RESIZING COLUMNS/ROWS ------------------
 let isResizingCol = false;
 let isResizingRow = false;
 let startX, startY, startWidth, startHeight;
@@ -696,7 +700,7 @@ document.addEventListener("mousemove", function (event) {
     let dx = event.pageX - startX;
     let newWidth = startWidth + dx;
     if (newWidth < 30) newWidth = 30; // Minimum column width
-    resizerCol.parentElement.style.width = newWidth + "px"; // Adjust the th width
+    resizerCol.parentElement.style.width = newWidth + "px";
     let col = resizerCol.getAttribute("data-col");
     let cells = spreadsheet.querySelectorAll('td[data-col="' + col + '"]');
     cells.forEach(function (cell) {
@@ -717,16 +721,385 @@ document.addEventListener("mousemove", function (event) {
   }
 });
 
-document.addEventListener("mouseup", function (event) {
+document.addEventListener("mouseup", function () {
   if (isResizingCol || isResizingRow) {
     isResizingCol = false;
     isResizingRow = false;
     document.body.style.cursor = "default";
-    event.preventDefault();
   }
 });
 
-// Helper Functions
+// ------------------ COPY/PASTE ------------------
+document.addEventListener("copy", function (event) {
+  if (selectedCells.length === 0) return;
+  event.preventDefault();
+  let delimiter = delimiterToggle.value === "tab" ? "\t" : ",";
+  let data = getSelectedCellsData(delimiter);
+  event.clipboardData.setData("text/plain", data);
+});
+
+function getSelectedCellsData(delimiter) {
+  let data = "";
+  let rows = [];
+  let minRow = Infinity,
+    maxRow = -Infinity,
+    minCol = Infinity,
+    maxCol = -Infinity;
+
+  selectedCells.forEach((cell) => {
+    let row = parseInt(cell.getAttribute("data-row"));
+    let col = parseInt(cell.getAttribute("data-col"));
+    if (row < minRow) minRow = row;
+    if (row > maxRow) maxRow = row;
+    if (col < minCol) minCol = col;
+    if (col > maxCol) maxCol = col;
+  });
+
+  for (let r = minRow; r <= maxRow; r++) {
+    let rowData = [];
+    for (let c = minCol; c <= maxCol; c++) {
+      let cell = getCellElement(r, c);
+      if (cell && selectedCells.includes(cell)) {
+        rowData.push(cell.textContent);
+      } else {
+        rowData.push("");
+      }
+    }
+    rows.push(rowData.join(delimiter));
+  }
+  data = rows.join("\n");
+  return data;
+}
+
+document.addEventListener("paste", function (event) {
+  if (!selectedCell) return;
+  event.preventDefault();
+  let clipboardData = event.clipboardData.getData("text/plain");
+  let delimiter = clipboardData.includes("\t") ? "\t" : ",";
+  let rows = clipboardData.split("\n");
+
+  let startRow = parseInt(selectedCell.getAttribute("data-row"));
+  let startCol = parseInt(selectedCell.getAttribute("data-col"));
+
+  for (let i = 0; i < rows.length; i++) {
+    let line = rows[i].trim();
+    if (!line) continue;
+    let cols = line.split(delimiter);
+    for (let j = 0; j < cols.length; j++) {
+      let row = startRow + i;
+      let col = startCol + j;
+      if (row > numberOfRows) {
+        addRows(row - numberOfRows);
+      }
+      if (col > numberOfColumns) {
+        addColumns(col - numberOfColumns);
+      }
+      let cell = getCellElement(row, col);
+      if (cell) {
+        cell.textContent = cols[j];
+        let key = getCellKey(cell);
+        cellsData[key] = cols[j];
+      }
+    }
+  }
+  parseAndFormatGrid();
+});
+
+// ------------------ TOUCH + LONG PRESS + DRAG LOGIC ------------------
+gridContainer.addEventListener("touchstart", function (event) {
+  if (event.touches.length !== 1) return;
+  let touch = event.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  scrollStartX = gridContainer.scrollLeft;
+  scrollStartY = gridContainer.scrollTop;
+  touchStartTime = Date.now();
+  isTouchPanning = false;
+  isLongPressFired = false;
+  isTouchSelecting = false;
+  isDraggingBlock = false;
+
+  // Identify the target cell (if any) at touchstart
+  let target = document.elementFromPoint(touchStartX, touchStartY);
+
+  // Start a timer for a long-press
+  longPressTimeout = setTimeout(() => {
+    // If we haven't started panning yet, let's do long press stuff:
+    if (!isTouchPanning) {
+      isLongPressFired = true;
+      handleLongPress(target);
+    }
+  }, longPressDuration);
+});
+
+gridContainer.addEventListener("touchmove", function (event) {
+  if (event.touches.length !== 1) return;
+  let touch = event.touches[0];
+  let dx = touch.clientX - touchStartX;
+  let dy = touch.clientY - touchStartY;
+
+  // If we're dragging a block or selection, prevent scroll and handle the drag
+  if (isDraggingBlock) {
+    event.preventDefault();
+    handleDragMove(touch);
+    return;
+  }
+
+  // If we are in selection mode from long press
+  if (isTouchSelecting) {
+    event.preventDefault();
+    let moveTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (moveTarget && moveTarget.tagName === "TD") {
+      selectCells(touchSelectStartCell, moveTarget);
+    }
+    return;
+  }
+
+  // Otherwise, see if the user is panning
+  if (!isTouchPanning) {
+    // If user moves beyond threshold before long press fires, it's a pan
+    if (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
+      isTouchPanning = true;
+      clearTimeout(longPressTimeout);
+    }
+  }
+
+  if (isTouchPanning) {
+    event.preventDefault();
+    gridContainer.scrollLeft = scrollStartX - dx;
+    gridContainer.scrollTop = scrollStartY - dy;
+  }
+});
+
+gridContainer.addEventListener("touchend", function (event) {
+  clearTimeout(longPressTimeout);
+
+  // If dragging, finalize drop
+  if (isDraggingBlock) {
+    finalizeDrag();
+    isDraggingBlock = false;
+    return;
+  }
+
+  // If we were selecting, stop
+  if (isTouchSelecting) {
+    isTouchSelecting = false;
+    return;
+  }
+
+  // Check if it was a tap (no pan, no long press)
+  if (!isLongPressFired && !isTouchPanning) {
+    let elapsed = Date.now() - touchStartTime;
+    if (elapsed < tapMaxTime) {
+      // It's a "tap"
+      let touch = event.changedTouches[0];
+      let target = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (target && target.tagName === "TD") {
+        handleTap(target);
+      }
+    }
+  }
+  isTouchPanning = false;
+});
+
+// Handle the logic for a long press
+function handleLongPress(target) {
+  if (!target || target.tagName !== "TD") return;
+
+  // 1) If the user long-presses an empty cell (or non-empty, up to you),
+  //    we do a selection start.
+  // OR 2) If the user long-presses a cell in a block or in a selection,
+  //    we begin a "drag" of that block/selection.
+
+  // Check if the cell is in a block
+  const cellKey = getCellKey(target);
+  const block = cellToBlockMap[cellKey];
+
+  // Check if the cell is in the current selection
+  const isInCurrentSelection = selectedCells.includes(target);
+
+  if (block || (selectedCells.length > 1 && isInCurrentSelection)) {
+    // Start dragging the block or the multi selection
+    isDraggingBlock = true;
+
+    // If the user has multi selected cells, treat them as the "draggedSelection"
+    if (selectedCells.length > 1 && isInCurrentSelection) {
+      draggedBlock = null;
+      draggedSelection = [...selectedCells];
+    } else {
+      // Single cell block
+      draggedBlock = block;
+      draggedSelection = null;
+    }
+
+    // Highlight a "shadow" if you want
+    showDragShadow(target);
+  } else {
+    // If it's just a normal cell not in a block,
+    // we start a multi-cell selection
+    isTouchSelecting = true;
+    touchSelectStartCell = target;
+    selectCells(target, target);
+  }
+}
+
+// Tapping toggles 'x' in cell (or clears it)
+function handleTap(cell) {
+  const key = getCellKey(cell);
+  if (cell.textContent.trim() === "") {
+    // Insert 'x'
+    cell.textContent = "x";
+    cellsData[key] = "x";
+  } else {
+    // Clear it
+    cell.textContent = "";
+    delete cellsData[key];
+  }
+  parseAndFormatGrid();
+}
+
+// ------------------ DRAG & DROP of BLOCK/SELECTION ------------------
+
+// Show a simple highlight for your drag shadow
+function showDragShadow(cell) {
+  clearDragShadow();
+  cell.classList.add("border-cell"); // Or any custom style
+  dragShadowCells = [cell];
+}
+
+// As the user moves, we can highlight where the top-left corner might land
+function handleDragMove(touch) {
+  // For demonstration, we highlight whichever cell is under the finger
+  clearDragShadow();
+  let target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (target && target.tagName === "TD") {
+    target.classList.add("border-cell");
+    dragShadowCells = [target];
+  }
+}
+
+function finalizeDrag() {
+  // The cell we have in `dragShadowCells[0]` is our drop target
+  if (dragShadowCells.length === 0) return;
+  let dropCell = dragShadowCells[0];
+  let dropRow = parseInt(dropCell.getAttribute("data-row"));
+  let dropCol = parseInt(dropCell.getAttribute("data-col"));
+
+  clearDragShadow();
+
+  if (draggedBlock) {
+    // Move entire block so that the block's "top-left" cell
+    // aligns with dropCell
+    let deltaRow = dropRow - draggedBlock.topRow;
+    let deltaCol = dropCol - draggedBlock.leftCol;
+
+    if (canMoveBlock(draggedBlock, deltaRow, deltaCol, false)) {
+      moveBlockCells(draggedBlock, deltaRow, deltaCol, false);
+      parseAndFormatGrid();
+    }
+    draggedBlock = null;
+  } else if (draggedSelection) {
+    // We have a multi-cell selection. We'll drop them so that the top-left of selection goes to dropCell
+    let selRows = draggedSelection.map((c) =>
+      parseInt(c.getAttribute("data-row"))
+    );
+    let selCols = draggedSelection.map((c) =>
+      parseInt(c.getAttribute("data-col"))
+    );
+    let minRow = Math.min(...selRows);
+    let minCol = Math.min(...selCols);
+
+    let deltaRow = dropRow - minRow;
+    let deltaCol = dropCol - minCol;
+
+    // Perform a naive "cut & paste" approach
+    let oldValues = [];
+    draggedSelection.forEach((cell) => {
+      oldValues.push({
+        row: parseInt(cell.getAttribute("data-row")),
+        col: parseInt(cell.getAttribute("data-col")),
+        text: cell.textContent,
+      });
+      // Clear from old location
+      let oldKey = getCellKey(cell);
+      delete cellsData[oldKey];
+      cell.textContent = "";
+    });
+
+    oldValues.forEach((item) => {
+      let newR = item.row + deltaRow;
+      let newC = item.col + deltaCol;
+      // Expand grid if needed
+      if (newR > numberOfRows) {
+        addRows(newR - numberOfRows);
+      }
+      if (newC > numberOfColumns) {
+        addColumns(newC - numberOfColumns);
+      }
+      let newCell = getCellElement(newR, newC);
+      if (newCell) {
+        newCell.textContent = item.text;
+        let newKey = getCellKey(newCell);
+        cellsData[newKey] = item.text;
+      }
+    });
+    draggedSelection = null;
+    parseAndFormatGrid();
+  }
+}
+
+function clearDragShadow() {
+  dragShadowCells.forEach((cell) => {
+    cell.classList.remove("border-cell");
+  });
+  dragShadowCells = [];
+}
+
+// ------------------ EDITING (Double Click) ------------------
+spreadsheet.addEventListener("dblclick", function (event) {
+  let target = event.target;
+  if (target.tagName === "TD") {
+    startEditingCell(target);
+  }
+});
+
+function startEditingCell(cell) {
+  if (cell.querySelector("textarea")) return;
+  const textarea = document.createElement("textarea");
+  textarea.value = cell.textContent;
+  cell.textContent = "";
+  cell.appendChild(textarea);
+  textarea.focus();
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+  textarea.addEventListener("input", function () {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  });
+  textarea.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      stopEditingCell(cell, textarea.value);
+    }
+  });
+  textarea.addEventListener("blur", function () {
+    stopEditingCell(cell, textarea.value);
+  });
+}
+
+function stopEditingCell(cell, value) {
+  cell.innerHTML = "";
+  cell.textContent = value;
+  const key = getCellKey(cell);
+  if (value.trim() === "") {
+    delete cellsData[key];
+  } else {
+    cellsData[key] = value;
+  }
+  parseAndFormatGrid();
+}
+
+// ------------------ HELPERS ------------------
 function getCellKey(cell) {
   let row = cell.getAttribute("data-row");
   let col = cell.getAttribute("data-col");
@@ -739,144 +1112,14 @@ function getCellElement(row, col) {
   );
 }
 
-// Copy Functionality
-document.addEventListener("copy", function (event) {
-  if (selectedCells.length === 0) return;
-
-  event.preventDefault();
-  let delimiter = delimiterToggle.value;
-  if (delimiter === "tab") {
-    delimiter = "\t";
-  }
-  let data = getSelectedCellsData(delimiter);
-  event.clipboardData.setData("text/plain", data);
-});
-
-function getSelectedCellsData(delimiter) {
-  let data = "";
-  let rows = [];
-  let minRow = Infinity,
-    maxRow = -Infinity;
-  let minCol = Infinity,
-    maxCol = -Infinity;
-
-  selectedCells.forEach((cell) => {
-    let row = parseInt(cell.getAttribute("data-row"));
-    let col = parseInt(cell.getAttribute("data-col"));
-    minRow = Math.min(minRow, row);
-    maxRow = Math.max(minRow, row);
-    minCol = Math.min(minCol, col);
-    maxCol = Math.max(minCol, col);
-  });
-
-  for (let row = minRow; row <= maxRow; row++) {
-    let rowData = [];
-    for (let col = minCol; col <= maxCol; col++) {
-      let cell = getCellElement(row, col);
-      if (cell && selectedCells.includes(cell)) {
-        rowData.push(cell.textContent);
-      } else {
-        rowData.push("");
-      }
-    }
-    rows.push(rowData.join(delimiter));
-  }
-
-  data = rows.join("\n");
-  return data;
-}
-
-// Paste Functionality
-document.addEventListener("paste", function (event) {
-  if (!selectedCell) return;
-  event.preventDefault();
-
-  let clipboardData = event.clipboardData.getData("text/plain");
-  let delimiter = clipboardData.includes("\t") ? "\t" : ",";
-  let rows = clipboardData.split("\n");
-
-  let startRow = parseInt(selectedCell.getAttribute("data-row"));
-  let startCol = parseInt(selectedCell.getAttribute("data-col"));
-
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].trim() === "") continue;
-    let cols = rows[i].split(delimiter);
-    for (let j = 0; j < cols.length; j++) {
-      let row = startRow + i;
-      let col = startCol + j;
-
-      // Grow grid if necessary
-      if (row > numberOfRows) {
-        addRows(row - numberOfRows);
-      }
-      if (col > numberOfColumns) {
-        addColumns(col - numberOfColumns);
-      }
-
-      let cell = getCellElement(row, col);
-      if (cell) {
-        cell.textContent = cols[j];
-        let key = getCellKey(cell);
-        cellsData[key] = cols[j];
-      }
-    }
-  }
-  parseAndFormatGrid();
-});
-
-// Double-Click to Edit Cell
-spreadsheet.addEventListener("dblclick", function (event) {
-  let target = event.target;
-  if (target.tagName === "TD") {
-    startEditingCell(target);
-  }
-});
-
-function startEditingCell(cell) {
-  // Prevent editing if already editing
-  if (cell.querySelector("textarea")) return;
-
-  // Create a textarea
-  const textarea = document.createElement("textarea");
-  textarea.value = cell.textContent;
-  cell.textContent = ""; // Clear cell content
-  cell.appendChild(textarea);
-  textarea.focus();
-
-  // Adjust textarea height automatically
-  textarea.style.height = "auto";
-  textarea.style.height = textarea.scrollHeight + "px";
-  textarea.addEventListener("input", function () {
-    textarea.style.height = "auto";
-    textarea.style.height = textarea.scrollHeight + "px";
-  });
-
-  // Handle Shift+Enter for new lines
-  textarea.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      // Save content and exit edit mode
-      event.preventDefault();
-      stopEditingCell(cell, textarea.value);
-    }
-  });
-
-  // Handle blur event to save content when focus is lost
-  textarea.addEventListener("blur", function () {
-    stopEditingCell(cell, textarea.value);
-  });
-}
-
-function stopEditingCell(cell, value) {
-  cell.innerHTML = ""; // Clear cell content
-  cell.textContent = value; // Set new value
-  const key = getCellKey(cell);
-  if (value.trim() === "") {
-    delete cellsData[key];
-  } else {
-    cellsData[key] = value;
-  }
-  parseAndFormatGrid();
-}
-
-// Initialize parsing and formatting
+// ------------------ PARSING (same as your existing parsing.js) ------------------
+//function parseAndFormatGrid() {
+// (same as your existing code - unchanged)
+// Just ensure it re-renders classes properly after we move or edit cells
+// ...
+//  <your existing parsing logic from "parsing.js">
+// ...
+// see your original code's parseAndFormatGrid() for details
+// (Make sure it references cellToBlockMap, blockList, etc. as you have it)
+//}
 parseAndFormatGrid();
