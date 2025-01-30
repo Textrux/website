@@ -1,21 +1,35 @@
-/* Basic Styles */
-html {
-  touch-action: manipulation; /* Prevents double-tap zoom */
-}
-
+/* ==============================
+   RESET & GLOBAL
+   ============================== */
+html,
 body {
-  touch-action: manipulation; /* Prevents double-tap zoom */
   margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* No page scrolling; all scroll in #gridContainer */
+  touch-action: manipulation;
   font-family: Arial, sans-serif;
 }
 
+/* ==============================
+     HEADER
+     ============================== */
 #header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Force it to be 50px so removing the side panel button won't expand it. */
+  height: 50px;
+  overflow: hidden;
+  background-color: #336699;
+  color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #336699;
-  color: white;
-  padding: 10px;
+  padding: 0 10px; /* side padding only */
+  box-sizing: border-box;
 }
 
 #header h1 {
@@ -42,14 +56,55 @@ body {
   font-size: 14px;
 }
 
-#mainContainer {
+/* ==============================
+     FORMULA BAR
+     ============================== */
+#container {
+  position: fixed;
+  top: 50px; /* sits right below the header */
+  left: 0;
+  right: 0;
+  height: 50px; /* give it a fixed height, if you like */
+  background-color: white;
+  z-index: 998;
   display: flex;
-  height: calc(100vh - 50px); /* Adjust based on header height */
+  align-items: center;
+  padding: 10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #ccc;
 }
 
+#cellLabel {
+  font-weight: bold;
+  margin-right: 10px;
+  display: inline-block;
+}
+
+#inputBox {
+  flex-grow: 1;
+  margin-bottom: 0;
+  padding: 5px;
+  font-size: 16px;
+}
+
+/* ==============================
+     MAIN CONTAINER
+     ============================== */
+#mainContainer {
+  position: absolute;
+  top: 100px; /* 50px header + 50px formula bar = 100px */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+}
+
+/* The grid container is the only scrollable region. */
 #gridContainer {
   flex-grow: 1;
-  overflow: auto;
+  overflow: scroll;
+  -webkit-overflow-scrolling: touch;
+  background-color: #fff;
   border-right: 1px solid #ccc;
 }
 
@@ -70,25 +125,9 @@ body {
   overflow: hidden;
 }
 
-.sidePanelSection {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 10px;
-}
-
-.sidePanelSection h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.sidePanelSection textarea {
-  flex: 1;
-  width: 100%;
-  resize: none;
-  margin-top: 5px;
-}
-
+/* ==============================
+     SPREADSHEET TABLE
+     ============================== */
 #spreadsheet {
   border-collapse: collapse;
   user-select: none;
@@ -96,46 +135,56 @@ body {
   width: 100%;
 }
 
-#spreadsheet td,
-#spreadsheet th {
+#spreadsheet th,
+#spreadsheet td {
   border: 1px solid #ccc;
   width: 80px;
   min-width: 50px;
   height: 25px;
-  text-align: left;
   padding: 2px;
   position: relative;
   vertical-align: top;
+  box-sizing: border-box;
 }
 
+/* Sticky row headers on the left */
 #spreadsheet th {
   position: sticky;
   left: 0;
   background-color: #f0f0f0;
-  z-index: 2; /* Higher than table cells */
+  z-index: 2;
   text-align: center;
 }
 
+/* Sticky column headers on top */
 #spreadsheet thead th {
   position: sticky;
-  top: 52px; /* Adjust based on the height of #container */
+  top: 0;
   background-color: #f0f0f0;
-  z-index: 2; /* So it stays above the table cells */
+  z-index: 2;
 }
 
 #selectAllCell {
   position: sticky !important;
-  top: 52px !important; /* Adjust if necessary */
+  top: 0 !important;
   left: 0 !important;
-  z-index: 10 !important; /* Increase to ensure it's above other headers */
+  z-index: 10 !important;
   background-color: #f0f0f0 !important;
   text-align: center !important;
 }
 
+/* The "plus row" gets a special class so its cells are not clickable. */
+.plus-row td {
+  pointer-events: none; /* no taps/clicks in the plus row cells */
+  background-color: #fafafa;
+}
+
+/* Selected cells highlight */
 #spreadsheet td.selected {
   background-color: #cceeff;
 }
 
+/* Hover highlight (desktop) */
 #spreadsheet td:hover,
 #spreadsheet th:hover {
   border: 2px solid #3399ff;
@@ -156,37 +205,14 @@ body {
   font-size: inherit;
 }
 
-#inputBox {
-  flex-grow: 1; /* Allow the input box to take up remaining space */
-  margin-bottom: 0; /* Remove any bottom margin */
-  padding: 5px;
-  font-size: 16px;
-}
-
-#cellLabel {
-  font-weight: bold;
-  margin-right: 10px;
-  width: auto; /* Change from fixed width to auto */
-  display: inline-block;
-}
-#container {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  position: sticky;
-  top: 0;
-  background-color: white;
-  z-index: 4;
-  left: 0;
-  right: 0;
-}
-
-/* Resizer Styles */
+/* ==============================
+     RESIZERS
+     ============================== */
 .resizer {
   position: absolute;
-  width: 10px; /* Increased width */
+  width: 10px;
   height: 100%;
-  right: -5px; /* Adjusted position */
+  right: -5px;
   top: 0;
   cursor: col-resize;
   user-select: none;
@@ -196,19 +222,21 @@ body {
 .resizer-row {
   position: absolute;
   width: 100%;
-  height: 10px; /* Increased height */
-  bottom: -5px; /* Adjusted position */
+  height: 10px;
+  bottom: -5px;
   left: 0;
   cursor: row-resize;
   user-select: none;
   z-index: 1;
 }
 
-/* Treet Parsing Styles */
+/* ==============================
+     Treet Parsing Classes
+     ============================== */
 .canvas-cell {
   background-color: white;
   color: black;
-  font-weight: bold; /* Optional: remove if not needed */
+  font-weight: bold;
   text-align: left;
 }
 
@@ -224,7 +252,22 @@ body {
   background-color: yellow;
 }
 
-/* Scrollbars */
+/* Underscore cell vs normal cell */
+.underscore-cell {
+  text-align: center;
+  color: #ccc;
+  background-color: #555;
+}
+
+.normal-cell {
+  text-align: left;
+  color: #000;
+  background-color: #fff;
+}
+
+/* ==============================
+     SCROLLBARS
+     ============================== */
 #gridContainer::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -234,33 +277,9 @@ body {
   background: #ccc;
 }
 
-/* Transition for gridContainer */
-#gridContainer {
-  transition: width 0.3s;
-}
-
-/* For empty cells on the canvas but not in any cluster */
-.canvas-empty-cell {
-  background-color: lightgray;
-}
-
-/* For empty cells in cell clusters */
-.cluster-cell {
-  background-color: lightblue;
-}
-
-/* Blue border around the canvas */
-.canvas-border-cell {
-  border: 2px solid blue; /* Adjust thickness as needed */
-}
-
-/* Gray border around cell clusters */
-.cluster-border-cell {
-  border: 2px solid gray; /* Adjust thickness as needed */
-}
-
-/* Ensure borders don't overlap with existing cell borders */
-#spreadsheet td {
-  border: 1px solid #ccc;
-  box-sizing: border-box;
+@media (max-width: 600px) {
+  /* Hide the "Copy as:" (delimiter) toggle container on screens <= 600px */
+  #toggleContainer {
+    display: none !important;
+  }
 }
