@@ -4,7 +4,7 @@
 
 // Treet Parsing Algorithm
 function parseAndFormatGrid() {
-  // Clear global structures
+  // Reset references
   cellToBlockMap = {};
   blockList = [];
 
@@ -25,7 +25,7 @@ function parseAndFormatGrid() {
 
   const filledCellSet = new Set(filledCells.map((c) => c.row + "," + c.col));
 
-  // Clear old classes from all cells
+  // Clear old classes
   clearFormatting();
 
   // Identify blocks
@@ -43,7 +43,7 @@ function parseAndFormatGrid() {
     }
   }
 
-  // Merge blocks until no more merges
+  // Merge blocks if they're close
   let merged;
   do {
     merged = false;
@@ -58,7 +58,7 @@ function parseAndFormatGrid() {
     }
   } while (merged);
 
-  // For each block, expand to fill empty cluster cells, find borders, etc.
+  // For each block, expand empty cluster, find border/frame
   const cellPriority = {};
   for (let block of blockList) {
     const canvasCellSet = new Set(
@@ -76,7 +76,7 @@ function parseAndFormatGrid() {
       }
     }
 
-    // Determine border and frame cells
+    // Borders, frames
     block.borderCells = getOutlineCells(
       block.topRow,
       block.bottomRow,
@@ -96,7 +96,7 @@ function parseAndFormatGrid() {
       block
     );
 
-    // Priority: 3=canvas, 2=emptyCluster, 1=border, 0=frame
+    // Priority
     for (let c of block.canvasCells) {
       updateCellPriority(cellPriority, c, 3);
     }
@@ -111,7 +111,7 @@ function parseAndFormatGrid() {
     }
   }
 
-  // Apply Treet classes based on priority
+  // Apply Treet classes
   for (let k in cellPriority) {
     const cell = cellPriority[k].cell;
     const priority = cellPriority[k].priority;
@@ -133,16 +133,16 @@ function parseAndFormatGrid() {
     }
   }
 
-  // Ensure filled cells show their content
+  // Ensure filled cells show text
   for (let cell of filledCells) {
-    let cellEl = getCellElement(cell.row, cell.col);
-    if (cellEl) {
-      cellEl.classList.add("canvas-cell");
-      cellEl.textContent = cellsData[cell.key];
+    let td = getCellElement(cell.row, cell.col);
+    if (td) {
+      td.classList.add("canvas-cell");
+      td.textContent = cellsData[cell.key];
     }
   }
 
-  // Final pass for underscore vs. normal
+  // Final pass: underscore vs normal
   const allTds = document.querySelectorAll("#spreadsheet td");
   allTds.forEach((td) => {
     const content = td.textContent.trim();
@@ -156,9 +156,7 @@ function parseAndFormatGrid() {
       );
       td.classList.add("underscore-cell");
     } else {
-      // remove underscore if present
       td.classList.remove("underscore-cell");
-      // If not in Treet classes, give normal
       if (
         !td.classList.contains("canvas-cell") &&
         !td.classList.contains("empty-cell-cluster") &&
@@ -171,15 +169,14 @@ function parseAndFormatGrid() {
   });
 }
 
-// Helper: update priority
+// Helpers
 function updateCellPriority(cellPriority, cell, priority) {
   const key = cell.row + "," + cell.col;
   if (!(key in cellPriority) || cellPriority[key].priority < priority) {
-    cellPriority[key] = { cell: cell, priority: priority };
+    cellPriority[key] = { cell, priority };
   }
 }
 
-// Helper: create block
 function createBlock(startCell, filledCellSet, visitedCells, cellToBlockMap) {
   const block = {
     canvasCells: [],
@@ -193,7 +190,6 @@ function createBlock(startCell, filledCellSet, visitedCells, cellToBlockMap) {
   };
 
   const queue = [startCell];
-
   while (queue.length > 0) {
     const cell = queue.shift();
     const key = cell.row + "," + cell.col;
@@ -220,7 +216,6 @@ function createBlock(startCell, filledCellSet, visitedCells, cellToBlockMap) {
   return block;
 }
 
-// Helper: merge blocks
 function mergeBlocks(blockA, blockB, cellToBlockMap, blockList) {
   blockA.canvasCells = blockA.canvasCells.concat(blockB.canvasCells);
   for (let c of blockB.canvasCells) {
@@ -238,7 +233,6 @@ function mergeBlocks(blockA, blockB, cellToBlockMap, blockList) {
   }
 }
 
-// Helper: are blocks near enough to merge?
 function areCanvasesWithinProximity(blockA, blockB, proximity) {
   let verticalDistance;
   if (blockA.bottomRow < blockB.topRow) {
@@ -268,7 +262,11 @@ function getNeighbors(row, col, distance) {
       if (dr === 0 && dc === 0) continue;
       const nr = row + dr;
       const nc = col + dc;
-      if (nr >= 1 && nr <= numberOfRows && nc >= 1 && nc <= numberOfColumns) {
+      if (
+        nr >= 1 &&
+        nc >= 1 /* no upper bounds check here if you allow dynamic growth */ &&
+        true
+      ) {
         neighbors.push({ row: nr, col: nc });
       }
     }
@@ -287,14 +285,15 @@ function getOutlineCells(
 ) {
   const outlineCells = [];
   const minRow = Math.max(1, topRow - expandBy);
-  const maxRow = Math.min(numberOfRows, bottomRow + expandBy);
+  const maxRow = bottomRow + expandBy;
   const minCol = Math.max(1, leftCol - expandBy);
-  const maxCol = Math.min(numberOfColumns, rightCol + expandBy);
+  const maxCol = rightCol + expandBy;
 
   for (let r = minRow; r <= maxRow; r++) {
     for (let c = minCol; c <= maxCol; c++) {
-      const key = r + "," + c;
-      if (!cellToBlockMap[key] || cellToBlockMap[key] === currentBlock) {
+      const k = r + "," + c;
+      // If no block or same block, it can be considered
+      if (!cellToBlockMap[k] || cellToBlockMap[k] === currentBlock) {
         if (r === minRow || r === maxRow || c === minCol || c === maxCol) {
           outlineCells.push({ row: r, col: c });
         }
@@ -304,7 +303,6 @@ function getOutlineCells(
   return outlineCells;
 }
 
-// Clear old classes and restore text from cellsData
 function clearFormatting() {
   const allCells = spreadsheet.querySelectorAll("td");
   allCells.forEach((cell) => {

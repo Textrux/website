@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Textrux</title>
-    <!-- Mobile-friendly scaling -->
+    <!-- Mobile-friendly scaling; allow pinch-zoom -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=yes"
@@ -22,14 +22,15 @@
             <option value="tab">TSV</option>
           </select>
         </div>
-        <!-- You can comment out this button safely now -->
-        <!-- <button id="toggleSidePanel">Hide Side Panel</button> -->
+        <!-- You can comment out this button safely -->
+        <button id="toggleSidePanel">Hide Side Panel</button>
       </div>
     </div>
 
     <!-- Formula bar container -->
     <div id="container">
-      <span id="cellLabel">Select a cell</span>
+      <!-- This span is given a fixed width & ellipsis so it won't push the input box -->
+      <span id="cellLabel" title="Cell Address">R1C1</span>
       <input type="text" id="inputBox" placeholder="Enter cell value" />
     </div>
 

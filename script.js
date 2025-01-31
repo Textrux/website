@@ -1,13 +1,22 @@
 /***********************************************
  * script.js
  ***********************************************/
-let NUMBER_OF_COLUMNS = 50;
-let NUMBER_OF_ROWS = 50;
-const ADDITIONAL_ROWS_COLUMNS = 10; // for the + button
-const AUTO_ADD_INCREMENT = 50; // for infinite scroll near edges
+/*
+  CHANGES:
+  - Default to 150 rows x 100 columns
+  - Each + adds 100 more rows/cols
+  - On mobile single tap logic changed:
+     * If cell empty/_ => toggle underscore, no keyboard, no selection
+     * If cell has other text => bring up keyboard
+  - Double-click / double-tap on #selectAllCell => scroll top-left
+  - Retain Ctrl+Alt arrow key logic (note OS conflicts).
+*/
+let NUMBER_OF_ROWS = 150;
+let NUMBER_OF_COLUMNS = 100;
+const ADDITIONAL_ROWS_COLUMNS = 100; // "plus" now adds 100
 
-let numberOfColumns = NUMBER_OF_COLUMNS;
 let numberOfRows = NUMBER_OF_ROWS;
+let numberOfColumns = NUMBER_OF_COLUMNS;
 
 let selectedCells = [];
 let selectedCell = null;
@@ -19,7 +28,7 @@ let endCell = null;
 let cellToBlockMap = {};
 let blockList = [];
 
-// Touch/pan/long press
+// For multi-touch, panning, long press
 let isTouchPanning = false;
 let touchStartX = 0;
 let touchStartY = 0;
@@ -30,7 +39,7 @@ let longPressTimeout = null;
 let longPressDuration = 500; // ms
 let touchStartTime = 0;
 let isLongPressFired = false;
-let isTouchSelecting = false; // for multi-cell selection
+let isTouchSelecting = false;
 let touchSelectStartCell = null;
 let tapMaxTime = 300;
 
@@ -70,6 +79,7 @@ function generateSpreadsheet() {
   const headerRow = document.createElement("tr");
   const selectAllTh = document.createElement("th");
   selectAllTh.id = "selectAllCell";
+  selectAllTh.textContent = "★"; // visually distinct?
   headerRow.appendChild(selectAllTh);
 
   for (let col = 1; col <= numberOfColumns; col++) {
@@ -135,7 +145,7 @@ function generateSpreadsheet() {
   addRowTh.textContent = "+";
   addRowTr.appendChild(addRowTh);
 
-  // Fill the plus row with blank TDs (pointer-events none)
+  // Fill the plus row with blank TDs
   for (let col = 1; col <= numberOfColumns; col++) {
     const emptyTd = document.createElement("td");
     addRowTr.appendChild(emptyTd);
@@ -149,16 +159,14 @@ function generateSpreadsheet() {
 // Attach Listeners
 // =====================
 function attachEventListeners() {
-  // Select All Cell
+  // Single-click on selectAllCell => select all
+  // Double-click => scroll top-left
   const selectAllCell = document.getElementById("selectAllCell");
   if (selectAllCell) {
-    selectAllCell.addEventListener("click", function () {
-      let firstCell = getCellElement(1, 1);
-      let lastCell = getCellElement(numberOfRows, numberOfColumns);
-      if (firstCell && lastCell) {
-        selectCells(firstCell, lastCell);
-      }
-    });
+    selectAllCell.addEventListener("click", onSelectAllClicked);
+    selectAllCell.addEventListener("dblclick", onSelectAllDblClicked);
+    // On mobile, we can also do a touchstart/touchend double-tap detection if needed
+    // but let's keep it simple. iOS Safari might interpret double-tap differently.
   }
 
   // Add Row Button
@@ -201,6 +209,21 @@ function attachEventListeners() {
   });
 }
 
+function onSelectAllClicked() {
+  // Single-click => select everything
+  const firstCell = getCellElement(1, 1);
+  const lastCell = getCellElement(numberOfRows, numberOfColumns);
+  if (firstCell && lastCell) {
+    selectCells(firstCell, lastCell);
+  }
+}
+
+function onSelectAllDblClicked(e) {
+  // Double-click => scroll to top-left
+  e.preventDefault();
+  gridContainer.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+}
+
 // Initialize the table
 generateSpreadsheet();
 
@@ -209,7 +232,7 @@ generateSpreadsheet();
    ================ */
 spreadsheet.addEventListener("mousedown", function (event) {
   let target = event.target;
-  // Make sure it's a <td>, and NOT in the plus-row
+  // Skip if it's in the plus-row
   if (target.tagName === "TD" && !target.closest(".plus-row")) {
     isSelecting = true;
     startCell = target;
@@ -278,13 +301,13 @@ inputBox.addEventListener("keydown", function (event) {
   }
 });
 
-// When formula bar is focused, auto-select all. On double-click, cursor at end.
-inputBox.addEventListener("focus", (e) => {
+// Auto-select all text on focus. Dblclick => cursor at end
+inputBox.addEventListener("focus", () => {
   setTimeout(() => {
     inputBox.select();
   }, 0);
 });
-inputBox.addEventListener("dblclick", (e) => {
+inputBox.addEventListener("dblclick", () => {
   const len = inputBox.value.length;
   inputBox.setSelectionRange(len, len);
 });
@@ -293,27 +316,27 @@ inputBox.addEventListener("dblclick", (e) => {
 // Keyboard Shortcuts
 // =======================
 document.addEventListener("keydown", function (event) {
+  // If no selectedCell or we're currently editing a textarea, skip
   if (!selectedCell) return;
-
-  // If cell has a textarea or input, do not override arrow keys, etc.
   if (selectedCell.querySelector("textarea, input")) return;
 
   // Arrow keys
   if (event.key.startsWith("Arrow")) {
+    // Some OS/browsers might override Ctrl+Alt+Arrow, so it may not fire
     event.preventDefault();
     if (event.ctrlKey || event.metaKey) {
       if (event.altKey) {
-        // Ctrl + Alt + Arrow => move and merge block
+        // Ctrl+Alt+Arrow => move+merge block
         moveBlock(event.key, true);
       } else {
-        // Ctrl + Arrow => move block w/o merging
+        // Ctrl+Arrow => move block w/o merging
         moveBlock(event.key, false);
       }
     } else if (event.altKey) {
-      // Alt + Arrow => select nearest block
+      // Alt+Arrow => select nearest block
       selectNearestBlock(event.key);
     } else {
-      // Move selection
+      // Just arrow => move selection
       switch (event.key) {
         case "ArrowUp":
           moveSelection(-1, 0);
@@ -332,7 +355,7 @@ document.addEventListener("keydown", function (event) {
   } else if (event.key === "Delete") {
     deleteSelectedCells();
   } else {
-    // If user types a character, focus formula bar
+    // If user types a normal char, focus formula bar
     if (
       event.key.length === 1 &&
       !event.ctrlKey &&
@@ -379,13 +402,18 @@ function selectCells(cell1, cell2, focusInput = true) {
       inputBox.value = selectedCell.textContent;
       let row = selectedCell.getAttribute("data-row");
       let col = selectedCell.getAttribute("data-col");
-      cellLabel.textContent = "R" + row + "C" + col;
+      updateCellLabel(row, col);
 
       if (focusInput) {
         inputBox.focus();
       }
     }
   }
+}
+
+function updateCellLabel(r, c) {
+  cellLabel.textContent = `R${r}C${c}`;
+  cellLabel.setAttribute("title", `R${r}C${c}`);
 }
 
 function clearSelection() {
@@ -404,7 +432,7 @@ function selectCell(cell, focusInput = true) {
   inputBox.value = cell.textContent;
   let row = cell.getAttribute("data-row");
   let col = cell.getAttribute("data-col");
-  cellLabel.textContent = "R" + row + "C" + col;
+  updateCellLabel(row, col);
 
   if (focusInput) {
     inputBox.focus();
@@ -449,7 +477,7 @@ function deleteSelectedCells() {
 // =======================
 function addRows(count) {
   let tbody = spreadsheet.querySelector("tbody");
-  // Remove the addRowButton row first (the plus row)
+  // Remove the plus row first
   const plusRow = document.getElementById("addRowButtonRow");
   if (plusRow) {
     tbody.removeChild(plusRow);
@@ -480,20 +508,18 @@ function addRows(count) {
     tbody.appendChild(tr);
   }
 
-  // Re-append the plus row
+  // Re-append plus row
   if (plusRow) {
-    // Update the plus row so it has the new numberOfColumns cells
     while (plusRow.firstChild) {
       plusRow.removeChild(plusRow.firstChild);
     }
-    // The first cell in plus row is the <th> with id=addRowButton
     const addRowTh = document.createElement("th");
     addRowTh.id = "addRowButton";
     addRowTh.textContent = "+";
     plusRow.appendChild(addRowTh);
 
     for (let col = 1; col <= numberOfColumns; col++) {
-      const emptyTd = document.createElement("td");
+      let emptyTd = document.createElement("td");
       plusRow.appendChild(emptyTd);
     }
     tbody.appendChild(plusRow);
@@ -506,7 +532,7 @@ function addColumns(count) {
   let theadRow = spreadsheet.querySelector("thead tr");
   let tbodyRows = spreadsheet.querySelectorAll("tbody tr");
 
-  // Remove last TH (the + col) so we can re-insert it after new columns
+  // Remove the + col first
   const addColumnButton = document.getElementById("addColumnButton");
   if (addColumnButton) {
     theadRow.removeChild(addColumnButton);
@@ -515,7 +541,6 @@ function addColumns(count) {
   for (let i = 1; i <= count; i++) {
     numberOfColumns++;
 
-    // new column header
     let th = document.createElement("th");
     th.setAttribute("data-col", numberOfColumns);
     th.textContent = numberOfColumns;
@@ -527,9 +552,9 @@ function addColumns(count) {
 
     theadRow.appendChild(th);
 
-    // Add cells to each data row (skip the plus row)
+    // For each data row (skip plus row)
     tbodyRows.forEach((tr, idx) => {
-      if (tr.id === "addRowButtonRow") return; // skip plus row
+      if (tr.id === "addRowButtonRow") return;
       let td = document.createElement("td");
       td.setAttribute("data-row", idx + 1);
       td.setAttribute("data-col", numberOfColumns);
@@ -537,20 +562,19 @@ function addColumns(count) {
     });
   }
 
-  // Now re-insert the + column TH at the end
+  // Re-append the + col
   if (addColumnButton) {
     theadRow.appendChild(addColumnButton);
   }
 
-  // Also update the plus row so it has the correct number of columns
+  // Update plus row
   const plusRow = document.getElementById("addRowButtonRow");
   if (plusRow) {
-    // remove old TDs from plus row except the first TH
     while (plusRow.children.length > 1) {
       plusRow.removeChild(plusRow.lastChild);
     }
     for (let col = 1; col <= numberOfColumns; col++) {
-      const emptyTd = document.createElement("td");
+      let emptyTd = document.createElement("td");
       plusRow.appendChild(emptyTd);
     }
   }
@@ -582,6 +606,7 @@ document.addEventListener("mousemove", function (event) {
   } else if (isResizingRow) {
     let dy = event.pageY - startY;
     let newHeight = startHeight + dy;
+    if (newHeight < 30) newHeight = 30;
     let row = resizerRow.getAttribute("data-row");
     let cells = spreadsheet.querySelectorAll(
       'th[data-row="' + row + '"], td[data-row="' + row + '"]'
@@ -680,7 +705,7 @@ document.addEventListener("paste", function (event) {
 });
 
 // ==========================
-// TOUCH EVENTS
+// TOUCH EVENTS (Mobile)
 // ==========================
 gridContainer.addEventListener("touchstart", function (event) {
   if (event.touches.length !== 1) return;
@@ -713,14 +738,14 @@ gridContainer.addEventListener("touchmove", function (event) {
   let dy = touch.clientY - touchStartY;
 
   if (isDraggingBlock) {
-    // We are dragging a block or selection
+    // dragging a block or selection
     event.preventDefault();
     handleDragMove(touch);
     return;
   }
 
   if (isTouchSelecting) {
-    // We're selecting range
+    // multi-cell selection
     event.preventDefault();
     let moveTarget = document.elementFromPoint(touch.clientX, touch.clientY);
     if (
@@ -733,7 +758,7 @@ gridContainer.addEventListener("touchmove", function (event) {
     return;
   }
 
-  // Check if user is panning
+  // Possibly panning
   if (!isTouchPanning) {
     if (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
       isTouchPanning = true;
@@ -751,7 +776,7 @@ gridContainer.addEventListener("touchmove", function (event) {
 gridContainer.addEventListener("touchend", function (event) {
   clearTimeout(longPressTimeout);
 
-  // If dragging, finalize
+  // finalize drag
   if (isDraggingBlock) {
     finalizeDrag();
     isDraggingBlock = false;
@@ -759,26 +784,25 @@ gridContainer.addEventListener("touchend", function (event) {
   }
 
   if (isTouchSelecting) {
-    // done selecting
     isTouchSelecting = false;
     return;
   }
 
-  // If we didn't long-press or pan => might be a tap or double tap
+  // single tap or double tap
   if (!isLongPressFired && !isTouchPanning) {
     let now = Date.now();
     let touch = event.changedTouches[0];
     let target = document.elementFromPoint(touch.clientX, touch.clientY);
 
     if (now - lastTapTime < doubleTapDelay && target === lastTapCell) {
-      // Double tap => open editor
+      // Double tap => open editor for that cell
       if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
         startEditingCell(target);
       }
     } else {
-      // Single tap => toggle underscore if blank
+      // Single tap =>
       if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-        handleTap(target);
+        handleMobileSingleTap(target);
       }
     }
     lastTapTime = now;
@@ -788,26 +812,30 @@ gridContainer.addEventListener("touchend", function (event) {
   isTouchPanning = false;
 });
 
-// Single tap toggles '_' if blank, or clears it if '_'
-function handleTap(cell) {
-  const key = getCellKey(cell);
-  let txt = cell.textContent.trim();
-
-  if (txt === "") {
-    cell.textContent = "_";
-    cellsData[key] = "_";
-  } else if (txt === "_") {
-    cell.textContent = "";
-    delete cellsData[key];
+/* On mobile single tap:
+   - If cell is empty or underscore => toggle underscore, no keyboard
+   - If cell has other text => bring up keyboard and let user edit.
+*/
+function handleMobileSingleTap(cell) {
+  const existing = cell.textContent.trim();
+  if (existing === "" || existing === "_") {
+    // Toggle underscore
+    if (existing === "") {
+      cell.textContent = "_";
+      cellsData[getCellKey(cell)] = "_";
+    } else if (existing === "_") {
+      cell.textContent = "";
+      delete cellsData[getCellKey(cell)];
+    }
+    // No selection highlight or keyboard focus
+    parseAndFormatGrid();
+  } else {
+    // There's other text => bring up keyboard
+    selectCell(cell, true);
   }
-  // If it has other text, do nothing (or adapt as needed)
-
-  // Select the cell but do NOT focus the input => no keyboard
-  selectCell(cell, false);
-
-  parseAndFormatGrid();
 }
 
+// Long-press => range selection or block drag
 function handleLongPress(target) {
   if (!target || target.tagName !== "TD" || target.closest(".plus-row")) return;
 
@@ -816,18 +844,18 @@ function handleLongPress(target) {
   const isInCurrentSelection = selectedCells.includes(target);
 
   if (block || (selectedCells.length > 1 && isInCurrentSelection)) {
-    // Start dragging the block or the multi selection
+    // Start dragging
     isDraggingBlock = true;
     if (selectedCells.length > 1 && isInCurrentSelection) {
       draggedBlock = null;
       draggedSelection = [...selectedCells];
     } else {
-      draggedBlock = block; // single cell block
+      draggedBlock = block;
       draggedSelection = null;
     }
     showDragShadow(target);
   } else {
-    // Start multi-cell selection
+    // multi-cell selection
     isTouchSelecting = true;
     touchSelectStartCell = target;
     selectCells(target, target, false);
@@ -864,17 +892,16 @@ function finalizeDrag() {
   clearDragShadow();
 
   if (draggedBlock) {
-    // Move the entire block
+    // Move entire block
     let deltaRow = dropRow - draggedBlock.topRow;
     let deltaCol = dropCol - draggedBlock.leftCol;
-
     if (canMoveBlock(draggedBlock, deltaRow, deltaCol, false)) {
       moveBlockCells(draggedBlock, deltaRow, deltaCol, false);
       parseAndFormatGrid();
     }
     draggedBlock = null;
   } else if (draggedSelection) {
-    // Cut & paste approach
+    // "cut & paste" approach
     let selRows = draggedSelection.map((c) =>
       parseInt(c.getAttribute("data-row"))
     );
@@ -902,7 +929,6 @@ function finalizeDrag() {
     oldValues.forEach((item) => {
       let newR = item.row + deltaRow;
       let newC = item.col + deltaCol;
-      // expand grid if needed
       if (newR > numberOfRows) {
         addRows(newR - numberOfRows);
       }
@@ -922,7 +948,7 @@ function finalizeDrag() {
 }
 
 // ==========================
-// DBLCLICK on Desktop
+// DBLCLICK on Desktop Cells
 // ==========================
 spreadsheet.addEventListener("dblclick", function (event) {
   let target = event.target;
@@ -932,9 +958,7 @@ spreadsheet.addEventListener("dblclick", function (event) {
 });
 
 function startEditingCell(cell) {
-  // bring up keyboard, let user edit
-  if (cell.querySelector("textarea")) return; // already editing
-
+  if (cell.querySelector("textarea")) return;
   const textarea = document.createElement("textarea");
   textarea.value = cell.textContent;
   cell.textContent = "";
@@ -971,350 +995,7 @@ function stopEditingCell(cell, value) {
   parseAndFormatGrid();
 }
 
-// ==========================
-// Infinite Scrolling
-// ==========================
-// not working right, commenting out for now
-// gridContainer.addEventListener("scroll", function () {
-//   const scrollTop = gridContainer.scrollTop;
-//   const scrollHeight = gridContainer.scrollHeight;
-//   const clientHeight = gridContainer.clientHeight;
-
-//   // If near bottom, add rows
-//   if (scrollTop + clientHeight >= scrollHeight - 50) {
-//     addRows(AUTO_ADD_INCREMENT);
-//   }
-//   // If near top, remove trailing empty rows from bottom
-//   if (scrollTop < 50) {
-//     removeTrailingEmptyRows();
-//   }
-
-//   // Similarly for columns horizontally
-//   const scrollLeft = gridContainer.scrollLeft;
-//   const scrollWidth = gridContainer.scrollWidth;
-//   const clientWidth = gridContainer.clientWidth;
-
-//   if (scrollLeft + clientWidth >= scrollWidth - 50) {
-//     addColumns(AUTO_ADD_INCREMENT);
-//   }
-//   if (scrollLeft < 50) {
-//     removeTrailingEmptyColumns();
-//   }
-// });
-
-function removeTrailingEmptyRows() {
-  const tbody = spreadsheet.querySelector("tbody");
-  // Convert NodeList to array
-  const allRows = Array.from(tbody.querySelectorAll("tr"));
-  if (allRows.length <= 1) return; // no data rows?
-
-  // The last row is the plus row. So the last data row is second-to-last in the array
-  let lastDataIndex = allRows.length - 2; // zero-based index
-  while (lastDataIndex >= 0) {
-    let tr = allRows[lastDataIndex];
-    // If it has no <th data-row>, break out (maybe it's the selectAll row or something weird)
-    let th = tr.querySelector("th[data-row]");
-    if (!th) break;
-
-    let rowNum = parseInt(th.getAttribute("data-row"));
-    if (!rowNum) break;
-
-    // Check emptiness
-    let isEmpty = true;
-    let tds = tr.querySelectorAll("td");
-    for (let td of tds) {
-      const key = getCellKey(td);
-      if (cellsData[key]) {
-        isEmpty = false;
-        break;
-      }
-    }
-    if (isEmpty) {
-      // remove row
-      tbody.removeChild(tr);
-      numberOfRows--;
-      lastDataIndex--;
-    } else {
-      break;
-    }
-  }
-}
-
-function removeTrailingEmptyColumns() {
-  const theadRow = spreadsheet.querySelector("thead tr");
-  const allBodyRows = spreadsheet.querySelectorAll("tbody tr");
-
-  // We have numberOfColumns total columns. The last is the plus column.
-  let lastDataCol = numberOfColumns;
-  while (lastDataCol > 0) {
-    // The TH for the last data col
-    let lastTh = theadRow.querySelector('th[data-col="' + lastDataCol + '"]');
-    if (!lastTh) break;
-
-    // If that TH is actually the addColumnButton, break
-    if (lastTh.id === "addColumnButton") {
-      break;
-    }
-
-    // Check if this column is empty in all data rows
-    let isEmpty = true;
-    for (let row = 1; row <= numberOfRows; row++) {
-      let td = getCellElement(row, lastDataCol);
-      if (td) {
-        const key = getCellKey(td);
-        if (cellsData[key]) {
-          isEmpty = false;
-          break;
-        }
-      }
-    }
-
-    if (!isEmpty) {
-      break;
-    }
-
-    // If empty, remove it from thead
-    theadRow.removeChild(lastTh);
-
-    // remove from each body row
-    allBodyRows.forEach((tr) => {
-      if (tr.id === "addRowButtonRow") return; // skip plus row
-      let td = tr.querySelector('td[data-col="' + lastDataCol + '"]');
-      if (td) {
-        tr.removeChild(td);
-      }
-    });
-
-    numberOfColumns--;
-    lastDataCol--;
-  }
-}
-
-// ==========================
-//  MOVE BLOCK LOGIC
-// (Unchanged except references)
-// ==========================
-function moveBlock(direction, allowMerge) {
-  if (selectedCells.length !== 1) return;
-  const cell = selectedCells[0];
-  const cellKey = getCellKey(cell);
-  const block = cellToBlockMap[cellKey];
-  if (
-    !block ||
-    !block.canvasCells.find(
-      (c) =>
-        c.row === parseInt(cell.getAttribute("data-row")) &&
-        c.col === parseInt(cell.getAttribute("data-col"))
-    )
-  ) {
-    return; // not in a block
-  }
-
-  let deltaRow = 0;
-  let deltaCol = 0;
-  switch (direction) {
-    case "ArrowUp":
-      deltaRow = -1;
-      break;
-    case "ArrowDown":
-      deltaRow = 1;
-      break;
-    case "ArrowLeft":
-      deltaCol = -1;
-      break;
-    case "ArrowRight":
-      deltaCol = 1;
-      break;
-  }
-
-  // Check boundaries
-  if (
-    block.topRow + deltaRow < 1 ||
-    block.bottomRow + deltaRow > numberOfRows ||
-    block.leftCol + deltaCol < 1 ||
-    block.rightCol + deltaCol > numberOfColumns
-  ) {
-    return;
-  }
-
-  if (canMoveBlock(block, deltaRow, deltaCol, allowMerge)) {
-    moveBlockCells(block, deltaRow, deltaCol, allowMerge);
-    parseAndFormatGrid();
-    // reselect the same cell in its new position
-    const newCell = getCellElement(
-      parseInt(cell.getAttribute("data-row")) + deltaRow,
-      parseInt(cell.getAttribute("data-col")) + deltaCol
-    );
-    if (newCell) selectCell(newCell);
-  }
-}
-
-function canMoveBlock(block, deltaRow, deltaCol, allowMerge) {
-  const movedPositions = new Set();
-  for (let c of block.canvasCells) {
-    let newRow = c.row + deltaRow;
-    let newCol = c.col + deltaCol;
-    if (
-      newRow < 1 ||
-      newRow > numberOfRows ||
-      newCol < 1 ||
-      newCol > numberOfColumns
-    ) {
-      return false;
-    }
-    movedPositions.add(newRow + "," + newCol);
-  }
-
-  for (let otherBlock of blockList) {
-    if (otherBlock === block) continue;
-    for (let oc of otherBlock.canvasCells) {
-      let key = oc.row + "," + oc.col;
-      if (movedPositions.has(key)) {
-        if (!allowMerge) {
-          return false;
-        } else {
-          return true;
-        }
-      }
-    }
-  }
-
-  if (!allowMerge) {
-    // Check proximity
-    for (let otherBlock of blockList) {
-      if (otherBlock === block) continue;
-      const dist = getCanvasDistance(block, otherBlock, deltaRow, deltaCol);
-      if (dist < 2) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-function moveBlockCells(block, deltaRow, deltaCol, allowMerge) {
-  const newCellsData = {};
-  for (let c of block.canvasCells) {
-    let oldKey = "R" + c.row + "C" + c.col;
-    let newR = c.row + deltaRow;
-    let newC = c.col + deltaCol;
-    let newKey = "R" + newR + "C" + newC;
-
-    newCellsData[newKey] = cellsData[oldKey];
-    delete cellsData[oldKey];
-
-    c.row = newR;
-    c.col = newC;
-  }
-  for (let k in cellsData) {
-    newCellsData[k] = cellsData[k];
-  }
-  cellsData = newCellsData;
-
-  block.topRow += deltaRow;
-  block.bottomRow += deltaRow;
-  block.leftCol += deltaCol;
-  block.rightCol += deltaCol;
-}
-
-function getCanvasDistance(blockA, blockB, dRow, dCol) {
-  const movedTop = blockA.topRow + dRow;
-  const movedBot = blockA.bottomRow + dRow;
-  const movedLeft = blockA.leftCol + dCol;
-  const movedRight = blockA.rightCol + dCol;
-
-  const otherTop = blockB.topRow;
-  const otherBot = blockB.bottomRow;
-  const otherLeft = blockB.leftCol;
-  const otherRight = blockB.rightCol;
-
-  let verticalDist = 0;
-  if (movedBot < otherTop) {
-    verticalDist = otherTop - movedBot - 1;
-  } else if (otherBot < movedTop) {
-    verticalDist = movedTop - otherBot - 1;
-  } else {
-    verticalDist = 0;
-  }
-
-  let horizontalDist = 0;
-  if (movedRight < otherLeft) {
-    horizontalDist = otherLeft - movedRight - 1;
-  } else if (otherRight < movedLeft) {
-    horizontalDist = movedLeft - otherRight - 1;
-  } else {
-    horizontalDist = 0;
-  }
-
-  return Math.max(verticalDist, horizontalDist);
-}
-
-function selectNearestBlock(direction) {
-  if (!selectedCell) return;
-  const cellKey = getCellKey(selectedCell);
-  const currentBlock = cellToBlockMap[cellKey];
-  if (!currentBlock) return;
-
-  let minDistance = Infinity;
-  let nearestBlock = null;
-
-  for (let otherBlock of blockList) {
-    if (otherBlock === currentBlock) continue;
-    const dist = getBlockDistanceInDirection(
-      currentBlock,
-      otherBlock,
-      direction
-    );
-    if (dist !== null && dist < minDistance) {
-      minDistance = dist;
-      nearestBlock = otherBlock;
-    }
-  }
-
-  if (nearestBlock) {
-    const midRow = Math.floor(
-      (nearestBlock.topRow + nearestBlock.bottomRow) / 2
-    );
-    const midCol = Math.floor(
-      (nearestBlock.leftCol + nearestBlock.rightCol) / 2
-    );
-    const newCell = getCellElement(midRow, midCol);
-    if (newCell) {
-      selectCell(newCell);
-    }
-  }
-}
-
-function getBlockDistanceInDirection(currBlock, otherBlock, direction) {
-  let dist = null;
-  switch (direction) {
-    case "ArrowUp":
-      if (otherBlock.bottomRow < currBlock.topRow) {
-        dist = currBlock.topRow - otherBlock.bottomRow - 1;
-      }
-      break;
-    case "ArrowDown":
-      if (otherBlock.topRow > currBlock.bottomRow) {
-        dist = otherBlock.topRow - currBlock.bottomRow - 1;
-      }
-      break;
-    case "ArrowLeft":
-      if (otherBlock.rightCol < currBlock.leftCol) {
-        dist = currBlock.leftCol - otherBlock.rightCol - 1;
-      }
-      break;
-    case "ArrowRight":
-      if (otherBlock.leftCol > currBlock.rightCol) {
-        dist = otherBlock.leftCol - currBlock.rightCol - 1;
-      }
-      break;
-  }
-  return dist;
-}
-
-// ==========================
 // Helpers
-// ==========================
 function getCellKey(cell) {
   const row = cell.getAttribute("data-row");
   const col = cell.getAttribute("data-col");
@@ -1325,5 +1006,5 @@ function getCellElement(row, col) {
   return spreadsheet.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
 }
 
-// Initial parse/format
+// parseAndFormatGrid() is from parsing.js
 parseAndFormatGrid();

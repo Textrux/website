@@ -1,35 +1,50 @@
 /* ==============================
    RESET & GLOBAL
    ============================== */
+/* We remove overflow:hidden on body so user can pinch-zoom the entire page */
 html,
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* No page scrolling; all scroll in #gridContainer */
-  touch-action: manipulation;
+  /* Let the page scroll if needed, so iOS can potentially hide the URL bar. */
+  /* But we rely mostly on #gridContainer for the main scroll of the table. */
   font-family: Arial, sans-serif;
+  -webkit-touch-callout: none; /* Disable iOS text selection on long press (partial). */
+  -webkit-user-select: none; /* ... */
+  -webkit-text-size-adjust: none; /* Prevent auto font-size adjusting on iOS. */
+  user-select: none; /* We'll allow formula bar text selection though. */
+  touch-action: pan-x pan-y; /* Let user pinch-zoom, scroll, etc. */
+  background-color: #fff;
+}
+
+/* Permit text selection in formula input or side panel specifically. */
+#inputBox,
+#sidePanel,
+#cellLabel,
+#sidePanel textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
 /* ==============================
-     HEADER
-     ============================== */
+   HEADER (Desktop Only)
+   ============================== */
 #header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  /* Force it to be 50px so removing the side panel button won't expand it. */
   height: 50px;
-  overflow: hidden;
   background-color: #336699;
   color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 10px; /* side padding only */
+  padding: 0 10px;
   box-sizing: border-box;
+  z-index: 999;
 }
 
 #header h1 {
@@ -56,15 +71,23 @@ body {
   font-size: 14px;
 }
 
+/* Hide the entire #header on small/mobile screens */
+@media (max-width: 600px) {
+  #header {
+    display: none !important;
+  }
+}
+
 /* ==============================
-     FORMULA BAR
-     ============================== */
+   FORMULA BAR
+   ============================== */
 #container {
   position: fixed;
-  top: 50px; /* sits right below the header */
+  /* On desktop, it's below the header. On mobile, the header is hidden anyway. */
+  top: 50px;
   left: 0;
   right: 0;
-  height: 50px; /* give it a fixed height, if you like */
+  height: 50px;
   background-color: white;
   z-index: 998;
   display: flex;
@@ -74,10 +97,23 @@ body {
   border-bottom: 1px solid #ccc;
 }
 
+/* If the header is hidden on mobile, #container effectively sits at top:0
+   We'll fix that in a media query. */
+@media (max-width: 600px) {
+  #container {
+    top: 0; /* because #header is hidden */
+  }
+}
+
 #cellLabel {
+  display: inline-block;
   font-weight: bold;
   margin-right: 10px;
-  display: inline-block;
+  /* Fixed width, truncate with ellipsis if too long */
+  width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #inputBox {
@@ -88,18 +124,27 @@ body {
 }
 
 /* ==============================
-     MAIN CONTAINER
-     ============================== */
+   MAIN CONTAINER
+   ============================== */
 #mainContainer {
   position: absolute;
-  top: 100px; /* 50px header + 50px formula bar = 100px */
+  top: 100px; /* If header=50px + container=50px, total = 100 */
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
 }
 
-/* The grid container is the only scrollable region. */
+/* If on mobile, header is hidden => container is top:0 => so main container is top:50 ? */
+@media (max-width: 600px) {
+  #mainContainer {
+    top: 50px; /* formula bar is 50px high on mobile */
+  }
+}
+
+/* ==============================
+   GRID CONTAINER
+   ============================== */
 #gridContainer {
   flex-grow: 1;
   overflow: scroll;
@@ -126,8 +171,8 @@ body {
 }
 
 /* ==============================
-     SPREADSHEET TABLE
-     ============================== */
+   SPREADSHEET TABLE
+   ============================== */
 #spreadsheet {
   border-collapse: collapse;
   user-select: none;
@@ -135,16 +180,18 @@ body {
   width: 100%;
 }
 
+/* Make cells square by default: 30x30 (adjust as you like) */
 #spreadsheet th,
 #spreadsheet td {
   border: 1px solid #ccc;
-  width: 80px;
-  min-width: 50px;
-  height: 25px;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
   padding: 2px;
   position: relative;
   vertical-align: top;
   box-sizing: border-box;
+  overflow: hidden; /* just in case text gets big */
 }
 
 /* Sticky row headers on the left */
@@ -171,17 +218,29 @@ body {
   z-index: 10 !important;
   background-color: #f0f0f0 !important;
   text-align: center !important;
+  cursor: pointer;
 }
 
-/* The "plus row" gets a special class so its cells are not clickable. */
+/* The "plus row" (last row) */
 .plus-row td {
-  pointer-events: none; /* no taps/clicks in the plus row cells */
+  pointer-events: none;
   background-color: #fafafa;
 }
 
-/* Selected cells highlight */
+/* ==============================
+   SELECTED CELLS
+   ============================== */
 #spreadsheet td.selected {
   background-color: #cceeff;
+}
+
+/* On mobile, we hide the "selected" highlight */
+@media (max-width: 600px) {
+  #spreadsheet td.selected {
+    background-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }
 
 /* Hover highlight (desktop) */
@@ -191,6 +250,7 @@ body {
   box-sizing: border-box;
 }
 
+/* Inputs inside cells */
 #spreadsheet td input,
 #spreadsheet td textarea {
   width: calc(100% - 4px);
@@ -206,8 +266,8 @@ body {
 }
 
 /* ==============================
-     RESIZERS
-     ============================== */
+   RESIZERS
+   ============================== */
 .resizer {
   position: absolute;
   width: 10px;
@@ -231,8 +291,8 @@ body {
 }
 
 /* ==============================
-     Treet Parsing Classes
-     ============================== */
+   TREET PARSING STYLES
+   ============================== */
 .canvas-cell {
   background-color: white;
   color: black;
@@ -266,8 +326,8 @@ body {
 }
 
 /* ==============================
-     SCROLLBARS
-     ============================== */
+   SCROLLBARS
+   ============================== */
 #gridContainer::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -277,9 +337,4 @@ body {
   background: #ccc;
 }
 
-@media (max-width: 600px) {
-  /* Hide the "Copy as:" (delimiter) toggle container on screens <= 600px */
-  #toggleContainer {
-    display: none !important;
-  }
-}
+/* If you want to hide the scrollbar on mobile, you could do more CSS. */
