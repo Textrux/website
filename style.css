@@ -183,10 +183,26 @@ body {
   min-height: 30px;
   padding: 2px;
   position: relative;
-  vertical-align: top;
+  vertical-align: middle;
   box-sizing: border-box;
   overflow: hidden;
 }
+
+/* Additional snippet to ensure .selected has a visible border on top of everything */
+#spreadsheet td.selected {
+  outline: 2px solid #666; /* or mediumgray */
+  outline-offset: -2px; /* so the outline hugs the cell border */
+  position: relative; /* ensures the outline is visible properly */
+  z-index: 1;
+}
+
+/* #selectionOverlay {
+  position: absolute;
+  border: 2px solid #666;
+  pointer-events: none;
+  z-index: 9999;
+  display: none; /* shown only if we have selection */
+/* } */
 
 /* Sticky row headers on left */
 #spreadsheet th {
@@ -292,7 +308,7 @@ body {
   background-color: white;
   color: black;
   font-weight: bold;
-  text-align: left;
+  text-align: center;
 }
 
 .empty-cell-cluster {

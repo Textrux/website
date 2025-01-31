@@ -1,29 +1,24 @@
 /***********************************************
- * script.js
+ * script.js - Final updated version
  ***********************************************/
 
 /***********************************************
  * Global data structure so parsing.js can see it
- * (Must exist before parsing.js is loaded).
  ***********************************************/
-window.cellsData = {}; // or simply `var cellsData = {};`
+window.cellsData = {}; 
 
 ////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////
-let NUMBER_OF_ROWS = 125; // default row count
-let NUMBER_OF_COLUMNS = 100; // default col count
-let ADDITIONAL_ROWS_COLUMNS = 50; // each + adds 50
+let NUMBER_OF_ROWS = 125; 
+let NUMBER_OF_COLUMNS = 100; 
+let ADDITIONAL_ROWS_COLUMNS = 50; 
 
 ////////////////////////////////////////////
 // For Treet parser
 ////////////////////////////////////////////
 let cellToBlockMap = {};
 let blockList = [];
-
-// The rest of your code...
-// (All the logic that used to be in script.js, but referencing `cellsData` globally)
-////////////////////////////////////////////
 
 let numberOfRows = NUMBER_OF_ROWS;
 let numberOfColumns = NUMBER_OF_COLUMNS;
@@ -63,6 +58,12 @@ let draggedBlock = null;
 let draggedSelection = null;
 let dragShadowCells = [];
 
+// For resizing
+let isResizingCol = false;
+let isResizingRow = false;
+let startX, startY, startWidth, startHeight;
+let resizerCol, resizerRow;
+
 // DOM references
 const spreadsheet = document.getElementById("spreadsheet");
 const gridContainer = document.getElementById("gridContainer");
@@ -86,7 +87,7 @@ function generateSpreadsheet() {
   // Blank selectAllCell
   const selectAllTh = document.createElement("th");
   selectAllTh.id = "selectAllCell";
-  headerRow.appendChild(selectAllTh); // blank top-left
+  headerRow.appendChild(selectAllTh); 
 
   for (let col = 1; col <= numberOfColumns; col++) {
     const th = document.createElement("th");
@@ -162,7 +163,6 @@ generateSpreadsheet();
 function attachEventListeners() {
   const selectAllCell = document.getElementById("selectAllCell");
   if (selectAllCell) {
-    // Single-click => select entire grid
     selectAllCell.addEventListener("click", () => {
       const firstCell = getCellElement(1, 1);
       const lastCell = getCellElement(numberOfRows, numberOfColumns);
@@ -211,13 +211,11 @@ function attachEventListeners() {
 }
 
 /***********************************************
- * MOUSE interactions
+ * Mouse Interactions
  ***********************************************/
-
-// Middle-click => pan, Left-click => selection
 spreadsheet.addEventListener("mousedown", (e) => {
   if (e.button === 1) {
-    // Middle
+    // Middle-click => pan
     isMidPanning = true;
     midPanStartX = e.clientX;
     midPanStartY = e.clientY;
@@ -228,7 +226,7 @@ spreadsheet.addEventListener("mousedown", (e) => {
   }
 
   if (e.button === 0) {
-    // left
+    // left-click => selection
     let target = e.target;
     if (target.tagName === "TD" && !target.closest(".plus-row")) {
       isSelecting = true;
@@ -240,7 +238,6 @@ spreadsheet.addEventListener("mousedown", (e) => {
 });
 
 spreadsheet.addEventListener("mousemove", (e) => {
-  // Middle-click panning
   if (isMidPanning) {
     const dx = e.clientX - midPanStartX;
     const dy = e.clientY - midPanStartY;
@@ -250,7 +247,6 @@ spreadsheet.addEventListener("mousemove", (e) => {
     return;
   }
 
-  // left drag selection
   if (isSelecting) {
     let target = e.target;
     if (target.tagName === "TD" && !target.closest(".plus-row")) {
@@ -285,9 +281,8 @@ if (toggleSidePanelButton) {
 }
 
 /***********************************************
- * Formula bar events
+ * Formula Bar Events
  ***********************************************/
-
 inputBox.addEventListener("input", () => {
   if (!selectedCell) return;
   const key = getCellKey(selectedCell);
@@ -301,13 +296,20 @@ inputBox.addEventListener("input", () => {
 });
 
 inputBox.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
+  // SHIFT+Enter => up one row, Enter => down one row
+  if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     moveSelection(1, 0);
+  } else if (e.key === "Enter" && e.shiftKey) {
+    e.preventDefault();
+    moveSelection(-1, 0);
   } else if (e.key === "Tab") {
     e.preventDefault();
-    if (e.shiftKey) moveSelection(0, -1);
-    else moveSelection(0, 1);
+    if (e.shiftKey) {
+      moveSelection(0, -1);
+    } else {
+      moveSelection(0, 1);
+    }
   }
 });
 
@@ -323,17 +325,19 @@ inputBox.addEventListener("dblclick", () => {
 });
 
 /***********************************************
- * Keyboard shortcuts
+ * Keyboard Shortcuts
  ***********************************************/
 document.addEventListener("keydown", (e) => {
   if (!selectedCell) return;
-  // If in-text editing
-  if (selectedCell.querySelector("textarea, input")) return;
+  // If cell has an inline editor (textarea)
+  if (selectedCell.querySelector("textarea")) {
+    return;
+  }
 
-  // Arrows
   if (e.key.startsWith("Arrow")) {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
+      // Move blocks
       if (e.altKey) {
         // Ctrl+Alt+Arrow => move & merge
         moveBlock(e.key, true);
@@ -345,7 +349,7 @@ document.addEventListener("keydown", (e) => {
       // Alt+Arrow => select nearest block
       selectNearestBlock(e.key);
     } else {
-      // normal arrow => move selection
+      // Normal arrow => move selection
       switch (e.key) {
         case "ArrowUp":
           moveSelection(-1, 0);
@@ -363,13 +367,127 @@ document.addEventListener("keydown", (e) => {
     }
   } else if (e.key === "Delete") {
     deleteSelectedCells();
-  } else {
-    // typed char => focus formula bar
+  } 
+  // Ctrl+C => copy
+  else if ((e.key === "c" || e.key === "C") && e.ctrlKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    handleCtrlC();
+  }
+  // (Optional) Ctrl+X => cut, if you want...
+  // else if ((e.key === "x" || e.key === "X") && e.ctrlKey && !e.altKey && !e.shiftKey) {
+  //   e.preventDefault();
+  //   handleCtrlX();
+  // }
+  else {
+    // typed char => focus formula bar (unless Ctrl or Alt or Meta)
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       inputBox.focus();
     }
   }
 });
+
+/***********************************************
+ * Copy/Paste
+ ***********************************************/
+// We rely on the "copy" event for fallback if needed
+document.addEventListener("copy", (e) => {
+  if (!selectedCells.length) return;
+  e.preventDefault();
+  const text = getSelectedCellsAsDelimited();
+  e.clipboardData.setData("text/plain", text);
+});
+
+// On paste, auto-detect tab vs comma
+document.addEventListener("paste", (e) => {
+  if (!selectedCell) return;
+  e.preventDefault();
+  const text = e.clipboardData.getData("text/plain");
+  if (!text) return;
+
+  // Auto-detect delimiter if any tabs found => split by \t else by ,
+  let delim = text.indexOf("\t") >= 0 ? "\t" : ",";
+  const lines = text.replace(/\r/g, "").split("\n");
+
+  // Start cell
+  const startR = +selectedCell.getAttribute("data-row");
+  const startC = +selectedCell.getAttribute("data-col");
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    let cols = lines[i].split(delim);
+    for (let j = 0; j < cols.length; j++) {
+      let rr = startR + i;
+      let cc = startC + j;
+      if (rr > numberOfRows) addRows(rr - numberOfRows);
+      if (cc > numberOfColumns) addColumns(cc - numberOfColumns);
+
+      const cell = getCellElement(rr, cc);
+      if (cell) {
+        cell.textContent = cols[j];
+        cellsData[getCellKey(cell)] = cols[j];
+      }
+    }
+  }
+  parseAndFormatGrid();
+});
+
+/***********************************************
+ * handleCtrlC => manual copy approach 
+ * (some browsers block doc.execCommand).
+ ***********************************************/
+function handleCtrlC() {
+  if (!selectedCells.length) return;
+  const text = getSelectedCellsAsDelimited();
+  // Try async API
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).catch((err) => {
+      console.warn("Clipboard write failed", err);
+    });
+  } else {
+    // fallback => hidden textarea
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "fixed";
+    temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    document.body.removeChild(temp);
+  }
+}
+
+/***********************************************
+ * getSelectedCellsAsDelimited
+ *   => check delimiterToggle for CSV or TSV
+ ***********************************************/
+function getSelectedCellsAsDelimited() {
+  // find bounding rect
+  let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+  for (let cell of selectedCells) {
+    let r = +cell.getAttribute("data-row");
+    let c = +cell.getAttribute("data-col");
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (c < minC) minC = c;
+    if (c > maxC) maxC = c;
+  }
+  const delimiter = (delimiterToggle.value === "tab") ? "\t" : ",";
+
+  let lines = [];
+  for (let row = minR; row <= maxR; row++) {
+    let rowCells = [];
+    for (let col = minC; col <= maxC; col++) {
+      let td = getCellElement(row, col);
+      if (td && selectedCells.includes(td)) {
+        rowCells.push(td.textContent || "");
+      } else {
+        rowCells.push("");
+      }
+    }
+    lines.push(rowCells.join(delimiter));
+  }
+  return lines.join("\n");
+}
 
 /***********************************************
  * Selecting cells
@@ -398,13 +516,12 @@ function selectCells(cell1, cell2) {
   }
 
   if (selectedCells.length > 0) {
-    selectedCell = getCellElement(minR, minC);
-    if (selectedCell) {
-      selectedCell.classList.add("selected");
+    let topLeftCell = getCellElement(minR, minC);
+    if (topLeftCell) {
+      selectedCell = topLeftCell;
       inputBox.value = selectedCell.textContent;
       updateCellLabel(selectedCell);
-      // On desktop, we want immediate formula focus
-      // On mobile, we do NOT want to focus automatically. We'll do a simple device check
+
       if (!isMobileDevice()) {
         inputBox.focus();
       }
@@ -417,20 +534,7 @@ function clearSelection() {
     cell.classList.remove("selected");
   }
   selectedCells = [];
-}
-
-function selectCell(cell) {
-  clearSelection();
-  selectedCell = cell;
-  cell.classList.add("selected");
-  selectedCells = [cell];
-
-  inputBox.value = cell.textContent;
-  updateCellLabel(cell);
-
-  if (!isMobileDevice()) {
-    inputBox.focus();
-  }
+  selectedCell = null;
 }
 
 function updateCellLabel(cell) {
@@ -458,7 +562,7 @@ function moveSelection(dr, dc) {
 
   const nextCell = getCellElement(newRow, newCol);
   if (nextCell) {
-    selectCell(nextCell);
+    selectCells(nextCell, nextCell);
   }
 }
 
@@ -572,11 +676,6 @@ function addColumns(count) {
 /***********************************************
  * Resizing columns/rows
  ***********************************************/
-let isResizingCol = false;
-let isResizingRow = false;
-let startX, startY, startWidth, startHeight;
-let resizerCol, resizerRow;
-
 document.addEventListener("mousemove", (e) => {
   if (isResizingCol) {
     let dx = e.pageX - startX;
@@ -614,307 +713,72 @@ document.addEventListener("mouseup", () => {
 });
 
 /***********************************************
- * Copy/Paste
+ * Double-click => multiline editing directly in cell
  ***********************************************/
-document.addEventListener("copy", (e) => {
-  if (!selectedCells.length) return;
-  e.preventDefault();
-  const delimiter = delimiterToggle.value === "tab" ? "\t" : ",";
-  e.clipboardData.setData("text/plain", getSelectedCellsData(delimiter));
+spreadsheet.addEventListener("dblclick", (e) => {
+  let target = e.target;
+  if (target.tagName === "TD" && !target.closest(".plus-row")) {
+    startEditingCell(target);
+  }
 });
 
-function getSelectedCellsData(delimiter) {
-  let minR = Infinity,
-    maxR = -Infinity;
-  let minC = Infinity,
-    maxC = -Infinity;
+function startEditingCell(cell) {
+  if (cell.querySelector("textarea")) return; // already editing
 
-  for (let cell of selectedCells) {
-    const r = +cell.getAttribute("data-row");
-    const c = +cell.getAttribute("data-col");
-    if (r < minR) minR = r;
-    if (r > maxR) maxR = r;
-    if (c < minC) minC = c;
-    if (c > maxC) maxC = c;
-  }
+  const oldValue = cell.textContent;
+  cell.textContent = "";
 
-  let lines = [];
-  for (let r = minR; r <= maxR; r++) {
-    let rowArr = [];
-    for (let c = minC; c <= maxC; c++) {
-      const cell = getCellElement(r, c);
-      rowArr.push(cell ? cell.textContent : "");
+  const textarea = document.createElement("textarea");
+  // Let it auto-size in both directions
+  textarea.style.resize = "both";
+  textarea.style.overflow = "auto";
+  textarea.style.minWidth = "30px";
+  textarea.style.minHeight = "30px";
+
+  textarea.value = oldValue;
+  cell.appendChild(textarea);
+
+  textarea.focus();
+  textarea.addEventListener("keydown", (e) => {
+    // finalize on Enter if not Shift
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      stopEditingCell(cell, textarea.value);
     }
-    lines.push(rowArr.join(delimiter));
-  }
-  return lines.join("\n");
+  });
+  textarea.addEventListener("blur", () => {
+    stopEditingCell(cell, textarea.value);
+  });
 }
 
-document.addEventListener("paste", (e) => {
-  if (!selectedCell) return;
-  e.preventDefault();
-  const text = e.clipboardData.getData("text/plain");
-  const delim = text.includes("\t") ? "\t" : ",";
-  const lines = text.split("\n");
-
-  const startR = +selectedCell.getAttribute("data-row");
-  const startC = +selectedCell.getAttribute("data-col");
-
-  for (let i = 0; i < lines.length; i++) {
-    const rowContent = lines[i].replace(/\r/g, "");
-    if (!rowContent.trim()) continue;
-    const cols = rowContent.split(delim);
-    for (let j = 0; j < cols.length; j++) {
-      let rr = startR + i;
-      let cc = startC + j;
-      if (rr > numberOfRows) addRows(rr - numberOfRows);
-      if (cc > numberOfColumns) addColumns(cc - numberOfColumns);
-
-      const cell = getCellElement(rr, cc);
-      if (cell) {
-        cell.textContent = cols[j];
-        cellsData[getCellKey(cell)] = cols[j];
-      }
-    }
+function stopEditingCell(cell, newValue) {
+  cell.innerHTML = "";
+  cell.textContent = newValue;
+  const key = getCellKey(cell);
+  if (newValue.trim() === "") {
+    delete cellsData[key];
+  } else {
+    cellsData[key] = newValue;
   }
   parseAndFormatGrid();
-});
-
-/***********************************************
- * Touch on mobile
- ***********************************************/
-gridContainer.addEventListener("touchstart", (e) => {
-  if (e.touches.length !== 1) return;
-  let t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-  scrollStartX = gridContainer.scrollLeft;
-  scrollStartY = gridContainer.scrollTop;
-
-  isTouchPanning = false;
-  isLongPressFired = false;
-  isTouchSelecting = false;
-  isDraggingBlock = false;
-
-  longPressTimeout = setTimeout(() => {
-    if (!isTouchPanning) {
-      isLongPressFired = true;
-      let target = document.elementFromPoint(t.clientX, t.clientY);
-      handleLongPress(target);
-    }
-  }, longPressDuration);
-});
-
-gridContainer.addEventListener("touchmove", (e) => {
-  if (e.touches.length !== 1) return;
-  let t = e.touches[0];
-  let dx = t.clientX - touchStartX;
-  let dy = t.clientY - touchStartY;
-
-  if (isDraggingBlock) {
-    e.preventDefault();
-    handleDragMove(t);
-    return;
-  }
-
-  if (isTouchSelecting) {
-    e.preventDefault();
-    let target = document.elementFromPoint(t.clientX, t.clientY);
-    if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-      selectCells(touchSelectStartCell, target);
-    }
-    return;
-  }
-
-  if (!isTouchPanning) {
-    if (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
-      isTouchPanning = true;
-      clearTimeout(longPressTimeout);
-    }
-  }
-  if (isTouchPanning) {
-    e.preventDefault();
-    gridContainer.scrollLeft = scrollStartX - dx;
-    gridContainer.scrollTop = scrollStartY - dy;
-  }
-});
-
-gridContainer.addEventListener("touchend", (e) => {
-  clearTimeout(longPressTimeout);
-
-  if (isDraggingBlock) {
-    finalizeDrag();
-    isDraggingBlock = false;
-    return;
-  }
-
-  if (isTouchSelecting) {
-    isTouchSelecting = false;
-    return;
-  }
-
-  if (!isLongPressFired && !isTouchPanning) {
-    let now = Date.now();
-    let t = e.changedTouches[0];
-    let target = document.elementFromPoint(t.clientX, t.clientY);
-
-    if (now - lastTapTime < doubleTapDelay && target === lastTapCell) {
-      // Double tap => open text editor
-      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-        startEditingCell(target);
-      }
-    } else {
-      // Single tap on mobile => underscore toggling or not
-      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-        handleMobileSingleTap(target);
-      }
-    }
-    lastTapTime = now;
-    lastTapCell = target;
-  }
-
-  isTouchPanning = false;
-});
-
-function handleMobileSingleTap(cell) {
-  const content = cell.textContent.trim();
-  if (content === "" || content === "_") {
-    // Toggle underscore, no formula focus
-    if (content === "") {
-      cell.textContent = "_";
-      cellsData[getCellKey(cell)] = "_";
-    } else {
-      cell.textContent = "";
-      delete cellsData[getCellKey(cell)];
-    }
-    parseAndFormatGrid();
-  } else {
-    // If there's text => do NOT auto focus formula bar
-    // We'll only highlight the cell but skip focusing.
-    clearSelection();
-    selectedCell = cell;
-    cell.classList.add("selected");
-    selectedCells = [cell];
-    inputBox.value = cell.textContent;
-    updateCellLabel(cell);
-    // No focus => no blinking cursor
-  }
-}
-
-function handleLongPress(target) {
-  if (!target || target.tagName !== "TD" || target.closest(".plus-row")) return;
-  const key = getCellKey(target);
-  const block = cellToBlockMap[key];
-  const isInCurrSelection = selectedCells.includes(target);
-
-  if (block || (selectedCells.length > 1 && isInCurrSelection)) {
-    isDraggingBlock = true;
-    if (selectedCells.length > 1 && isInCurrSelection) {
-      draggedBlock = null;
-      draggedSelection = [...selectedCells];
-    } else {
-      draggedBlock = block;
-      draggedSelection = null;
-    }
-    showDragShadow(target);
-  } else {
-    // multi cell selection
-    isTouchSelecting = true;
-    touchSelectStartCell = target;
-    selectCells(target, target); // no formula focus
-  }
-}
-
-function showDragShadow(cell) {
-  clearDragShadow();
-  cell.classList.add("border-cell");
-  dragShadowCells = [cell];
-}
-
-function clearDragShadow() {
-  for (let c of dragShadowCells) {
-    c.classList.remove("border-cell");
-  }
-  dragShadowCells = [];
-}
-
-function handleDragMove(touch) {
-  clearDragShadow();
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (target && target.tagName === "TD") {
-    target.classList.add("border-cell");
-    dragShadowCells = [target];
-  }
-}
-
-function finalizeDrag() {
-  if (!dragShadowCells.length) return;
-  const dropCell = dragShadowCells[0];
-  let dropR = +dropCell.getAttribute("data-row");
-  let dropC = +dropCell.getAttribute("data-col");
-  clearDragShadow();
-
-  if (draggedBlock) {
-    const deltaRow = dropR - draggedBlock.topRow;
-    const deltaCol = dropC - draggedBlock.leftCol;
-    if (canMoveBlock(draggedBlock, deltaRow, deltaCol, false)) {
-      moveBlockCells(draggedBlock, deltaRow, deltaCol, false);
-      parseAndFormatGrid();
-    }
-    draggedBlock = null;
-  } else if (draggedSelection) {
-    let selRows = draggedSelection.map((td) => +td.getAttribute("data-row"));
-    let selCols = draggedSelection.map((td) => +td.getAttribute("data-col"));
-    let minR = Math.min(...selRows);
-    let minC = Math.min(...selCols);
-
-    let dR = dropR - minR;
-    let dC = dropC - minC;
-
-    let oldValues = [];
-    for (let cell of draggedSelection) {
-      let r = +cell.getAttribute("data-row");
-      let c = +cell.getAttribute("data-col");
-      oldValues.push({
-        row: r,
-        col: c,
-        text: cell.textContent,
-      });
-      delete cellsData[getCellKey(cell)];
-      cell.textContent = "";
-    }
-
-    for (let item of oldValues) {
-      let newR = item.row + dR;
-      let newC = item.col + dC;
-      if (newR > numberOfRows) addRows(newR - numberOfRows);
-      if (newC > numberOfColumns) addColumns(newC - numberOfColumns);
-      const newTd = getCellElement(newR, newC);
-      if (newTd) {
-        newTd.textContent = item.text;
-        cellsData[getCellKey(newTd)] = item.text;
-      }
-    }
-    draggedSelection = null;
-    parseAndFormatGrid();
-  }
 }
 
 /***********************************************
- * Move Block / Select Nearest Block
+ * Move/Select Block logic
  ***********************************************/
 function moveBlock(direction, allowMerge) {
-  if (!selectedCells.length === 1) return;
+  // Must have exactly one selected cell
   if (selectedCells.length !== 1) return;
   const cell = selectedCells[0];
   const key = getCellKey(cell);
   const block = cellToBlockMap[key];
   if (!block) return;
 
-  // is cell actually in block?
-  const cellRow = +cell.getAttribute("data-row");
-  const cellCol = +cell.getAttribute("data-col");
-  if (!block.canvasCells.find((c) => c.row === cellRow && c.col === cellCol)) {
+  let cellRow = +cell.getAttribute("data-row");
+  let cellCol = +cell.getAttribute("data-col");
+
+  // Check if this cell is actually part of block.canvasCells
+  if (!block.canvasCells.find((p) => p.row === cellRow && p.col === cellCol)) {
     return;
   }
 
@@ -934,7 +798,7 @@ function moveBlock(direction, allowMerge) {
       dC = 1;
       break;
   }
-  // bounds
+  // Check bounds
   if (
     block.topRow + dR < 1 ||
     block.bottomRow + dR > numberOfRows ||
@@ -943,33 +807,29 @@ function moveBlock(direction, allowMerge) {
   ) {
     return;
   }
-
   if (canMoveBlock(block, dR, dC, allowMerge)) {
     moveBlockCells(block, dR, dC, allowMerge);
     parseAndFormatGrid();
-    // Reselect in new location
-    const newCell = getCellElement(cellRow + dR, cellCol + dC);
-    if (newCell) selectCell(newCell);
+    // reselect new position
+    let newCell = getCellElement(cellRow + dR, cellCol + dC);
+    if (newCell) selectCells(newCell, newCell);
   }
 }
 
 function canMoveBlock(block, dR, dC, allowMerge) {
-  // gather new positions
   const moved = new Set();
   for (let c of block.canvasCells) {
-    let nr = c.row + dR;
-    let nc = c.col + dC;
-    if (nr < 1 || nr > numberOfRows || nc < 1 || nc > numberOfColumns) {
+    let nr = c.row + dR,
+      nc = c.col + dC;
+    if (nr < 1 || nr > numberOfRows || nc < 1 || nc > numberOfColumns)
       return false;
-    }
     moved.add(`${nr},${nc}`);
   }
-
-  // see if collisions
+  // check collisions
   for (let otherBlock of blockList) {
     if (otherBlock === block) continue;
-    for (let oc of otherBlock.canvasCells) {
-      let k = `${oc.row},${oc.col}`;
+    for (let p of otherBlock.canvasCells) {
+      let k = `${p.row},${p.col}`;
       if (moved.has(k)) {
         if (!allowMerge) return false;
         else return true;
@@ -983,13 +843,11 @@ function moveBlockCells(block, dR, dC, allowMerge) {
   const newData = {};
   for (let c of block.canvasCells) {
     let oldKey = `R${c.row}C${c.col}`;
-    let nr = c.row + dR;
-    let nc = c.col + dC;
+    let nr = c.row + dR,
+      nc = c.col + dC;
     let newKey = `R${nr}C${nc}`;
-
     newData[newKey] = cellsData[oldKey];
     delete cellsData[oldKey];
-
     c.row = nr;
     c.col = nc;
   }
@@ -1008,15 +866,14 @@ function moveBlockCells(block, dR, dC, allowMerge) {
 function selectNearestBlock(direction) {
   if (!selectedCell) return;
   const key = getCellKey(selectedCell);
-  const currBlock = cellToBlockMap[key];
-  if (!currBlock) return;
+  const currentBlock = cellToBlockMap[key];
+  if (!currentBlock) return;
 
   let minDist = Infinity;
   let nearest = null;
-
   for (let b of blockList) {
-    if (b === currBlock) continue;
-    const dist = getBlockDistanceInDirection(currBlock, b, direction);
+    if (b === currentBlock) continue;
+    let dist = getBlockDistanceInDirection(currentBlock, b, direction);
     if (dist !== null && dist < minDist) {
       minDist = dist;
       nearest = b;
@@ -1025,24 +882,22 @@ function selectNearestBlock(direction) {
   if (nearest) {
     let midRow = Math.floor((nearest.topRow + nearest.bottomRow) / 2);
     let midCol = Math.floor((nearest.leftCol + nearest.rightCol) / 2);
-    const cell = getCellElement(midRow, midCol);
-    if (cell) selectCell(cell);
+    let cell = getCellElement(midRow, midCol);
+    if (cell) selectCells(cell, cell);
   }
 }
 
 function getBlockDistanceInDirection(a, b, dir) {
-  let dist = null;
-  // bounding box of a
-  const aT = a.topRow,
-    aB = a.bottomRow;
-  const aL = a.leftCol,
+  let aT = a.topRow,
+    aB = a.bottomRow,
+    aL = a.leftCol,
     aR = a.rightCol;
-  // bounding box of b
-  const bT = b.topRow,
-    bB = b.bottomRow;
-  const bL = b.leftCol,
+  let bT = b.topRow,
+    bB = b.bottomRow,
+    bL = b.leftCol,
     bR = b.rightCol;
 
+  let dist = null;
   switch (dir) {
     case "ArrowUp":
       if (bB < aT) dist = aT - bB - 1;
@@ -1074,11 +929,10 @@ function getCellElement(r, c) {
 }
 
 function isMobileDevice() {
-  // Quick heuristic
   return /Mobi|Android|iPhone|iPad|iPod|Tablet|BlackBerry/i.test(
     navigator.userAgent
   );
 }
 
-// Do an initial parse after loading
+// Re-parse once loaded
 parseAndFormatGrid();
