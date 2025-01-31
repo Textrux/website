@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- Fixed Header at top -->
+    <!-- Header (hidden on mobile via CSS) -->
     <div id="header">
       <h1>Textrux</h1>
       <div id="headerButtons">
@@ -22,19 +22,17 @@
             <option value="tab">TSV</option>
           </select>
         </div>
-        <!-- You can comment out this button safely -->
         <button id="toggleSidePanel">Hide Side Panel</button>
       </div>
     </div>
 
     <!-- Formula bar container -->
     <div id="container">
-      <!-- This span is given a fixed width & ellipsis so it won't push the input box -->
       <span id="cellLabel" title="Cell Address">R1C1</span>
       <input type="text" id="inputBox" placeholder="Enter cell value" />
     </div>
 
-    <!-- Main container for the grid + side panel -->
+    <!-- Main container (grid + optional side panel) -->
     <div id="mainContainer">
       <!-- Scrollable grid area -->
       <div id="gridContainer">
@@ -62,7 +60,9 @@
       -->
     </div>
 
-    <script src="parsing.js"></script>
+    <!-- Parsing code must load AFTER the global cellsData is declared -->
     <script src="script.js"></script>
+    <script src="parsing.js"></script>
   </body>
 </html>
+  
