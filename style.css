@@ -26,8 +26,8 @@ body {
 }
 
 /* ==============================
-     HEADER (desktop only)
-     ============================== */
+      HEADER (desktop only)
+      ============================== */
 #header {
   position: fixed;
   top: 0;
@@ -76,8 +76,8 @@ body {
 }
 
 /* ==============================
-     FORMULA BAR
-     ============================== */
+      FORMULA BAR
+      ============================== */
 #container {
   position: fixed;
   top: 50px; /* below the header (desktop) */
@@ -118,8 +118,8 @@ body {
 }
 
 /* ==============================
-     MAIN CONTAINER
-     ============================== */
+      MAIN CONTAINER
+      ============================== */
 #mainContainer {
   position: absolute;
   top: 100px; /* header=50 + formula=50 = 100 on desktop */
@@ -136,8 +136,8 @@ body {
 }
 
 /* ==============================
-     GRID CONTAINER
-     ============================== */
+      GRID CONTAINER
+      ============================== */
 #gridContainer {
   flex-grow: 1;
   overflow: scroll;
@@ -164,8 +164,8 @@ body {
 }
 
 /* ==============================
-     SPREADSHEET TABLE
-     ============================== */
+      SPREADSHEET TABLE
+      ============================== */
 #spreadsheet {
   border-collapse: collapse;
   user-select: none;
@@ -183,26 +183,10 @@ body {
   min-height: 30px;
   padding: 2px;
   position: relative;
-  vertical-align: middle;
+  vertical-align: top; /* or middle, your choice */
   box-sizing: border-box;
   overflow: hidden;
 }
-
-/* Additional snippet to ensure .selected has a visible border on top of everything */
-#spreadsheet td.selected {
-  outline: 2px solid #666; /* or mediumgray */
-  outline-offset: -2px; /* so the outline hugs the cell border */
-  position: relative; /* ensures the outline is visible properly */
-  z-index: 1;
-}
-
-/* #selectionOverlay {
-  position: absolute;
-  border: 2px solid #666;
-  pointer-events: none;
-  z-index: 9999;
-  display: none; /* shown only if we have selection */
-/* } */
 
 /* Sticky row headers on left */
 #spreadsheet th {
@@ -241,18 +225,15 @@ body {
 }
 
 /* ==============================
-     SELECTED CELLS
-     ============================== */
+      SELECTED CELLS
+      ============================== */
 #spreadsheet td.selected {
   background-color: #cceeff;
+  /* Also optionally add a thicker outline so you can see each selected cell: */
+  outline: 2px solid #666;
+  outline-offset: -2px;
+  z-index: 1; /* so it sits on top of any custom borders */
 }
-
-/* We won't remove it entirely on mobile, 
-     but code logic ensures single-tap won't call selectCell(...) 
-     for empty/underscore cells. 
-     So effectively you won't see a highlight 
-     unless you're range-selecting or tapping a text cell. 
-  */
 
 /* Hover highlight (desktop) */
 #spreadsheet td:hover,
@@ -277,8 +258,8 @@ body {
 }
 
 /* ==============================
-     RESIZERS
-     ============================== */
+      RESIZERS
+      ============================== */
 .resizer {
   position: absolute;
   width: 10px;
@@ -302,13 +283,13 @@ body {
 }
 
 /* ==============================
-     TREET PARSING STYLES
-     ============================== */
+      TREET PARSING STYLES
+      ============================== */
 .canvas-cell {
   background-color: white;
   color: black;
   font-weight: bold;
-  text-align: center;
+  text-align: center; /* or center if you prefer */
 }
 
 .empty-cell-cluster {
@@ -335,24 +316,14 @@ body {
   background-color: #fff;
 }
 
-/* ==============================
-     SCROLLBARS
-     ============================== */
-#gridContainer::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+/* For empty cluster cells */
+.cluster-empty-cell {
+  background-color: #bbf !important; /* or whatever color you want */
 }
 
-#gridContainer::-webkit-scrollbar-thumb {
-  background: #ccc;
-}
-
-.border-cell {
-  background-color: lightyellow !important;
-}
-
-.frame-cell {
-  background-color: yellow !important;
+/* For empty canvas cells outside clusters */
+.canvas-empty-cell {
+  background-color: #eef !important;
 }
 
 .locked-cell {
@@ -365,12 +336,13 @@ body {
   color: white !important;
 }
 
-/* For empty cluster cells */
-.cluster-empty-cell {
-  background-color: #bbf !important; /* or whatever color you want */
+/* ==============================
+      SCROLLBARS
+      ============================== */
+#gridContainer::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
-
-/* For empty canvas cells outside clusters */
-.canvas-empty-cell {
-  background-color: #eef !important;
+#gridContainer::-webkit-scrollbar-thumb {
+  background: #ccc;
 }
