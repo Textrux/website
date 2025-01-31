@@ -11,8 +11,8 @@ window.cellsData = {}; // or simply `var cellsData = {};`
 ////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////
-let NUMBER_OF_ROWS = 150;         // default row count
-let NUMBER_OF_COLUMNS = 100;      // default col count
+let NUMBER_OF_ROWS = 125; // default row count
+let NUMBER_OF_COLUMNS = 100; // default col count
 let ADDITIONAL_ROWS_COLUMNS = 50; // each + adds 50
 
 ////////////////////////////////////////////
@@ -365,12 +365,7 @@ document.addEventListener("keydown", (e) => {
     deleteSelectedCells();
   } else {
     // typed char => focus formula bar
-    if (
-      e.key.length === 1 &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey
-    ) {
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       inputBox.focus();
     }
   }
@@ -629,8 +624,10 @@ document.addEventListener("copy", (e) => {
 });
 
 function getSelectedCellsData(delimiter) {
-  let minR = Infinity, maxR = -Infinity;
-  let minC = Infinity, maxC = -Infinity;
+  let minR = Infinity,
+    maxR = -Infinity;
+  let minC = Infinity,
+    maxC = -Infinity;
 
   for (let cell of selectedCells) {
     const r = +cell.getAttribute("data-row");
@@ -921,12 +918,21 @@ function moveBlock(direction, allowMerge) {
     return;
   }
 
-  let dR = 0, dC = 0;
+  let dR = 0,
+    dC = 0;
   switch (direction) {
-    case "ArrowUp": dR = -1; break;
-    case "ArrowDown": dR = 1; break;
-    case "ArrowLeft": dC = -1; break;
-    case "ArrowRight": dC = 1; break;
+    case "ArrowUp":
+      dR = -1;
+      break;
+    case "ArrowDown":
+      dR = 1;
+      break;
+    case "ArrowLeft":
+      dC = -1;
+      break;
+    case "ArrowRight":
+      dC = 1;
+      break;
   }
   // bounds
   if (
@@ -1027,11 +1033,15 @@ function selectNearestBlock(direction) {
 function getBlockDistanceInDirection(a, b, dir) {
   let dist = null;
   // bounding box of a
-  const aT = a.topRow, aB = a.bottomRow;
-  const aL = a.leftCol, aR = a.rightCol;
+  const aT = a.topRow,
+    aB = a.bottomRow;
+  const aL = a.leftCol,
+    aR = a.rightCol;
   // bounding box of b
-  const bT = b.topRow, bB = b.bottomRow;
-  const bL = b.leftCol, bR = b.rightCol;
+  const bT = b.topRow,
+    bB = b.bottomRow;
+  const bL = b.leftCol,
+    bR = b.rightCol;
 
   switch (dir) {
     case "ArrowUp":

@@ -22,7 +22,7 @@
             <option value="tab">TSV</option>
           </select>
         </div>
-        <button id="toggleSidePanel">Hide Side Panel</button>
+        <!-- <button id="toggleSidePanel">Hide Side Panel</button> -->
       </div>
     </div>
 
@@ -60,9 +60,10 @@
       -->
     </div>
 
-    <!-- Parsing code must load AFTER the global cellsData is declared -->
-    <script src="script.js"></script>
+    <!-- parsing.js first -->
     <script src="parsing.js"></script>
+    <!-- script.js second -->
+    <script src="script.js"></script>
+
   </body>
 </html>
-  
