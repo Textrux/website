@@ -1146,24 +1146,25 @@ function stopEditingCell(cell, newValue) {
 
 /***********************************************
  * Move/Select Block logic (Ctrl+Arrow, Alt+Arrow)
+ * - Reworked so that:
+ *   * We do NOT require single-cell selection.
+ *   * If the first selected cell belongs to a block,
+ *     we move that entire block's bounding box.
  ***********************************************/
 function moveBlock(direction, allowMerge) {
-  // Must have exactly one cell selected
-  if (selectedCells.length !== 1) return;
+  if (!selectedCells.length) return;
 
-  const cell = selectedCells[0];
-  const key = getCellKey(cell);
-  const block = cellToBlockMap[key];
-  if (!block) return;
+  // Check the first cell in the selection
+  const firstCell = selectedCells[0];
+  const cellRow = +firstCell.getAttribute("data-row");
+  const cellCol = +firstCell.getAttribute("data-col");
 
-  let cellRow = +cell.getAttribute("data-row");
-  let cellCol = +cell.getAttribute("data-col");
-
-  // check if cell is actually in the block
-  const inBlock = block.canvasCells.some(
-    (p) => p.row === cellRow && p.col === cellCol
-  );
-  if (!inBlock) return;
+  // Does that cell belong to a block?
+  const block = cellToBlockMap[`${cellRow},${cellCol}`];
+  if (!block) {
+    // Not inside any block => do nothing
+    return;
+  }
 
   let dR = 0,
     dC = 0;
@@ -1182,6 +1183,7 @@ function moveBlock(direction, allowMerge) {
       break;
   }
 
+  // Check if out of bounds
   if (
     block.topRow + dR < 1 ||
     block.bottomRow + dR > numberOfRows ||
@@ -1191,41 +1193,64 @@ function moveBlock(direction, allowMerge) {
     return;
   }
 
+  // If canMoveBlock => do it
   if (canMoveBlock(block, dR, dC, allowMerge)) {
     moveBlockCells(block, dR, dC, allowMerge);
     parseAndFormatGrid();
-    // reselect new location
+
+    // Reselect the corresponding cell at the new location
     const newCell = getCellElement(cellRow + dR, cellCol + dC);
     if (newCell) {
       clearSelection();
       newCell.classList.add("selected");
       selectedCells = [newCell];
       selectedCell = newCell;
+      inputBox.value = newCell.textContent;
+      updateCellLabel(newCell);
     }
   }
 }
 
 function canMoveBlock(block, dR, dC, allowMerge) {
-  const moved = new Set();
-  for (let c of block.canvasCells) {
-    let nr = c.row + dR;
-    let nc = c.col + dC;
-    if (nr < 1 || nr > numberOfRows || nc < 1 || nc > numberOfColumns) {
-      return false;
-    }
-    moved.add(`${nr},${nc}`);
+  // Compute the new bounding box after moving
+  const newTop = block.topRow + dR;
+  const newBottom = block.bottomRow + dR;
+  const newLeft = block.leftCol + dC;
+  const newRight = block.rightCol + dC;
+
+  // Ensure the moved block remains within grid boundaries
+  if (
+    newTop < 1 ||
+    newBottom > numberOfRows ||
+    newLeft < 1 ||
+    newRight > numberOfColumns
+  ) {
+    return false;
   }
-  // check collisions
+
+  // Expand the moved bounding box by 2 cells in every direction
+  const checkTop = Math.max(1, newTop - 2);
+  const checkBottom = Math.min(numberOfRows, newBottom + 2);
+  const checkLeft = Math.max(1, newLeft - 2);
+  const checkRight = Math.min(numberOfColumns, newRight + 2);
+
+  // Check each other block’s canvas cells to see if any fall within the expanded area
   for (let otherBlock of blockList) {
     if (otherBlock === block) continue;
     for (let p of otherBlock.canvasCells) {
-      let k = `${p.row},${p.col}`;
-      if (moved.has(k)) {
-        if (!allowMerge) return false;
-        else return true;
+      if (
+        p.row >= checkTop &&
+        p.row <= checkBottom &&
+        p.col >= checkLeft &&
+        p.col <= checkRight
+      ) {
+        // A near collision is found.
+        return allowMerge ? true : false;
       }
     }
   }
+
+  // No collision found; the move is allowed.
   return true;
 }
 
@@ -1254,60 +1279,63 @@ function moveBlockCells(block, dR, dC, allowMerge) {
   block.rightCol += dC;
 }
 
-/***********************************************
- * Alt+Arrow => nearest block by geometry
- ***********************************************/
 function selectNearestBlock(direction) {
   if (!selectedCell) return;
-  const currentBlock = cellToBlockMap[getCellKey(selectedCell)];
-  if (!currentBlock) return;
 
-  const [curR, curC] = getBlockCenter(currentBlock);
+  let row = +selectedCell.getAttribute("data-row");
+  let col = +selectedCell.getAttribute("data-col");
 
-  // Filter blocks strictly in the direction
-  let candidates = blockList.filter((b) => b !== currentBlock);
-  switch (direction) {
-    case "ArrowUp":
-      candidates = candidates.filter(
-        ([bR, bC] = getBlockCenter(b)) => bR < curR
-      );
-      break;
-    case "ArrowDown":
-      candidates = candidates.filter(
-        ([bR, bC] = getBlockCenter(b)) => bR > curR
-      );
-      break;
-    case "ArrowLeft":
-      candidates = candidates.filter(
-        ([bR, bC] = getBlockCenter(b)) => bC < curC
-      );
-      break;
-    case "ArrowRight":
-      candidates = candidates.filter(
-        ([bR, bC] = getBlockCenter(b)) => bC > curC
-      );
-      break;
-  }
-  if (!candidates.length) return;
+  // If the current cell is in a block, use that. Otherwise, treat it as a 1x1 block.
+  let currentBlock = cellToBlockMap[`${row},${col}`];
+  let referenceBlock = currentBlock || {
+    topRow: row,
+    bottomRow: row,
+    leftCol: col,
+    rightCol: col,
+  };
 
-  let nearestDist = Infinity;
-  let nearestBlock = null;
+  // Compute the center of the reference block.
+  let refCenterRow = (referenceBlock.topRow + referenceBlock.bottomRow) / 2;
+  let refCenterCol = (referenceBlock.leftCol + referenceBlock.rightCol) / 2;
+
+  // Filter candidate blocks based on the direction.
+  let candidates = blockList.filter((b) => {
+    if (b === currentBlock) return false; // skip self if in a block
+    switch (direction) {
+      case "ArrowRight":
+        return b.rightCol > referenceBlock.rightCol;
+      case "ArrowLeft":
+        return b.leftCol < referenceBlock.leftCol;
+      case "ArrowDown":
+        return b.bottomRow > referenceBlock.bottomRow;
+      case "ArrowUp":
+        return b.topRow < referenceBlock.topRow;
+      default:
+        return false;
+    }
+  });
+
+  if (candidates.length === 0) return;
+
+  // Find the candidate whose center is closest to the reference block's center.
+  let nearest = null;
+  let minDist = Infinity;
   for (let b of candidates) {
-    const [bR, bC] = getBlockCenter(b);
-    const dist = Math.sqrt((bR - curR) ** 2 + (bC - curC) ** 2);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearestBlock = b;
+    let bCenterRow = (b.topRow + b.bottomRow) / 2;
+    let bCenterCol = (b.leftCol + b.rightCol) / 2;
+    let dist = Math.sqrt(
+      (bCenterRow - refCenterRow) ** 2 + (bCenterCol - refCenterCol) ** 2
+    );
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = b;
     }
   }
 
-  if (nearestBlock) {
-    const midRow = Math.floor(
-      (nearestBlock.topRow + nearestBlock.bottomRow) / 2
-    );
-    const midCol = Math.floor(
-      (nearestBlock.leftCol + nearestBlock.rightCol) / 2
-    );
+  if (nearest) {
+    // Move selection to the center cell of the nearest block.
+    let midRow = Math.floor((nearest.topRow + nearest.bottomRow) / 2);
+    let midCol = Math.floor((nearest.leftCol + nearest.rightCol) / 2);
     const cell = getCellElement(midRow, midCol);
     if (cell) {
       clearSelection();
@@ -1318,6 +1346,33 @@ function selectNearestBlock(direction) {
       updateCellLabel(cell);
     }
   }
+}
+
+function getBlockDistanceInDirection(a, b, dir) {
+  let aT = a.topRow,
+    aB = a.bottomRow,
+    aL = a.leftCol,
+    aR = a.rightCol;
+  let bT = b.topRow,
+    bB = b.bottomRow,
+    bL = b.leftCol,
+    bR = b.rightCol;
+  let dist = null;
+  switch (dir) {
+    case "ArrowUp":
+      if (bB < aT) dist = aT - bB - 1;
+      break;
+    case "ArrowDown":
+      if (bT > aB) dist = bT - aB - 1;
+      break;
+    case "ArrowLeft":
+      if (bR < aL) dist = aL - bR - 1;
+      break;
+    case "ArrowRight":
+      if (bL > aR) dist = bL - aR - 1;
+      break;
+  }
+  return dist;
 }
 
 function getBlockCenter(b) {
