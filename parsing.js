@@ -182,7 +182,7 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
   let remainingPoints = [...filledPoints];
 
   for (let cell of filledPoints) {
-    // skip if we already merged it
+    // skip if we've already merged it
     if (
       overlappedPoints.some((p) => p.row === cell.row && p.col === cell.col)
     ) {
@@ -191,19 +191,22 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
 
     // create a container from this point
     let tempContainer = createContainerFromPoint(cell);
+    let tempExpanded = tempContainer;
 
     let allCellsOverlappingThisContainer = [];
     let cellsOverlappingThisContainer = [];
 
+    // (A) Merge other FILLed points that overlap the expanded bounding box
     do {
-      // expand bounding box
       let expanded = tempContainer.expandOutlineBy(
         expandOutlineBy,
         rowCount,
         colCount
       );
 
-      // find any other points that overlap the expanded bounding box
+      tempExpanded = expanded;
+
+      // find any other points that overlap
       cellsOverlappingThisContainer = remainingPoints.filter((p) => {
         if (p === cell) return false;
         if (
@@ -213,7 +216,6 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
         ) {
           return false;
         }
-        // single container for p => see if it overlaps
         let singleC = createContainerFromPoint(p);
         return expanded.overlaps(singleC);
       });
@@ -221,7 +223,7 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
       if (cellsOverlappingThisContainer.length > 0) {
         overlappedPoints.push(...cellsOverlappingThisContainer);
 
-        // update bounding box
+        // unify bounding box
         let minR = Math.min(
           tempContainer.topRow,
           ...cellsOverlappingThisContainer.map((p) => p.row)
@@ -244,43 +246,64 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
         tempContainer.leftColumn = minC;
         tempContainer.rightColumn = maxC;
 
+        // unify filledPoints
         tempContainer.filledPoints.push(...cellsOverlappingThisContainer);
         allCellsOverlappingThisContainer.push(...cellsOverlappingThisContainer);
       }
     } while (cellsOverlappingThisContainer.length > 0);
 
-    // unify with existing containers if overlap
-    let overlappedExisting = containers.filter((cc) =>
-      tempContainer.overlaps(cc)
-    );
-    for (let oc of overlappedExisting) {
-      containers = containers.filter((xx) => xx !== oc);
-      // unify bounding box
-      tempContainer.topRow = Math.min(tempContainer.topRow, oc.topRow);
-      tempContainer.bottomRow = Math.max(tempContainer.bottomRow, oc.bottomRow);
-      tempContainer.leftColumn = Math.min(
-        tempContainer.leftColumn,
-        oc.leftColumn
-      );
-      tempContainer.rightColumn = Math.max(
-        tempContainer.rightColumn,
-        oc.rightColumn
+    // (B) Merge repeatedly with EXISTING containers
+    let mergedSomething;
+    do {
+      mergedSomething = false;
+
+      // see which containers overlap our tempContainer
+      let overlappedExisting = containers.filter((cc) =>
+        tempExpanded.overlaps(cc)
       );
 
-      // unify filledPoints
-      tempContainer.filledPoints.push(...oc.filledPoints);
-    }
+      if (overlappedExisting.length > 0) {
+        mergedSomething = true;
+        // unify with each overlapped container
+        for (let oc of overlappedExisting) {
+          // remove oc from containers
+          containers = containers.filter((xx) => xx !== oc);
 
+          // unify bounding box
+          tempContainer.topRow = Math.min(tempContainer.topRow, oc.topRow);
+          tempContainer.bottomRow = Math.max(
+            tempContainer.bottomRow,
+            oc.bottomRow
+          );
+          tempContainer.leftColumn = Math.min(
+            tempContainer.leftColumn,
+            oc.leftColumn
+          );
+          tempContainer.rightColumn = Math.max(
+            tempContainer.rightColumn,
+            oc.rightColumn
+          );
+
+          // unify filledPoints
+          tempContainer.filledPoints.push(...oc.filledPoints);
+        }
+      }
+      // after merging, we loop again to see if the bigger bounding box
+      // overlaps another container we haven't merged with yet
+    } while (mergedSomething);
+
+    // now that we've merged with everything possible, push the final container
     containers.push(tempContainer);
   }
 
-  // sort
+  // sort or do whatever you normally do
   containers.sort((a, b) => {
     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
     return a.rightColumn - b.rightColumn;
   });
+
   return containers;
 }
 

@@ -7,16 +7,16 @@
  ***********************************************/
 window.cellsData = {};
 
-////////////////////////////////////////////
-// Configuration
-////////////////////////////////////////////
+/***********************************************
+ * Configuration
+ ***********************************************/
 let NUMBER_OF_ROWS = 125;
 let NUMBER_OF_COLUMNS = 100;
 let ADDITIONAL_ROWS_COLUMNS = 50;
 
-////////////////////////////////////////////
-// For Treet parser
-////////////////////////////////////////////
+/***********************************************
+ * For Treet parser references
+ ***********************************************/
 let cellToBlockMap = {};
 let blockList = [];
 
@@ -71,7 +71,28 @@ const inputBox = document.getElementById("inputBox");
 const cellLabel = document.getElementById("cellLabel");
 const sidePanel = document.getElementById("sidePanel");
 const delimiterToggle = document.getElementById("delimiterToggle");
-const toggleSidePanelButton = document.getElementById("toggleSidePanel");
+// (If you had a "toggleSidePanelButton" in index.html uncommented, we’d reference it. Otherwise it's commented out.)
+// const toggleSidePanelButton = document.getElementById("toggleSidePanel");
+
+// NEW: For implementing cut/paste logic
+let isCutMode = false;
+let cutCellsData = null;
+
+// NEW: Simple context menu for right-click copy (optional)
+const contextMenu = document.createElement("div");
+contextMenu.id = "customContextMenu";
+contextMenu.style.position = "absolute";
+contextMenu.style.display = "none";
+contextMenu.style.background = "#eee";
+contextMenu.style.border = "1px solid #999";
+contextMenu.innerHTML = `
+  <div style="padding:4px; cursor:pointer;" id="contextMenuCopy">Copy</div>
+`;
+document.body.appendChild(contextMenu);
+
+document.addEventListener("click", () => {
+  contextMenu.style.display = "none";
+});
 
 /***********************************************
  * Generate Spreadsheet
@@ -191,7 +212,8 @@ function attachEventListeners() {
     });
   }
 
-  // Toggle side panel
+  // If you have a toggleSidePanelButton, uncomment:
+  /*
   if (toggleSidePanelButton) {
     toggleSidePanelButton.addEventListener("click", () => {
       sidePanel.classList.toggle("hidden");
@@ -202,6 +224,7 @@ function attachEventListeners() {
       }
     });
   }
+  */
 
   // Column/row resizing
   spreadsheet.addEventListener("mousedown", (e) => {
@@ -210,8 +233,12 @@ function attachEventListeners() {
       resizerCol = e.target;
       startX = e.pageX;
       const col = resizerCol.getAttribute("data-col");
+      // We can't directly do `querySelector(th[data-col='${col}'] )` with template literal incorrectly
+      // We'll fix it:
       const th = spreadsheet.querySelector(`th[data-col='${col}']`);
-      startWidth = th.offsetWidth;
+      if (th) {
+        startWidth = th.offsetWidth;
+      }
       document.body.style.cursor = "col-resize";
       e.preventDefault();
     } else if (e.target.classList.contains("resizer-row")) {
@@ -219,8 +246,10 @@ function attachEventListeners() {
       resizerRow = e.target;
       startY = e.pageY;
       const row = resizerRow.getAttribute("data-row");
-      const theadTh = spreadsheet.querySelector(`th[data-row='${row}']`);
-      startHeight = theadTh.offsetHeight;
+      const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
+      if (rowTh) {
+        startHeight = rowTh.offsetHeight;
+      }
       document.body.style.cursor = "row-resize";
       e.preventDefault();
     }
@@ -232,8 +261,20 @@ function attachEventListeners() {
  ***********************************************/
 // Middle-click => pan, left-click => selection
 spreadsheet.addEventListener("mousedown", (e) => {
+  // Right-click context menu?
+  if (e.button === 2) {
+    // Only show context menu if we have some selected cells
+    if (selectedCells.length > 0) {
+      e.preventDefault();
+      contextMenu.style.left = e.pageX + "px";
+      contextMenu.style.top = e.pageY + "px";
+      contextMenu.style.display = "block";
+    }
+    return;
+  }
+
   if (e.button === 1) {
-    // middle-click
+    // middle-click => panning
     isMidPanning = true;
     midPanStartX = e.clientX;
     midPanStartY = e.clientY;
@@ -333,7 +374,7 @@ inputBox.addEventListener("dblclick", () => {
 });
 
 /***********************************************
- * Keyboard shortcuts (arrows, ctrl+c, etc.)
+ * Keyboard shortcuts (arrows, ctrl+c, ctrl+x, etc.)
  ***********************************************/
 document.addEventListener("keydown", (e) => {
   if (!selectedCell) return;
@@ -345,16 +386,16 @@ document.addEventListener("keydown", (e) => {
   if (e.key.startsWith("Arrow")) {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
-      // move blocks
+      // ctrl+arrow => move block
+      // if e.altKey => move & merge, otherwise normal
       if (e.altKey) {
-        // ctrl+alt+arrow => move & merge
         moveBlock(e.key, true);
       } else {
-        // ctrl+arrow => move block no merge
         moveBlock(e.key, false);
       }
     } else if (e.altKey) {
-      // alt+arrow => nearest block
+      // NEW: alt+arrow => nearest block by geometry
+      e.preventDefault();
       selectNearestBlock(e.key);
     } else {
       // plain arrow => move selection
@@ -386,14 +427,68 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     handleCtrlC();
   }
-  // Optionally add Ctrl+X => cut if desired
+  // NEW: Ctrl+X => cut
+  else if (
+    (e.key === "x" || e.key === "X") &&
+    e.ctrlKey &&
+    !e.altKey &&
+    !e.shiftKey
+  ) {
+    e.preventDefault();
+    handleCtrlX();
+  }
+  // typed char => focus formula bar
   else {
-    // typed char => focus formula bar
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       inputBox.focus();
     }
   }
 });
+
+/***********************************************
+ * Right-click "Copy" button
+ ***********************************************/
+document.getElementById("contextMenuCopy").addEventListener("click", () => {
+  if (selectedCells.length > 0) {
+    handleCtrlC();
+  }
+  contextMenu.style.display = "none";
+});
+
+/***********************************************
+ * Ctrl+X => cut
+ ***********************************************/
+function handleCtrlX() {
+  if (!selectedCells.length) return;
+  // Store the data for the eventual paste
+  cutCellsData = selectedCells.map((cell) => {
+    return {
+      row: +cell.getAttribute("data-row"),
+      col: +cell.getAttribute("data-col"),
+      text: cell.textContent,
+    };
+  });
+  isCutMode = true;
+
+  // Also copy text to clipboard (same as handleCtrlC)
+  const text = getSelectedCellsData(
+    delimiterToggle.value === "tab" ? "\t" : ","
+  );
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).catch((err) => console.warn(err));
+  } else {
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "fixed";
+    temp.style.left = "-9999px";
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    document.body.removeChild(temp);
+  }
+  // (Visually, we haven't removed them from the grid yet,
+  //  we remove them after user pastes.)
+}
 
 /***********************************************
  * Selecting cells
@@ -426,7 +521,6 @@ function selectCells(cell1, cell2) {
     if (selectedCell) {
       inputBox.value = selectedCell.textContent;
       updateCellLabel(selectedCell);
-      // auto-focus formula bar only on desktop
       if (!isMobileDevice()) {
         inputBox.focus();
       }
@@ -628,11 +722,10 @@ document.addEventListener("mouseup", () => {
 });
 
 /***********************************************
- * Copy/Paste
+ * Copy/Paste logic
  ***********************************************/
 
-// (1) If user hits Ctrl+C => handleCtrlC
-// (2) We also capture 'copy' event to set "text/plain"
+// 1) We also capture 'copy' event to set "text/plain"
 document.addEventListener("copy", (e) => {
   if (!selectedCells.length) return;
   e.preventDefault();
@@ -640,6 +733,7 @@ document.addEventListener("copy", (e) => {
   e.clipboardData.setData("text/plain", getSelectedCellsData(delimiter));
 });
 
+// 2) Paste event
 document.addEventListener("paste", (e) => {
   if (!selectedCell) return;
   e.preventDefault();
@@ -649,14 +743,41 @@ document.addEventListener("paste", (e) => {
   // auto detect tab vs comma if there's a \t
   const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
 
+  // CHANGED: Do NOT skip empty lines. Just split on newlines
   const lines = text.replace(/\r/g, "").split("\n");
+
+  // Check if this is a single cell's data
+  // (i.e. lines.length===1 and exactly 1 column)
+  if (lines.length === 1) {
+    const rowStr = lines[0]; // no trim
+    const cols = rowStr.split(delim);
+    if (cols.length === 1) {
+      // Single cell in clipboard
+      // If user has multiple selected cells, fill them all with this single value
+      if (selectedCells.length > 1) {
+        for (let cell of selectedCells) {
+          cell.textContent = cols[0];
+          cellsData[getCellKey(cell)] = cols[0];
+        }
+        // If it was a cut, remove original now
+        if (isCutMode && cutCellsData) {
+          removeCutSourceData();
+        }
+        parseAndFormatGrid();
+        return;
+      }
+    }
+  }
+
+  // Otherwise do multiline (or multi-column) paste, anchored at selectedCell
   const startR = +selectedCell.getAttribute("data-row");
   const startC = +selectedCell.getAttribute("data-col");
 
   for (let i = 0; i < lines.length; i++) {
-    const rowStr = lines[i].trim();
-    if (!rowStr) continue;
+    // no trim => if lines[i] is blank, we still parse it
+    const rowStr = lines[i];
     const cols = rowStr.split(delim);
+
     for (let j = 0; j < cols.length; j++) {
       let rr = startR + i;
       let cc = startC + j;
@@ -670,6 +791,12 @@ document.addEventListener("paste", (e) => {
       }
     }
   }
+
+  // If it was a cut, remove the original
+  if (isCutMode && cutCellsData) {
+    removeCutSourceData();
+  }
+
   parseAndFormatGrid();
 });
 
@@ -695,12 +822,29 @@ function handleCtrlC() {
   }
 }
 
+/***********************************************
+ * Helper for removing original data on cut
+ ***********************************************/
+function removeCutSourceData() {
+  for (let item of cutCellsData) {
+    delete cellsData[`R${item.row}C${item.col}`];
+    const oldCell = getCellElement(item.row, item.col);
+    if (oldCell) oldCell.textContent = "";
+  }
+  isCutMode = false;
+  cutCellsData = null;
+}
+
+/***********************************************
+ * getSelectedCellsData
+ ***********************************************/
 function getSelectedCellsData(delimiter) {
   if (!selectedCells.length) return "";
   let minR = Infinity,
     maxR = -Infinity,
     minC = Infinity,
     maxC = -Infinity;
+
   selectedCells.forEach((cell) => {
     const r = +cell.getAttribute("data-row");
     const c = +cell.getAttribute("data-col");
@@ -709,6 +853,7 @@ function getSelectedCellsData(delimiter) {
     if (c < minC) minC = c;
     if (c > maxC) maxC = c;
   });
+
   let lines = [];
   for (let r = minR; r <= maxR; r++) {
     let rowData = [];
@@ -836,7 +981,7 @@ function handleMobileSingleTap(cell) {
     }
     parseAndFormatGrid();
   } else {
-    // If there's text => highlight only, no formula focus
+    // If there's text => highlight only
     clearSelection();
     selectedCells = [cell];
     cell.classList.add("selected");
@@ -873,7 +1018,6 @@ function handleLongPress(target) {
 
 function showDragShadow(cell) {
   clearDragShadow();
-  // We'll visually highlight the "grabbed" cell by marking it .border-cell
   cell.classList.add("border-cell");
   dragShadowCells = [cell];
 }
@@ -949,7 +1093,7 @@ function finalizeDrag() {
 }
 
 /***********************************************
- * Double-click => multiline editing directly in cell
+ * Double-click => multiline editing in cell
  ***********************************************/
 spreadsheet.addEventListener("dblclick", (e) => {
   let target = e.target;
@@ -1016,9 +1160,10 @@ function moveBlock(direction, allowMerge) {
   let cellCol = +cell.getAttribute("data-col");
 
   // check if cell is actually in the block
-  if (!block.canvasCells.some((p) => p.row === cellRow && p.col === cellCol)) {
-    return;
-  }
+  const inBlock = block.canvasCells.some(
+    (p) => p.row === cellRow && p.col === cellCol
+  );
+  if (!inBlock) return;
 
   let dR = 0,
     dC = 0;
@@ -1037,7 +1182,6 @@ function moveBlock(direction, allowMerge) {
       break;
   }
 
-  // check block bounds
   if (
     block.topRow + dR < 1 ||
     block.bottomRow + dR > numberOfRows ||
@@ -1097,9 +1241,10 @@ function moveBlockCells(block, dR, dC, allowMerge) {
     c.row = nr;
     c.col = nc;
   }
-  // keep the rest
   for (let k in cellsData) {
-    newData[k] = cellsData[k];
+    if (!newData[k]) {
+      newData[k] = cellsData[k];
+    }
   }
   cellsData = newData;
 
@@ -1109,26 +1254,60 @@ function moveBlockCells(block, dR, dC, allowMerge) {
   block.rightCol += dC;
 }
 
+/***********************************************
+ * Alt+Arrow => nearest block by geometry
+ ***********************************************/
 function selectNearestBlock(direction) {
   if (!selectedCell) return;
-  const key = getCellKey(selectedCell);
-  const currentBlock = cellToBlockMap[key];
+  const currentBlock = cellToBlockMap[getCellKey(selectedCell)];
   if (!currentBlock) return;
 
-  let minDist = Infinity;
-  let nearest = null;
+  const [curR, curC] = getBlockCenter(currentBlock);
 
-  for (let b of blockList) {
-    if (b === currentBlock) continue;
-    let dist = getBlockDistanceInDirection(currentBlock, b, direction);
-    if (dist !== null && dist < minDist) {
-      minDist = dist;
-      nearest = b;
+  // Filter blocks strictly in the direction
+  let candidates = blockList.filter((b) => b !== currentBlock);
+  switch (direction) {
+    case "ArrowUp":
+      candidates = candidates.filter(
+        ([bR, bC] = getBlockCenter(b)) => bR < curR
+      );
+      break;
+    case "ArrowDown":
+      candidates = candidates.filter(
+        ([bR, bC] = getBlockCenter(b)) => bR > curR
+      );
+      break;
+    case "ArrowLeft":
+      candidates = candidates.filter(
+        ([bR, bC] = getBlockCenter(b)) => bC < curC
+      );
+      break;
+    case "ArrowRight":
+      candidates = candidates.filter(
+        ([bR, bC] = getBlockCenter(b)) => bC > curC
+      );
+      break;
+  }
+  if (!candidates.length) return;
+
+  let nearestDist = Infinity;
+  let nearestBlock = null;
+  for (let b of candidates) {
+    const [bR, bC] = getBlockCenter(b);
+    const dist = Math.sqrt((bR - curR) ** 2 + (bC - curC) ** 2);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearestBlock = b;
     }
   }
-  if (nearest) {
-    let midRow = Math.floor((nearest.topRow + nearest.bottomRow) / 2);
-    let midCol = Math.floor((nearest.leftCol + nearest.rightCol) / 2);
+
+  if (nearestBlock) {
+    const midRow = Math.floor(
+      (nearestBlock.topRow + nearestBlock.bottomRow) / 2
+    );
+    const midCol = Math.floor(
+      (nearestBlock.leftCol + nearestBlock.rightCol) / 2
+    );
     const cell = getCellElement(midRow, midCol);
     if (cell) {
       clearSelection();
@@ -1141,31 +1320,10 @@ function selectNearestBlock(direction) {
   }
 }
 
-function getBlockDistanceInDirection(a, b, dir) {
-  let aT = a.topRow,
-    aB = a.bottomRow,
-    aL = a.leftCol,
-    aR = a.rightCol;
-  let bT = b.topRow,
-    bB = b.bottomRow,
-    bL = b.leftCol,
-    bR = b.rightCol;
-  let dist = null;
-  switch (dir) {
-    case "ArrowUp":
-      if (bB < aT) dist = aT - bB - 1;
-      break;
-    case "ArrowDown":
-      if (bT > aB) dist = bT - aB - 1;
-      break;
-    case "ArrowLeft":
-      if (bR < aL) dist = aL - bR - 1;
-      break;
-    case "ArrowRight":
-      if (bL > aR) dist = bL - aR - 1;
-      break;
-  }
-  return dist;
+function getBlockCenter(b) {
+  let centerR = (b.topRow + b.bottomRow) / 2;
+  let centerC = (b.leftCol + b.rightCol) / 2;
+  return [centerR, centerC];
 }
 
 /***********************************************
