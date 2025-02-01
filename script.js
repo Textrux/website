@@ -78,6 +78,9 @@ const delimiterToggle = document.getElementById("delimiterToggle");
 let isCutMode = false;
 let cutCellsData = null;
 
+// For Shift+ArrowKey Selection
+let selectionAnchor = null;
+
 // NEW: Simple context menu for right-click copy (optional)
 const contextMenu = document.createElement("div");
 contextMenu.id = "customContextMenu";
@@ -288,6 +291,7 @@ spreadsheet.addEventListener("mousedown", (e) => {
     // left-click => start selection
     let target = e.target;
     if (target.tagName === "TD" && !target.closest(".plus-row")) {
+      selectionAnchor = target;
       isSelecting = true;
       startCell = target;
       selectCells(startCell, startCell);
@@ -397,8 +401,25 @@ document.addEventListener("keydown", (e) => {
       // NEW: alt+arrow => nearest block by geometry
       e.preventDefault();
       selectNearestBlock(e.key);
+    } else if (e.shiftKey) {
+      // NEW: Shift+Arrow extends the selection
+      switch (e.key) {
+        case "ArrowUp":
+          extendSelection(-1, 0);
+          break;
+        case "ArrowDown":
+          extendSelection(1, 0);
+          break;
+        case "ArrowLeft":
+          extendSelection(0, -1);
+          break;
+        case "ArrowRight":
+          extendSelection(0, 1);
+          break;
+      }
     } else {
       // plain arrow => move selection
+      selectionAnchor = null;
       switch (e.key) {
         case "ArrowUp":
           moveSelection(-1, 0);
@@ -1379,6 +1400,43 @@ function getBlockCenter(b) {
   let centerR = (b.topRow + b.bottomRow) / 2;
   let centerC = (b.leftCol + b.rightCol) / 2;
   return [centerR, centerC];
+}
+
+/************************************************
+ * Keyboard Selection
+ ***********************************************/
+
+function extendSelection(dr, dc) {
+  // If no anchor is set, use the current selected cell as the anchor.
+  if (!selectionAnchor) {
+    selectionAnchor = selectedCell;
+  }
+  // Get the current active cell's row and column.
+  let activeRow = +selectedCell.getAttribute("data-row");
+  let activeCol = +selectedCell.getAttribute("data-col");
+
+  // Calculate the new target cell based on the arrow direction.
+  let newRow = activeRow + dr;
+  let newCol = activeCol + dc;
+
+  // Keep within grid boundaries.
+  if (newRow < 1) newRow = 1;
+  if (newCol < 1) newCol = 1;
+  if (newRow > numberOfRows) addRows(newRow - numberOfRows);
+  if (newCol > numberOfColumns) addColumns(newCol - numberOfColumns);
+
+  let newActive = getCellElement(newRow, newCol);
+  if (!newActive) return;
+
+  // Clear any previous selection and select the range from the anchor to the new active cell.
+  clearSelection();
+  selectCells(selectionAnchor, newActive);
+
+  // Update the active cell.
+  selectedCell = newActive;
+
+  // (Optional) You might want to update the active cell reference as well:
+  selectedCell = newActive;
 }
 
 /***********************************************
