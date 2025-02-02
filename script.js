@@ -565,6 +565,7 @@ function updateCellLabel(cell) {
 }
 
 function moveSelection(dr, dc) {
+  selectionAnchor = null;
   if (!selectedCell) return;
   let row = +selectedCell.getAttribute("data-row");
   let col = +selectedCell.getAttribute("data-col");
@@ -1229,6 +1230,8 @@ function moveBlock(direction, allowMerge) {
       inputBox.value = newCell.textContent;
       updateCellLabel(newCell);
     }
+
+    selectionAnchor = null;
   }
 }
 
@@ -1338,15 +1341,32 @@ function selectNearestBlock(direction) {
 
   if (candidates.length === 0) return;
 
-  // Find the candidate whose center is closest to the reference block's center.
+  // Use a directional bias factor to weight the off-axis difference.
+  const directionalBias = 3; // Adjust this value as needed.
   let nearest = null;
   let minDist = Infinity;
+
   for (let b of candidates) {
     let bCenterRow = (b.topRow + b.bottomRow) / 2;
     let bCenterCol = (b.leftCol + b.rightCol) / 2;
+
+    // Set weights based on direction:
+    let weightRow = 1,
+      weightCol = 1;
+    if (direction === "ArrowRight" || direction === "ArrowLeft") {
+      // When moving left/right, penalize vertical (row) misalignment.
+      weightRow = directionalBias;
+    } else if (direction === "ArrowUp" || direction === "ArrowDown") {
+      // When moving up/down, penalize horizontal (column) misalignment.
+      weightCol = directionalBias;
+    }
+
+    let deltaRow = bCenterRow - refCenterRow;
+    let deltaCol = bCenterCol - refCenterCol;
     let dist = Math.sqrt(
-      (bCenterRow - refCenterRow) ** 2 + (bCenterCol - refCenterCol) ** 2
+      (deltaRow * weightRow) ** 2 + (deltaCol * weightCol) ** 2
     );
+
     if (dist < minDist) {
       minDist = dist;
       nearest = b;
