@@ -523,22 +523,72 @@ function getOutlineCells(
   cellMap,
   currentBlock
 ) {
-  let out = [];
-  let minR = Math.max(1, top - expandBy);
-  let maxR = Math.min(numberOfRows, bottom + expandBy);
-  let minC = Math.max(1, left - expandBy);
-  let maxC = Math.min(numberOfColumns, right + expandBy);
-  for (let r = minR; r <= maxR; r++) {
-    for (let c = minC; c <= maxC; c++) {
-      let k = `${r},${c}`;
-      if (!cellMap[k] || cellMap[k] === currentBlock) {
-        if (r === minR || r === maxR || c === minC || c === maxC) {
-          out.push({ row: r, col: c });
-        }
-      }
-    }
+  let outline = [];
+  let rowCount = numberOfRows;
+  let columnCount = numberOfColumns;
+
+  // Top
+  if (top - expandBy >= 1) {
+    let cols = Array.from(
+      {
+        length:
+          Math.min(right + expandBy, columnCount) -
+          Math.max(left - expandBy, 1) +
+          1,
+      },
+      (_, i) => Math.max(left - expandBy, 1) + i
+    );
+    let rows = Array(cols.length).fill(top - expandBy);
+    outline.push(...rows.map((row, i) => ({ row, col: cols[i] })));
   }
-  return out;
+
+  // Right
+  if (right + expandBy <= columnCount) {
+    let rows = Array.from(
+      {
+        length:
+          Math.min(bottom + expandBy, rowCount) -
+          Math.max(top - expandBy, 1) +
+          1,
+      },
+      (_, i) => Math.max(top - expandBy, 1) + i
+    );
+    let cols = Array(rows.length).fill(right + expandBy);
+    outline.push(...rows.map((row, i) => ({ row, col: cols[i] })));
+  }
+
+  // Bottom
+  if (bottom + expandBy <= rowCount) {
+    let cols = Array.from(
+      {
+        length:
+          Math.min(right + expandBy, columnCount) -
+          Math.max(left - expandBy, 1) +
+          1,
+      },
+      (_, i) => Math.max(left - expandBy, 1) + i
+    );
+    let rows = Array(cols.length).fill(bottom + expandBy);
+    outline.push(...rows.map((row, i) => ({ row, col: cols[i] })).reverse());
+  }
+
+  // Left
+  if (left - expandBy >= 1) {
+    let rows = Array.from(
+      {
+        length:
+          Math.min(bottom + expandBy, rowCount) -
+          Math.max(top - expandBy, 1) +
+          1,
+      },
+      (_, i) => Math.max(top - expandBy, 1) + i
+    );
+    let cols = Array(rows.length).fill(left - expandBy);
+    outline.push(...rows.map((row, i) => ({ row, col: cols[i] })).reverse());
+  }
+
+  // Remove duplicates and return
+  return Array.from(new Set(outline.map(JSON.stringify)), JSON.parse);
 }
 
 /****************************************************

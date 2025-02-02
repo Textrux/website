@@ -1236,13 +1236,13 @@ function moveBlock(direction, allowMerge) {
 }
 
 function canMoveBlock(block, dR, dC, allowMerge) {
-  // Compute the new bounding box after moving
+  // Compute the new bounding box after moving.
   const newTop = block.topRow + dR;
   const newBottom = block.bottomRow + dR;
   const newLeft = block.leftCol + dC;
   const newRight = block.rightCol + dC;
 
-  // Ensure the moved block remains within grid boundaries
+  // Ensure the moved block remains within grid boundaries.
   if (
     newTop < 1 ||
     newBottom > numberOfRows ||
@@ -1252,25 +1252,24 @@ function canMoveBlock(block, dR, dC, allowMerge) {
     return false;
   }
 
-  // Expand the moved bounding box by 2 cells in every direction
+  // Expand the moved bounding box by 2 cells in every direction.
   const checkTop = Math.max(1, newTop - 2);
   const checkBottom = Math.min(numberOfRows, newBottom + 2);
   const checkLeft = Math.max(1, newLeft - 2);
   const checkRight = Math.min(numberOfColumns, newRight + 2);
 
-  // Check each other block’s canvas cells to see if any fall within the expanded area
+  // For each other block, check if its entire grid range (bounding box) overlaps the expanded area.
   for (let otherBlock of blockList) {
     if (otherBlock === block) continue;
-    for (let p of otherBlock.canvasCells) {
-      if (
-        p.row >= checkTop &&
-        p.row <= checkBottom &&
-        p.col >= checkLeft &&
-        p.col <= checkRight
-      ) {
-        // A near collision is found.
-        return allowMerge ? true : false;
-      }
+    if (
+      // If the other block's bounding box overlaps the check area...
+      otherBlock.topRow <= checkBottom &&
+      otherBlock.bottomRow >= checkTop &&
+      otherBlock.leftCol <= checkRight &&
+      otherBlock.rightCol >= checkLeft
+    ) {
+      // A collision (or near collision) is found.
+      return allowMerge ? true : false;
     }
   }
 
@@ -1280,23 +1279,43 @@ function canMoveBlock(block, dR, dC, allowMerge) {
 
 function moveBlockCells(block, dR, dC, allowMerge) {
   const newData = {};
-  for (let c of block.canvasCells) {
+  // Process a copy of the block's canvasCells so that if the array
+  // changes (or there are collisions) we still have the full list.
+  let cells = block.canvasCells.slice();
+
+  for (let c of cells) {
     let oldKey = `R${c.row}C${c.col}`;
     let nr = c.row + dR,
       nc = c.col + dC;
     let newKey = `R${nr}C${nc}`;
-    newData[newKey] = cellsData[oldKey];
+
+    let value = cellsData[oldKey];
+
+    // If there is already a value at newKey, then...
+    if (newData[newKey] !== undefined) {
+      // If the new value is nonempty and the existing value is empty, replace it.
+      if (value && (!newData[newKey] || newData[newKey].trim() === "")) {
+        newData[newKey] = value;
+      }
+      // Otherwise, leave newData[newKey] as is.
+    } else {
+      newData[newKey] = value;
+    }
+
     delete cellsData[oldKey];
+    // Update the cell's coordinates.
     c.row = nr;
     c.col = nc;
   }
+  // Bring along any cells that were not part of the moving block.
   for (let k in cellsData) {
-    if (!newData[k]) {
+    if (!newData.hasOwnProperty(k)) {
       newData[k] = cellsData[k];
     }
   }
   cellsData = newData;
 
+  // Update the block's bounding box.
   block.topRow += dR;
   block.bottomRow += dR;
   block.leftCol += dC;
