@@ -16,12 +16,14 @@
   // We'll keep a simple <select>, controlling global `currentDelimiter`.
   // We'll also let user choose.
   const settingsHTML = `
-      <label for="delimiterSelect"><strong>Copy as:</strong></label>
-      <select id="delimiterSelect">
-        <option value="tab" selected>TSV</option>
-        <option value=",">CSV</option>
-      </select>
-    `;
+    <label for="delimiterSelect"><strong>Copy as:</strong></label>
+    <select id="delimiterSelect">
+      <option value="tab" selected>TSV</option>
+      <option value=",">CSV</option>
+    </select>
+    <br><br>
+    <button id="clearGridButton" style="margin-top:10px; padding:6px 12px; font-size:14px;">Clear Grid</button>
+  `;
 
   // Some example names (feel free to add more)
   const exampleList = ["Example Grid 1", "Example Grid 2", "Example Grid 3"];
@@ -56,12 +58,30 @@
         contentDiv.innerHTML = settingsHTML;
         const sel = contentDiv.querySelector("#delimiterSelect");
         if (sel) {
-          // reflect currentDelimiter
-          sel.value = window.currentDelimiter || "tab";
+          // Load from localStorage or default to "tab" (TSV)
+          sel.value = localStorage.getItem("savedDelimiter") || "tab";
+          window.currentDelimiter = sel.value; // Ensure it's set globally
+
           sel.addEventListener("change", () => {
             window.currentDelimiter = sel.value;
+            localStorage.setItem("savedDelimiter", sel.value); // Save to localStorage
           });
         }
+
+        // Handle "Clear Grid" button click
+        const clearButton = contentDiv.querySelector("#clearGridButton");
+        if (clearButton) {
+          clearButton.addEventListener("click", () => {
+            if (
+              confirm("Are you sure you want to delete everything on the grid?")
+            ) {
+              window.cellsData = {}; // Reset all cell data
+              localStorage.removeItem(STORAGE_KEY); // Remove saved data
+              parseAndFormatGrid(); // Clear the grid visually
+            }
+          });
+        }
+
         break;
 
       case "Examples":

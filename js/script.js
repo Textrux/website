@@ -5,7 +5,37 @@
 /***********************************************
  * Global data structure so parsing.js can see it
  ***********************************************/
-window.cellsData = {};
+/***********************************************
+ * Global data structure so parsing.js can see it
+ ***********************************************/
+const savedGridData = localStorage.getItem("savedGridData");
+
+if (savedGridData) {
+  // Detect delimiter (TSV = tab, CSV = comma)
+  const delimiter = savedGridData.includes("\t") ? "\t" : ",";
+
+  // Convert CSV/TSV into a 2D array
+  const dataArray =
+    delimiter === "\t"
+      ? window.fromTSV(savedGridData)
+      : window.fromCSV(savedGridData);
+
+  // Convert 2D array into cellsData format
+  window.cellsData = {};
+  for (let r = 0; r < dataArray.length; r++) {
+    for (let c = 0; c < dataArray[r].length; c++) {
+      const val = dataArray[r][c];
+      if (val.trim()) {
+        const rowIndex = r + 1;
+        const colIndex = c + 1;
+        const key = `R${rowIndex}C${colIndex}`;
+        window.cellsData[key] = val;
+      }
+    }
+  }
+} else {
+  window.cellsData = {}; // Default to empty grid
+}
 
 /***********************************************
  * Configuration
@@ -14,8 +44,8 @@ let NUMBER_OF_ROWS = 125;
 let NUMBER_OF_COLUMNS = 100;
 let ADDITIONAL_ROWS_COLUMNS = 50;
 
-// Our default delimiter => "tab" for TSV
-window.currentDelimiter = "tab";
+// Our default delimiter => "tab" for TSV but first check for a local storage value 
+window.currentDelimiter = localStorage.getItem("savedDelimiter") || "tab";
 
 /***********************************************
  * For Treet parser references
@@ -1593,6 +1623,154 @@ function isMobileDevice() {
     navigator.userAgent
   );
 }
+
+/***********************************************
+ * Drag & Drop CSV/TSV File Upload
+ ***********************************************/
+document.addEventListener("dragover", (e) => {
+  e.preventDefault(); // Prevent browser from opening the file
+  e.dataTransfer.dropEffect = "copy"; // Show a copy cursor
+});
+
+document.addEventListener("drop", (e) => {
+  e.preventDefault(); // Stop default file open behavior
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    const text = event.target.result;
+
+    // Detect delimiter (TSV if tabs exist, otherwise CSV)
+    let delim = text.includes("\t") ? "\t" : ",";
+    let arr2D = delim === "\t" ? window.fromTSV(text) : window.fromCSV(text);
+
+    // Clear the existing grid before inserting new data
+    window.cellsData = {}; // Reset cell data
+    parseAndFormatGrid(); // Clear styling
+
+    // Ensure the grid is large enough
+    let requiredRows = arr2D.length;
+    let requiredCols = Math.max(...arr2D.map((row) => row.length));
+
+    if (requiredRows > window.numberOfRows) {
+      addRows(requiredRows - window.numberOfRows);
+    }
+    if (requiredCols > window.numberOfColumns) {
+      addColumns(requiredCols - window.numberOfColumns);
+    }
+
+    // Populate the grid with new data
+    for (let r = 0; r < arr2D.length; r++) {
+      for (let c = 0; c < arr2D[r].length; c++) {
+        let cell = getCellElement(r + 1, c + 1);
+        if (cell) {
+          let val = arr2D[r][c];
+          cell.textContent = val;
+          window.cellsData[getCellKey(cell)] = val;
+        }
+      }
+    }
+
+    parseAndFormatGrid(); // Reapply formatting
+  };
+
+  reader.readAsText(file); // Read file as text
+});
+
+/***********************************************
+ * Local Storage: Save & Load Grid Data
+ ***********************************************/
+
+// Key for localStorage
+const STORAGE_KEY = "savedGridData";
+
+// Save the current grid to localStorage
+function saveGridToLocalStorage() {
+  const arr2D = [];
+
+  // Determine the grid size based on existing data
+  let maxRow = 1,
+    maxCol = 1;
+  for (let key in cellsData) {
+    let match = key.match(/R(\d+)C(\d+)/);
+    if (match) {
+      let row = parseInt(match[1]);
+      let col = parseInt(match[2]);
+      maxRow = Math.max(maxRow, row);
+      maxCol = Math.max(maxCol, col);
+    }
+  }
+
+  // Create a 2D array of empty strings
+  for (let r = 0; r < maxRow; r++) {
+    arr2D[r] = new Array(maxCol).fill("");
+  }
+
+  // Populate the 2D array with data from cellsData
+  for (let key in cellsData) {
+    let match = key.match(/R(\d+)C(\d+)/);
+    if (match) {
+      let row = parseInt(match[1]) - 1;
+      let col = parseInt(match[2]) - 1;
+      arr2D[row][col] = cellsData[key];
+    }
+  }
+
+  // Convert to CSV/TSV format and store in localStorage
+  const text =
+    window.currentDelimiter === "tab"
+      ? window.toTSV(arr2D)
+      : window.toCSV(arr2D);
+  localStorage.setItem(STORAGE_KEY, text);
+}
+
+// Load saved grid from localStorage
+function loadGridFromLocalStorage() {
+  const savedData = localStorage.getItem(STORAGE_KEY);
+  if (!savedData) return;
+
+  // Detect delimiter (TSV or CSV)
+  let delim = savedData.includes("\t") ? "\t" : ",";
+  let arr2D =
+    delim === "\t" ? window.fromTSV(savedData) : window.fromCSV(savedData);
+
+  // Ensure the grid is large enough
+  let requiredRows = arr2D.length;
+  let requiredCols = Math.max(...arr2D.map((row) => row.length));
+
+  if (requiredRows > window.numberOfRows) {
+    addRows(requiredRows - window.numberOfRows);
+  }
+  if (requiredCols > window.numberOfColumns) {
+    addColumns(requiredCols - window.numberOfColumns);
+  }
+
+  // Populate the grid with saved data
+  for (let r = 0; r < arr2D.length; r++) {
+    for (let c = 0; c < arr2D[r].length; c++) {
+      let cell = getCellElement(r + 1, c + 1);
+      if (cell) {
+        let val = arr2D[r][c];
+        cell.textContent = val;
+        window.cellsData[getCellKey(cell)] = val;
+      }
+    }
+  }
+
+  parseAndFormatGrid(); // Apply formatting
+}
+
+// Ensure every grid change is saved automatically
+const originalParseAndFormatGrid = window.parseAndFormatGrid;
+window.parseAndFormatGrid = function () {
+  originalParseAndFormatGrid();
+  saveGridToLocalStorage(); // Auto-save grid after reformatting
+};
+
+// Load grid data when the page loads
+document.addEventListener("DOMContentLoaded", loadGridFromLocalStorage);
 
 // Finally, parse/format once loaded
 parseAndFormatGrid();
