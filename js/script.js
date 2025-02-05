@@ -582,13 +582,20 @@ function moveSelection(dr, dc) {
   if (nextCell) {
     clearSelection();
     nextCell.classList.add("selected");
-    selectedCells.push(nextCell);
+    selectedCells = [nextCell];
     selectedCell = nextCell;
     inputBox.value = nextCell.textContent;
     updateCellLabel(nextCell);
     if (!isMobileDevice()) {
       inputBox.focus();
     }
+
+    // Scroll into view after movement
+    selectedCell.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
   }
 }
 
@@ -761,20 +768,13 @@ document.addEventListener("paste", (e) => {
   let text = e.clipboardData.getData("text/plain") || "";
   if (!text) return;
 
-  // see if we have a tab => assume TSV, else CSV
+  // Determine delimiter (TSV if tab exists, else CSV)
   let delim = text.indexOf("\t") >= 0 ? "\t" : ",";
-
-  // parse into lines
-  // we can also try re-using fromCSV if delim==',', fromTSV if delim=='\t'
-  let arr2D;
-  if (delim === "\t") {
-    arr2D = window.fromTSV(text);
-  } else {
-    arr2D = window.fromCSV(text);
-  }
+  let arr2D = delim === "\t" ? window.fromTSV(text) : window.fromCSV(text);
 
   let startR = +selectedCell.getAttribute("data-row");
   let startC = +selectedCell.getAttribute("data-col");
+  let lastCell = selectedCell; // Track the last pasted cell
 
   for (let r = 0; r < arr2D.length; r++) {
     for (let c = 0; c < arr2D[r].length; c++) {
@@ -788,16 +788,35 @@ document.addEventListener("paste", (e) => {
         let val = arr2D[r][c];
         cell.textContent = val;
         window.cellsData[getCellKey(cell)] = val;
+        lastCell = cell; // Update last cell pasted
       }
     }
   }
 
-  // if cut => remove original
+  // If cut mode was active, remove original copied data
   if (isCutMode && cutCellsData) {
     removeCutSourceData();
   }
 
   window.parseAndFormatGrid();
+
+  // Set focus to the first pasted cell in the range
+  const firstPastedCell = getCellElement(startR, startC);
+  if (firstPastedCell) {
+    clearSelection();
+    firstPastedCell.classList.add("selected");
+    selectedCells = [firstPastedCell];
+    selectedCell = firstPastedCell;
+    inputBox.value = firstPastedCell.textContent;
+    updateCellLabel(firstPastedCell);
+
+    // Ensure the pasted cell scrolls into view
+    firstPastedCell.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }
 });
 
 // For Ctrl+C in keydown
@@ -1300,6 +1319,13 @@ function moveBlock(direction, allowMerge) {
       selectedCell = newCell;
       inputBox.value = newCell.textContent;
       updateCellLabel(newCell);
+
+      // Scroll into view after block movement
+      selectedCell.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
     }
 
     selectionAnchor = null;
