@@ -14,6 +14,9 @@ let NUMBER_OF_ROWS = 125;
 let NUMBER_OF_COLUMNS = 100;
 let ADDITIONAL_ROWS_COLUMNS = 50;
 
+// Our default delimiter => "tab" for TSV
+window.currentDelimiter = "tab";
+
 /***********************************************
  * For Treet parser references
  ***********************************************/
@@ -70,7 +73,6 @@ const gridContainer = document.getElementById("gridContainer");
 const inputBox = document.getElementById("inputBox");
 const cellLabel = document.getElementById("cellLabel");
 const sidePanel = document.getElementById("sidePanel");
-const delimiterToggle = document.getElementById("delimiterToggle");
 // (If you had a "toggleSidePanelButton" in index.html uncommented, we’d reference it. Otherwise it's commented out.)
 // const toggleSidePanelButton = document.getElementById("toggleSidePanel");
 
@@ -186,6 +188,15 @@ generateSpreadsheet();
 /***********************************************
  * attachEventListeners
  ***********************************************/
+document.addEventListener("DOMContentLoaded", () => {
+  const icon = document.getElementById("settingsIcon");
+  if (icon) {
+    icon.addEventListener("click", () => {
+      window.openPopup();
+    });
+  }
+});
+
 function attachEventListeners() {
   // "Select All" cell
   const selectAllCell = document.getElementById("selectAllCell");
@@ -491,22 +502,8 @@ function handleCtrlX() {
   });
   isCutMode = true;
 
-  // Also copy text to clipboard (same as handleCtrlC)
-  const text = getSelectedCellsData(
-    delimiterToggle.value === "tab" ? "\t" : ","
-  );
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).catch((err) => console.warn(err));
-  } else {
-    const temp = document.createElement("textarea");
-    temp.value = text;
-    temp.style.position = "fixed";
-    temp.style.left = "-9999px";
-    document.body.appendChild(temp);
-    temp.select();
-    document.execCommand("copy");
-    document.body.removeChild(temp);
-  }
+  // also copy to clipboard
+  handleCtrlC();
   // (Visually, we haven't removed them from the grid yet,
   //  we remove them after user pastes.)
 }
@@ -751,92 +748,67 @@ document.addEventListener("mouseup", () => {
 document.addEventListener("copy", (e) => {
   if (!selectedCells.length) return;
   e.preventDefault();
-  const delimiter = delimiterToggle.value === "tab" ? "\t" : ",";
-  e.clipboardData.setData("text/plain", getSelectedCellsData(delimiter));
+  e.clipboardData.setData("text/plain", copySelectedCells());
 });
 
 // 2) Paste event
+/***********************************************
+ * Pasting => detect CSV or TSV automatically
+ ***********************************************/
 document.addEventListener("paste", (e) => {
   if (!selectedCell) return;
   e.preventDefault();
-  const text = e.clipboardData.getData("text/plain") || "";
+  let text = e.clipboardData.getData("text/plain") || "";
   if (!text) return;
 
-  // auto detect tab vs comma if there's a \t
-  const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
+  // see if we have a tab => assume TSV, else CSV
+  let delim = text.indexOf("\t") >= 0 ? "\t" : ",";
 
-  // CHANGED: Do NOT skip empty lines. Just split on newlines
-  const lines = text.replace(/\r/g, "").split("\n");
-
-  // Check if this is a single cell's data
-  // (i.e. lines.length===1 and exactly 1 column)
-  if (lines.length === 1) {
-    const rowStr = lines[0]; // no trim
-    const cols = rowStr.split(delim);
-    if (cols.length === 1) {
-      // Single cell in clipboard
-      // If user has multiple selected cells, fill them all with this single value
-      if (selectedCells.length > 1) {
-        for (let cell of selectedCells) {
-          cell.textContent = cols[0];
-          cellsData[getCellKey(cell)] = cols[0];
-        }
-        // If it was a cut, remove original now
-        if (isCutMode && cutCellsData) {
-          removeCutSourceData();
-        }
-        parseAndFormatGrid();
-        return;
-      }
-    }
+  // parse into lines
+  // we can also try re-using fromCSV if delim==',', fromTSV if delim=='\t'
+  let arr2D;
+  if (delim === "\t") {
+    arr2D = window.fromTSV(text);
+  } else {
+    arr2D = window.fromCSV(text);
   }
 
-  // Otherwise do multiline (or multi-column) paste, anchored at selectedCell
-  const startR = +selectedCell.getAttribute("data-row");
-  const startC = +selectedCell.getAttribute("data-col");
+  let startR = +selectedCell.getAttribute("data-row");
+  let startC = +selectedCell.getAttribute("data-col");
 
-  for (let i = 0; i < lines.length; i++) {
-    // no trim => if lines[i] is blank, we still parse it
-    const rowStr = lines[i];
-    const cols = rowStr.split(delim);
+  for (let r = 0; r < arr2D.length; r++) {
+    for (let c = 0; c < arr2D[r].length; c++) {
+      let rr = startR + r;
+      let cc = startC + c;
+      if (rr > window.numberOfRows) addRows(rr - window.numberOfRows);
+      if (cc > window.numberOfColumns) addColumns(cc - window.numberOfColumns);
 
-    for (let j = 0; j < cols.length; j++) {
-      let rr = startR + i;
-      let cc = startC + j;
-      if (rr > numberOfRows) addRows(rr - numberOfRows);
-      if (cc > numberOfColumns) addColumns(cc - numberOfColumns);
-
-      const cell = getCellElement(rr, cc);
+      let cell = getCellElement(rr, cc);
       if (cell) {
-        cell.textContent = cols[j];
-        cellsData[getCellKey(cell)] = cols[j];
+        let val = arr2D[r][c];
+        cell.textContent = val;
+        window.cellsData[getCellKey(cell)] = val;
       }
     }
   }
 
-  // If it was a cut, remove the original
+  // if cut => remove original
   if (isCutMode && cutCellsData) {
     removeCutSourceData();
   }
 
-  parseAndFormatGrid();
+  window.parseAndFormatGrid();
 });
 
 // For Ctrl+C in keydown
 function handleCtrlC() {
-  if (!selectedCells.length) return;
-  const text = getSelectedCellsData(
-    delimiterToggle.value === "tab" ? "\t" : ","
-  );
+  const text = copySelectedCells();
+  if (!text) return;
   if (navigator.clipboard && window.isSecureContext) {
-    // async
     navigator.clipboard.writeText(text).catch((err) => console.warn(err));
   } else {
-    // fallback
-    const temp = document.createElement("textarea");
+    let temp = document.createElement("textarea");
     temp.value = text;
-    temp.style.position = "fixed";
-    temp.style.left = "-9999px";
     document.body.appendChild(temp);
     temp.select();
     document.execCommand("copy");
@@ -858,38 +830,48 @@ function removeCutSourceData() {
 }
 
 /***********************************************
- * getSelectedCellsData
+ * copySelectedCells
  ***********************************************/
-function getSelectedCellsData(delimiter) {
+function copySelectedCells() {
   if (!selectedCells.length) return "";
+  // find bounding box
   let minR = Infinity,
-    maxR = -Infinity,
-    minC = Infinity,
+    maxR = -Infinity;
+  let minC = Infinity,
     maxC = -Infinity;
 
-  selectedCells.forEach((cell) => {
-    const r = +cell.getAttribute("data-row");
-    const c = +cell.getAttribute("data-col");
+  for (let cell of selectedCells) {
+    let r = +cell.getAttribute("data-row");
+    let c = +cell.getAttribute("data-col");
     if (r < minR) minR = r;
     if (r > maxR) maxR = r;
     if (c < minC) minC = c;
     if (c > maxC) maxC = c;
-  });
-
-  let lines = [];
-  for (let r = minR; r <= maxR; r++) {
-    let rowData = [];
-    for (let c = minC; c <= maxC; c++) {
-      const cell = getCellElement(r, c);
-      if (cell && selectedCells.includes(cell)) {
-        rowData.push(cell.textContent || "");
-      } else {
-        rowData.push("");
-      }
-    }
-    lines.push(rowData.join(delimiter));
   }
-  return lines.join("\n");
+
+  // build array-of-arrays
+  let arr2D = [];
+  for (let row = minR; row <= maxR; row++) {
+    let rowArr = [];
+    for (let col = minC; col <= maxC; col++) {
+      let td = getCellElement(row, col);
+      let txt = "";
+      if (td && selectedCells.includes(td)) {
+        txt = td.textContent || "";
+      }
+      rowArr.push(txt);
+    }
+    arr2D.push(rowArr);
+  }
+
+  // now convert to CSV or TSV
+  let out;
+  if (window.currentDelimiter === "tab") {
+    out = window.toTSV(arr2D);
+  } else {
+    out = window.toCSV(arr2D);
+  }
+  return out;
 }
 
 /***********************************************
@@ -1124,46 +1106,135 @@ spreadsheet.addEventListener("dblclick", (e) => {
   }
 });
 
+/***********************************************
+ * Double-click editing with multiline
+ * + temporarily widen column
+ ***********************************************/
 function startEditingCell(cell) {
-  // if there's already a textarea, do nothing
   if (cell.querySelector("textarea")) return;
 
-  const oldValue = cell.textContent;
+  const oldValue = cell.textContent.trim();
   cell.textContent = "";
 
+  // Temporarily expand the column width
+  const col = cell.getAttribute("data-col");
+  const th = spreadsheet.querySelector(`th[data-col='${col}']`);
+  let defaultWidth = th.style.width
+    ? parseFloat(th.style.width)
+    : th.offsetWidth;
+  let expandedWidth = defaultWidth * 7;
+
+  // Expand the row height
+  const row = cell.getAttribute("data-row");
+  const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
+  let defaultHeight = rowTh.style.height
+    ? parseFloat(rowTh.style.height)
+    : rowTh.offsetHeight;
+  let expandedHeight = defaultHeight * 5;
+
+  // Apply width expansion
+  th.style.width = `${expandedWidth}px`;
+  th.style.minWidth = `${expandedWidth}px`;
+
+  const tdsInCol = spreadsheet.querySelectorAll(`td[data-col='${col}']`);
+  tdsInCol.forEach((td) => {
+    td.style.width = `${expandedWidth}px`;
+    td.style.minWidth = `${expandedWidth}px`;
+  });
+
+  // Apply height expansion
+  rowTh.style.height = `${expandedHeight}px`;
+  rowTh.style.minHeight = `${expandedHeight}px`;
+
+  const tdsInRow = spreadsheet.querySelectorAll(`td[data-row='${row}']`);
+  tdsInRow.forEach((td) => {
+    td.style.height = `${expandedHeight}px`;
+    td.style.minHeight = `${expandedHeight}px`;
+  });
+
+  // Create the textarea
   const textarea = document.createElement("textarea");
-  textarea.style.resize = "both";
-  textarea.style.overflow = "auto";
-  textarea.style.minWidth = "30px";
-  textarea.style.minHeight = "30px";
-
   textarea.value = oldValue;
-  cell.appendChild(textarea);
+  textarea.style.width = "100%";
+  textarea.style.height = "100%";
+  textarea.style.resize = "none";
+  textarea.style.border = "none";
+  textarea.style.outline = "none";
+  textarea.style.overflowY = "auto"; // Enable vertical scrolling
+  textarea.style.overflowX = "hidden";
+  textarea.style.fontFamily = "inherit";
+  textarea.style.fontSize = "inherit";
 
+  cell.appendChild(textarea);
   textarea.focus();
 
-  // finalize on Enter (unless Shift)
+  // Event listeners for confirming input
   textarea.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      stopEditingCell(cell, textarea.value);
+    if (e.key === "Enter") {
+      if (e.altKey) {
+        e.preventDefault();
+        insertAtCursor(textarea, "\n");
+      } else {
+        e.preventDefault();
+        stopEditingCell(cell, textarea.value, defaultWidth, defaultHeight);
+      }
     }
   });
+
   textarea.addEventListener("blur", () => {
-    stopEditingCell(cell, textarea.value);
+    stopEditingCell(cell, textarea.value, defaultWidth, defaultHeight);
   });
 }
 
-function stopEditingCell(cell, newValue) {
-  cell.innerHTML = "";
-  cell.textContent = newValue;
+function stopEditingCell(cell, newValue, defaultWidth, defaultHeight) {
+  cell.innerHTML = ""; // Clear the cell
+  cell.textContent = newValue.trim(); // Set new value
+
   const key = getCellKey(cell);
+
   if (newValue.trim() === "") {
-    delete cellsData[key];
+    delete window.cellsData[key]; // Remove empty values
   } else {
-    cellsData[key] = newValue;
+    window.cellsData[key] = newValue; // Store the new value
   }
-  parseAndFormatGrid();
+
+  // Restore the column width after editing
+  const col = cell.getAttribute("data-col");
+  const th = spreadsheet.querySelector(`th[data-col='${col}']`);
+  th.style.width = `${defaultWidth}px`;
+  th.style.minWidth = `${defaultWidth}px`;
+
+  const tdsInCol = spreadsheet.querySelectorAll(`td[data-col='${col}']`);
+  tdsInCol.forEach((td) => {
+    td.style.width = `${defaultWidth}px`;
+    td.style.minWidth = `${defaultWidth}px`;
+  });
+
+  // Restore the row height after editing
+  const row = cell.getAttribute("data-row");
+  const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
+  rowTh.style.height = `${defaultHeight}px`;
+  rowTh.style.minHeight = `${defaultHeight}px`;
+
+  const tdsInRow = spreadsheet.querySelectorAll(`td[data-row='${row}']`);
+  tdsInRow.forEach((td) => {
+    td.style.height = `${defaultHeight}px`;
+    td.style.minHeight = `${defaultHeight}px`;
+  });
+
+  window.parseAndFormatGrid(); // Refresh formatting if needed
+}
+
+function insertAtCursor(textarea, text) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+
+  // Insert text at cursor position
+  textarea.value = value.slice(0, start) + text + value.slice(end);
+
+  // Move cursor after the inserted text
+  textarea.selectionStart = textarea.selectionEnd = start + text.length;
 }
 
 /***********************************************

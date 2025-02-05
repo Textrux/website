@@ -1,0 +1,54 @@
+/* ==============================
+   TREET PARSING STYLES
+   ============================== */
+
+.canvas-cell {
+  background-color: white;
+  color: black;
+  font-weight: bold;
+  text-align: center; /* or choose left/center as needed */
+}
+
+.empty-cell-cluster {
+  background-color: lightblue;
+}
+
+.border-cell {
+  background-color: lightyellow;
+}
+
+.frame-cell {
+  background-color: yellow;
+}
+
+.underscore-cell {
+  text-align: center;
+  color: #ccc;
+  background-color: #555;
+}
+
+.normal-cell {
+  text-align: left;
+  color: #000;
+  background-color: #fff;
+}
+
+/* For empty cluster cells */
+.cluster-empty-cell {
+  background-color: #bbf !important; /* or any color you like */
+}
+
+/* For empty canvas cells outside clusters */
+.canvas-empty-cell {
+  background-color: #eef !important;
+}
+
+.locked-cell {
+  background-color: red !important;
+  color: white !important;
+}
+
+.linked-cell {
+  background-color: orange !important;
+  color: white !important;
+}

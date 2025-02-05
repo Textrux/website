@@ -8,28 +8,21 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=yes"
     />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="grid.css" />
   </head>
   <body>
-    <!-- Header (hidden on mobile via CSS) -->
-    <div id="header">
-      <h1>Textrux</h1>
-      <div id="headerButtons">
-        <div id="toggleContainer">
-          <label for="delimiterToggle">Copy as:</label>
-          <select id="delimiterToggle">
-            <option value=",">CSV</option>
-            <option value="tab">TSV</option>
-          </select>
-        </div>
-        <!-- <button id="toggleSidePanel">Hide Side Panel</button> -->
-      </div>
-    </div>
-
     <!-- Formula bar container -->
     <div id="container">
       <span id="cellLabel" title="Cell Address">R1C1</span>
       <input type="text" id="inputBox" placeholder="Enter cell value" />
+      <!-- Gear icon on the right -->
+      <img
+        id="settingsIcon"
+        src="gear-icon.png"
+        alt="Settings"
+        title="Settings"
+      />
     </div>
 
     <!-- Main container (grid + optional side panel) -->
@@ -40,30 +33,31 @@
           <!-- Populated by script.js -->
         </table>
       </div>
-
-      <!-- Side Panel (optional) -->
-      <!--
-      <div id="sidePanel">
-        <div class="sidePanelSection">
-          <h3>Contents</h3>
-          <textarea id="contentsTextArea" disabled></textarea>
+    </div>
+    <!-- Modal Popup for Settings, Examples, Instructions, About -->
+    <div id="modalOverlay" class="hidden">
+      <div id="popupBox">
+        <div id="popupHeader">
+          <span id="popupCloseButton">&times;</span>
         </div>
-        <div class="sidePanelSection">
-          <h3>Parsing</h3>
-          <textarea id="parsingTextArea" disabled></textarea>
+        <div id="popupTabs">
+          <div class="popupTab" data-tab="Settings">Settings</div>
+          <div class="popupTab" data-tab="Examples">Examples</div>
+          <div class="popupTab" data-tab="Instructions">Instructions</div>
+          <div class="popupTab" data-tab="About">About</div>
         </div>
-        <div class="sidePanelSection">
-          <h3>Output</h3>
-          <textarea id="outputTextArea" disabled></textarea>
+        <hr />
+        <div id="popupContent">
+          <!-- Filled in by popup.js -->
         </div>
       </div>
-      -->
     </div>
 
     <!-- parsing.js first -->
     <script src="parsing.js"></script>
+    <script src="csv.js"></script>
     <!-- script.js second -->
     <script src="script.js"></script>
-
+    <script src="popup.js"></script>
   </body>
 </html>
