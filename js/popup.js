@@ -23,6 +23,12 @@
     </select>
     <br><br>
     <button id="clearGridButton" style="margin-top:10px; padding:6px 12px; font-size:14px;">Clear Grid</button>
+    <br><br>
+    <button id="saveGridButton" style="padding:6px 12px; font-size:14px;">Save Grid to File</button>
+    <br><br>
+    <!-- hidden file input for loading a grid -->
+    <input type="file" id="loadGridFileInput" accept=".csv,.tsv" style="display:none;">
+    <button id="loadGridButton" style="padding:6px 12px; font-size:14px;">Load Grid from File</button>
   `;
 
   // Some example names (feel free to add more)
@@ -47,6 +53,51 @@
       <h3>About</h3>
       <p>This is an example grid application with advanced block parsing.</p>
     `;
+
+  function saveGridToFile() {
+    let arr2D = [];
+    let maxRow = 1,
+      maxCol = 1;
+    // Determine the grid size from cellsData
+    for (let key in window.cellsData) {
+      let match = key.match(/R(\d+)C(\d+)/);
+      if (match) {
+        const row = parseInt(match[1]);
+        const col = parseInt(match[2]);
+        maxRow = Math.max(maxRow, row);
+        maxCol = Math.max(maxCol, col);
+      }
+    }
+    // Build a 2D array (filled with empty strings)
+    for (let r = 0; r < maxRow; r++) {
+      arr2D[r] = new Array(maxCol).fill("");
+    }
+    // Populate the array from cellsData
+    for (let key in window.cellsData) {
+      let match = key.match(/R(\d+)C(\d+)/);
+      if (match) {
+        const row = parseInt(match[1]) - 1;
+        const col = parseInt(match[2]) - 1;
+        arr2D[row][col] = window.cellsData[key];
+      }
+    }
+    // Convert the 2D array to CSV/TSV (using your global functions)
+    const text =
+      window.currentDelimiter === "tab"
+        ? window.toTSV(arr2D)
+        : window.toCSV(arr2D);
+
+    // Create a Blob and a temporary link to download the file
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = window.currentDelimiter === "tab" ? "grid.tsv" : "grid.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   function loadTab(tabName) {
     tabs.forEach((t) => t.classList.remove("active"));
@@ -81,6 +132,67 @@
             }
           });
         }
+
+        // NEW: Save Grid button
+        const saveGridButton = contentDiv.querySelector("#saveGridButton");
+        if (saveGridButton) {
+          saveGridButton.addEventListener("click", saveGridToFile);
+        }
+
+        // NEW: Load Grid from File button and file input handler
+        const loadGridButton = contentDiv.querySelector("#loadGridButton");
+        const loadGridFileInput = document.getElementById("loadGridFileInput");
+
+        if (loadGridButton) {
+          loadGridButton.addEventListener("click", () => {
+            loadGridFileInput.click();
+          });
+        }
+
+        loadGridFileInput.addEventListener("change", function (e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = function (event) {
+            const text = event.target.result;
+            // Determine delimiter automatically (TSV if tab exists)
+            const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
+            const dataArray =
+              delim === "\t" ? window.fromTSV(text) : window.fromCSV(text);
+
+            // Clear current grid data
+            window.cellsData = {};
+
+            // Optionally, adjust the grid size if needed:
+            const requiredRows = dataArray.length;
+            const requiredCols = Math.max(
+              ...dataArray.map((row) => row.length)
+            );
+            if (requiredRows > window.numberOfRows) {
+              addRows(requiredRows - window.numberOfRows);
+            }
+            if (requiredCols > window.numberOfColumns) {
+              addColumns(requiredCols - window.numberOfColumns);
+            }
+
+            // Populate cellsData from the file’s contents
+            for (let r = 0; r < dataArray.length; r++) {
+              for (let c = 0; c < dataArray[r].length; c++) {
+                const val = dataArray[r][c];
+                if (val.trim()) {
+                  const rowIndex = r + 1;
+                  const colIndex = c + 1;
+                  const key = `R${rowIndex}C${colIndex}`;
+                  window.cellsData[key] = val;
+                }
+              }
+            }
+            parseAndFormatGrid();
+          };
+          reader.readAsText(file);
+          // Reset the file input so the same file can be reselected if desired
+          this.value = "";
+        });
 
         break;
 
