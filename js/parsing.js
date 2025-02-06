@@ -287,6 +287,11 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
           // unify filledPoints
           tempContainer.filledPoints.push(...oc.filledPoints);
         }
+        tempExpanded = tempContainer.expandOutlineBy(
+          expandOutlineBy,
+          rowCount,
+          colCount
+        );
       }
       // after merging, we loop again to see if the bigger bounding box
       // overlaps another container we haven't merged with yet

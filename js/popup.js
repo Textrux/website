@@ -51,7 +51,8 @@
 
   const aboutHTML = `
       <h3>About</h3>
-      <p>This is an example grid application with advanced block parsing.</p>
+      <p>Textrux (short for Text Structures > Text Strux > Textrux) is a content-driven-formatting grid that finds structures using the placement of the text on the grid.</p>
+      <p>The Github repository for this site can be found <a href="https://github.com/Textrux/website" target="_blank">here</a>.</p>
     `;
 
   function saveGridToFile() {
@@ -129,6 +130,7 @@
               window.cellsData = {}; // Reset all cell data
               localStorage.removeItem(STORAGE_KEY); // Remove saved data
               parseAndFormatGrid(); // Clear the grid visually
+              closePopup();
             }
           });
         }

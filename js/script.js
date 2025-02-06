@@ -44,7 +44,7 @@ let NUMBER_OF_ROWS = 125;
 let NUMBER_OF_COLUMNS = 100;
 let ADDITIONAL_ROWS_COLUMNS = 50;
 
-// Our default delimiter => "tab" for TSV but first check for a local storage value 
+// Our default delimiter => "tab" for TSV but first check for a local storage value
 window.currentDelimiter = localStorage.getItem("savedDelimiter") || "tab";
 
 /***********************************************
@@ -58,8 +58,9 @@ let numberOfRows = NUMBER_OF_ROWS;
 let numberOfColumns = NUMBER_OF_COLUMNS;
 
 // Selected cells
-let selectedCells = [];
-let selectedCell = null;
+// Directly attach them to window
+window.selectedCells = [];
+window.selectedCell = null;
 let isSelecting = false;
 let startCell = null;
 let endCell = null;
@@ -792,20 +793,31 @@ document.addEventListener("copy", (e) => {
 /***********************************************
  * Pasting => detect CSV or TSV automatically
  ***********************************************/
+// In your paste event listener:
 document.addEventListener("paste", (e) => {
   if (!selectedCell) return;
   e.preventDefault();
   let text = e.clipboardData.getData("text/plain") || "";
   if (!text) return;
 
-  // Determine delimiter (TSV if tab exists, else CSV)
+  // Determine delimiter
   let delim = text.indexOf("\t") >= 0 ? "\t" : ",";
   let arr2D = delim === "\t" ? window.fromTSV(text) : window.fromCSV(text);
 
   let startR = +selectedCell.getAttribute("data-row");
   let startC = +selectedCell.getAttribute("data-col");
-  let lastCell = selectedCell; // Track the last pasted cell
 
+  // Determine paste region
+  let pastedRows = arr2D.length;
+  let pastedCols = Math.max(...arr2D.map((row) => row.length));
+  let pasteRegion = {
+    startRow: startR,
+    endRow: startR + pastedRows - 1,
+    startCol: startC,
+    endCol: startC + pastedCols - 1,
+  };
+
+  // Paste the data into the grid.
   for (let r = 0; r < arr2D.length; r++) {
     for (let c = 0; c < arr2D[r].length; c++) {
       let rr = startR + r;
@@ -818,19 +830,19 @@ document.addEventListener("paste", (e) => {
         let val = arr2D[r][c];
         cell.textContent = val;
         window.cellsData[getCellKey(cell)] = val;
-        lastCell = cell; // Update last cell pasted
       }
     }
   }
 
-  // If cut mode was active, remove original copied data
+  // If cut mode was active, remove original copied data,
+  // but only for cells that were NOT pasted over.
   if (isCutMode && cutCellsData) {
-    removeCutSourceData();
+    removeCutSourceData(pasteRegion);
   }
 
   window.parseAndFormatGrid();
 
-  // Set focus to the first pasted cell in the range
+  // Set focus to the first pasted cell
   const firstPastedCell = getCellElement(startR, startC);
   if (firstPastedCell) {
     clearSelection();
@@ -839,8 +851,6 @@ document.addEventListener("paste", (e) => {
     selectedCell = firstPastedCell;
     inputBox.value = firstPastedCell.textContent;
     updateCellLabel(firstPastedCell);
-
-    // Ensure the pasted cell scrolls into view
     firstPastedCell.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
@@ -868,11 +878,24 @@ function handleCtrlC() {
 /***********************************************
  * Helper for removing original data on cut
  ***********************************************/
-function removeCutSourceData() {
+function removeCutSourceData(pasteRegion) {
+  // Helper function to check if a cell (row, col) is in the paste region
+  function isInPasteRegion(row, col, region) {
+    return (
+      row >= region.startRow &&
+      row <= region.endRow &&
+      col >= region.startCol &&
+      col <= region.endCol
+    );
+  }
+
   for (let item of cutCellsData) {
-    delete cellsData[`R${item.row}C${item.col}`];
-    const oldCell = getCellElement(item.row, item.col);
-    if (oldCell) oldCell.textContent = "";
+    // Only remove data if this cell is not within the paste region.
+    if (!isInPasteRegion(item.row, item.col, pasteRegion)) {
+      delete cellsData[`R${item.row}C${item.col}`];
+      const oldCell = getCellElement(item.row, item.col);
+      if (oldCell) oldCell.textContent = "";
+    }
   }
   isCutMode = false;
   cutCellsData = null;
@@ -1160,13 +1183,22 @@ spreadsheet.addEventListener("dblclick", (e) => {
  * + temporarily widen column
  ***********************************************/
 function startEditingCell(cell) {
+  // If it's the first cell, and it starts with '^', skip it:
+  const row = cell.getAttribute("data-row");
+  const col = cell.getAttribute("data-col");
+  if (row === "1" && col === "1") {
+    let val = window.cellsData["R1C1"] || "";
+    if (val.startsWith("^")) {
+      // skip editing
+      return;
+    }
+  }
   if (cell.querySelector("textarea")) return;
 
   const oldValue = cell.textContent.trim();
   cell.textContent = "";
 
   // Temporarily expand the column width
-  const col = cell.getAttribute("data-col");
   const th = spreadsheet.querySelector(`th[data-col='${col}']`);
   let defaultWidth = th.style.width
     ? parseFloat(th.style.width)
@@ -1174,7 +1206,6 @@ function startEditingCell(cell) {
   let expandedWidth = defaultWidth * 7;
 
   // Expand the row height
-  const row = cell.getAttribute("data-row");
   const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
   let defaultHeight = rowTh.style.height
     ? parseFloat(rowTh.style.height)
