@@ -94,6 +94,9 @@ window.parseAndFormatGrid = function parseAndFormatGrid() {
   // 6) block clusters => BFS on blockJoins
   populateBlockClusters();
 
+  // 6b) find structural patterns
+  PatternsManager.parseAll(filledCells, blockList);
+
   // 7) final styling
   applyBlockStyles(filledCells);
 };
