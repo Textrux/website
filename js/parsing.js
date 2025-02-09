@@ -95,7 +95,7 @@ window.parseAndFormatGrid = function parseAndFormatGrid() {
   populateBlockClusters();
 
   // 6b) find structural patterns
-  PatternsManager.parseAll(filledCells, blockList);
+  // PatternsManager.parseAll(filledCells, blockList);
 
   // 7) final styling
   applyBlockStyles(filledCells);
