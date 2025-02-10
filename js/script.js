@@ -217,6 +217,65 @@ function generateSpreadsheet() {
 generateSpreadsheet();
 
 /***********************************************
+ * Long Press on Select All => Move to R1C1
+ ***********************************************/
+const selectAllCell = document.getElementById("selectAllCell");
+
+if (selectAllCell) {
+  let longPressTimeout;
+
+  selectAllCell.addEventListener("mousedown", (e) => {
+    longPressTimeout = setTimeout(() => {
+      moveSelectionToTopLeft();
+    }, 500); // Adjust the delay if needed
+  });
+
+  selectAllCell.addEventListener("mouseup", () => {
+    clearTimeout(longPressTimeout);
+  });
+
+  selectAllCell.addEventListener("mouseleave", () => {
+    clearTimeout(longPressTimeout);
+  });
+
+  selectAllCell.addEventListener("touchstart", (e) => {
+    longPressTimeout = setTimeout(() => {
+      moveSelectionToTopLeft();
+    }, 500);
+  });
+
+  selectAllCell.addEventListener("touchend", () => {
+    clearTimeout(longPressTimeout);
+  });
+
+  selectAllCell.addEventListener("touchcancel", () => {
+    clearTimeout(longPressTimeout);
+  });
+}
+
+/***********************************************
+ * Move Selection to R1C1 and Scroll
+ ***********************************************/
+function moveSelectionToTopLeft() {
+  const targetCell = getCellElement(1, 1);
+  if (targetCell) {
+    clearSelection();
+    targetCell.classList.add("selected");
+    selectedCells = [targetCell];
+    selectedCell = targetCell;
+    inputBox.value = targetCell.textContent;
+    updateCellLabel(targetCell);
+
+    // Scroll the top-left part of the grid into view
+    targetCell.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "start",
+    });
+  }
+}
+
+/***********************************************
  * attachEventListeners
  ***********************************************/
 document.addEventListener("DOMContentLoaded", () => {
@@ -232,13 +291,81 @@ function attachEventListeners() {
   // "Select All" cell
   const selectAllCell = document.getElementById("selectAllCell");
   if (selectAllCell) {
-    selectAllCell.addEventListener("click", () => {
-      const firstCell = getCellElement(1, 1);
-      const lastCell = getCellElement(numberOfRows, numberOfColumns);
-      if (firstCell && lastCell) {
-        selectCells(firstCell, lastCell);
+    let longPressTimeout;
+    let isLongPress = false;
+
+    function startLongPressDetection() {
+      isLongPress = false;
+      longPressTimeout = setTimeout(() => {
+        isLongPress = true;
+        moveSelectionToTopLeft();
+      }, 500); // Adjust long-press duration if needed
+    }
+
+    function cancelLongPressDetection() {
+      clearTimeout(longPressTimeout);
+    }
+
+    selectAllCell.addEventListener("mousedown", (e) => {
+      startLongPressDetection();
+    });
+
+    selectAllCell.addEventListener("mouseup", (e) => {
+      cancelLongPressDetection();
+      if (!isLongPress) {
+        selectWholeGrid(); // Normal click behavior
       }
     });
+
+    selectAllCell.addEventListener("mouseleave", cancelLongPressDetection);
+
+    selectAllCell.addEventListener("touchstart", (e) => {
+      startLongPressDetection();
+    });
+
+    selectAllCell.addEventListener("touchend", (e) => {
+      cancelLongPressDetection();
+      if (!isLongPress) {
+        selectWholeGrid(); // Normal tap behavior
+      }
+    });
+
+    selectAllCell.addEventListener("touchcancel", cancelLongPressDetection);
+  }
+
+  /***********************************************
+   * Move Selection to Cell at R1C1 and Scroll
+   ***********************************************/
+  function moveSelectionToTopLeftCell() {
+    const targetCell = document.querySelector("td[data-row='1'][data-col='1']");
+    if (targetCell) {
+      clearSelection();
+      targetCell.classList.add("selected");
+      selectedCells = [targetCell];
+      selectedCell = targetCell;
+      inputBox.value = targetCell.textContent;
+      updateCellLabel(targetCell);
+
+      // Scroll the top-left part of the grid into view
+      targetCell.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: "start",
+      });
+    }
+  }
+
+  /***********************************************
+   * Default: Select the Whole Grid
+   ***********************************************/
+  function selectWholeGrid() {
+    const firstCell = document.querySelector("td[data-row='1'][data-col='1']");
+    const lastCell = document.querySelector(
+      `td[data-row='${numberOfRows}'][data-col='${numberOfColumns}']`
+    );
+    if (firstCell && lastCell) {
+      selectCells(firstCell, lastCell);
+    }
   }
 
   // Add row
@@ -1813,6 +1940,24 @@ window.parseAndFormatGrid = function () {
 
 // Load grid data when the page loads
 document.addEventListener("DOMContentLoaded", loadGridFromLocalStorage);
+
+/***********************************************
+ * Toggle Clear Formatting with Ctrl+Shift+~
+ ***********************************************/
+let isFormattingDisabled = false;
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "~" && e.ctrlKey && e.shiftKey) {
+    e.preventDefault();
+    isFormattingDisabled = !isFormattingDisabled;
+
+    if (isFormattingDisabled) {
+      clearFormatting();
+    } else {
+      parseAndFormatGrid();
+    }
+  }
+});
 
 // Finally, parse/format once loaded
 parseAndFormatGrid();
