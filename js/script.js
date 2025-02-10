@@ -800,44 +800,55 @@ document.addEventListener("paste", (e) => {
   let text = e.clipboardData.getData("text/plain") || "";
   if (!text) return;
 
-  // Determine delimiter
+  // Determine delimiter (TSV or CSV)
   let delim = text.indexOf("\t") >= 0 ? "\t" : ",";
   let arr2D = delim === "\t" ? window.fromTSV(text) : window.fromCSV(text);
 
   let startR = +selectedCell.getAttribute("data-row");
   let startC = +selectedCell.getAttribute("data-col");
 
-  // Determine paste region
-  let pastedRows = arr2D.length;
-  let pastedCols = Math.max(...arr2D.map((row) => row.length));
-  let pasteRegion = {
-    startRow: startR,
-    endRow: startR + pastedRows - 1,
-    startCol: startC,
-    endCol: startC + pastedCols - 1,
-  };
+  // If only one cell was copied but multiple cells are selected, apply it to all selected cells
+  if (arr2D.length === 1 && arr2D[0].length === 1 && selectedCells.length > 1) {
+    let copiedValue = arr2D[0][0];
 
-  // Paste the data into the grid.
-  for (let r = 0; r < arr2D.length; r++) {
-    for (let c = 0; c < arr2D[r].length; c++) {
-      let rr = startR + r;
-      let cc = startC + c;
-      if (rr > window.numberOfRows) addRows(rr - window.numberOfRows);
-      if (cc > window.numberOfColumns) addColumns(cc - window.numberOfColumns);
+    selectedCells.forEach((cell) => {
+      let key = getCellKey(cell);
+      cell.textContent = copiedValue;
+      window.cellsData[key] = copiedValue;
+    });
+  } else {
+    // Standard paste logic for multi-cell copy-paste
+    let pastedRows = arr2D.length;
+    let pastedCols = Math.max(...arr2D.map((row) => row.length));
+    let pasteRegion = {
+      startRow: startR,
+      endRow: startR + pastedRows - 1,
+      startCol: startC,
+      endCol: startC + pastedCols - 1,
+    };
 
-      let cell = getCellElement(rr, cc);
-      if (cell) {
-        let val = arr2D[r][c];
-        cell.textContent = val;
-        window.cellsData[getCellKey(cell)] = val;
+    for (let r = 0; r < arr2D.length; r++) {
+      for (let c = 0; c < arr2D[r].length; c++) {
+        let rr = startR + r;
+        let cc = startC + c;
+        if (rr > window.numberOfRows) addRows(rr - window.numberOfRows);
+        if (cc > window.numberOfColumns)
+          addColumns(cc - window.numberOfColumns);
+
+        let cell = getCellElement(rr, cc);
+        if (cell) {
+          let val = arr2D[r][c];
+          cell.textContent = val;
+          window.cellsData[getCellKey(cell)] = val;
+        }
       }
     }
-  }
 
-  // If cut mode was active, remove original copied data,
-  // but only for cells that were NOT pasted over.
-  if (isCutMode && cutCellsData) {
-    removeCutSourceData(pasteRegion);
+    // If cut mode was active, remove original copied data,
+    // but only for cells that were NOT pasted over.
+    if (isCutMode && cutCellsData) {
+      removeCutSourceData(pasteRegion);
+    }
   }
 
   window.parseAndFormatGrid();
