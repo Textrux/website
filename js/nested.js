@@ -72,7 +72,7 @@
 
     // 8) Convert the *entire* existing sheet to CSV
     //    (so we can embed it as the new parent CSV in R1C1).
-    let sheetCsv = sheetToCsv();
+    let sheetCsv = sheetToCsv(false);
 
     // 9) Now wipe the entire sheet
     window.cellsData = {};
@@ -117,52 +117,121 @@
   function leaveNestedCell() {
     // 1) Check if we’re actually in a nested sheet by seeing if R1C1 starts with '^'.
     let firstCellKey = "R1C1";
-    let firstCellVal = window.cellsData[firstCellKey] || "";
+    let currentParentCsv = window.cellsData[firstCellKey] || "";
 
-    if (!firstCellVal.startsWith("^")) {
+    if (!currentParentCsv.startsWith("^")) {
       // Not in a nested grid, so do nothing.
       return;
     }
 
     // 2) Determine nested depth
-    let currentDepth = getDepthFromWrapper(firstCellVal);
+    let currentDepth = getDepthFromWrapper(currentParentCsv);
     if (currentDepth === 0) {
       // Means we can’t go up any further
       return;
     }
 
     // 3) Convert the entire *current* sheet to CSV so we can embed it back into the parent's marker.
-    let currentSheetCsv = sheetToCsv();
-    if (!currentSheetCsv.trim()) {
-      currentSheetCsv = ","; // Ensure there's at least one empty cell
+    let currentSheetCsvWithoutParentCell = sheetToCsv(true);
+    if (!currentSheetCsvWithoutParentCell.trim()) {
+      currentSheetCsvWithoutParentCell = ","; // Ensure there's at least one empty cell
     }
 
     // 4) Clear out the entire grid before restoring the parent
     window.cellsData = {};
 
     // 5) Restore parent grid with updated nested content
-    let parentCsv;
     if (currentDepth > 1) {
-      // Get the updated parent CSV by replacing `<<)depth(>>` with `currentSheetCsv`
-      parentCsv = replaceDeepMarkerInWrapper(
-        firstCellVal,
-        currentDepth,
-        currentSheetCsv
+      // Look in the parent CSV (in cell R1C1)
+      // and grab out the part of that CSV that represents the next highest level
+      // So in the example below, if the currentDepth is 2 then grab out all
+      // the CSV between <<(1) and (1)>> since that is the CSV for the next level
+      // ^,,,
+      // ,,,
+      // ,,a,
+      // ,,,<<(1),,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>(1)>>
+      let nextHighestGridDepth = currentDepth - 1;
+      let nextHighestGridFirstSplit = currentParentCsv.split(
+        `(${nextHighestGridDepth})>>`
+      )[0]; // Get everything before "(depth)>>"
+      let nextHighestGridAsCsvWithMarker = nextHighestGridFirstSplit.split(
+        `<<(${nextHighestGridDepth})`
+      )[1]; // Get everything after "<<(depth)"
+
+      // In our example we now have this CSV for the next grid to replace the current grid
+      // ,,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>
+
+      // but before we can use this CSV to replace the contents of the current grid (level 2)
+      // with the contents of the CSV from level 1 (from our example above)
+      // we have to replace the <<)2(>> in that CSV with the current grid (level 2) as CSV
+
+      // so first define <<)2(>>
+      let currentGridLevelMarker = `<<)${currentDepth}(>>`;
+      // then we need to take the current sheets CSV without the parent cell
+      // and replace any quotes with double quotes (per the CSV standard)
+      let currentSheetCsvWithoutParentCellEscaped =
+        currentSheetCsvWithoutParentCell.replace(/"/g, `""`); // Escape double quotes
+      // now we need to wrap that
+      let currentSheetCsvWithoutParentCellEscapedWrappedInQuotes = `"${currentSheetCsvWithoutParentCellEscaped}"`; // Wrap the whole thing in quotes
+
+      // now we need to replace the marker in the nextHighestGridAsCsvWithMarker
+      let nextHighestGridAsCsvWithMarkerReplaced =
+        nextHighestGridAsCsvWithMarker.replace(
+          currentGridLevelMarker,
+          currentSheetCsvWithoutParentCellEscapedWrappedInQuotes
+        );
+
+      // In our example we now have this CSV for the next grid to replace the current grid
+      // notice the <<)2(>> has now ben replaced with the current grid converted to CSV
+      // ,,,
+      // ,,,
+      // ,,b,
+      // ,,,",c"
+
+      // Now we are almost ready to replace the contents of the current level grid
+      // with the next level grid. However, we need to add in the new parent CSV to our new
+      // next level grid
+
+      // So first create that next level parent by replacing (from the parent CSV from our example)
+
+      // <<(1),,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>(1)>>
+
+      //with just
+
+      // <<)1(>>
+      let beginningOfNextInParent = `<<(${nextHighestGridDepth})`;
+      let endOfNextInParent = `(${nextHighestGridDepth})>>`;
+      let nextInParent = `${beginningOfNextInParent}${nextHighestGridAsCsvWithMarker}${endOfNextInParent}`;
+      let newNextInParent = `<<)${nextHighestGridDepth}(>>`;
+      let currentParentCsvWithNewNext = currentParentCsv.replace(
+        nextInParent,
+        newNextInParent
       );
+      // Make sure we wrap the new parent cell in quotes
+      let nextHighestNestedGridParent = `"${currentParentCsvWithNewNext}"`;
 
-      // Decrease depth marker from `^<<)depth(>>...` to `^<<)(depth-1)>>`
-      let newDepth = currentDepth - 1;
-      let updatedParentCsv = rewriteWrapperDepth(parentCsv, newDepth);
+      // Now just add the new parent cell on to the beginning of the newly constructed
+      // next level CSV
+      let nextLevelCsv = `${nextHighestNestedGridParent}${nextHighestGridAsCsvWithMarkerReplaced}`;
 
-      // Convert parent CSV back into a grid and display it
-      let parentArray = fromCSV(removeCaret(updatedParentCsv));
+      // Convert back to an array and display
+      let parentArray = fromCSV(nextLevelCsv);
       arrayToSheet(parentArray);
     } else {
       // Leaving the top-level nested sheet, reintegrate the CSV back into R1C1's placeholder
       parentCsv = embedCurrentCsvInWrapper(
-        firstCellVal,
+        currentParentCsv,
         currentDepth,
-        currentSheetCsv
+        currentSheetCsvWithoutParentCell
       );
 
       // Remove the leading '^' to return to the base grid
@@ -195,7 +264,7 @@
   /**
    * Convert the entire grid to CSV
    */
-  function sheetToCsv() {
+  function sheetToCsv(ignoreParentCell) {
     // Build a 2D array from cellsData:
     // 1) Find max row & column in cellsData
     let maxRow = 0,
@@ -231,9 +300,11 @@
       let rr = parseInt(m[1]) - 1;
       let cc = parseInt(m[2]) - 1;
 
-      // Ignore R1C1 if it starts with "^"
-      if (rr === 0 && cc === 0 && window.cellsData[key].startsWith("^")) {
-        continue;
+      if (ignoreParentCell) {
+        // Ignore R1C1 if it starts with "^"
+        if (rr === 0 && cc === 0 && window.cellsData[key].startsWith("^")) {
+          continue;
+        }
       }
 
       arr[rr][cc] = window.cellsData[key];
@@ -336,7 +407,7 @@
     let escapedChildCsv = childCsv.replace(/"/g, '""');
 
     // Construct the replacement string (this is how the VBA works)
-    let replacement = `"<<)${depth}(>>${escapedChildCsv}"`;
+    let replacement = `"${escapedChildCsv}"`;
 
     // Replace the marker <<)depth(>> in the parent CSV with the new escaped child CSV
     let updatedParentCsv = parentCsv.replace(`<<)${depth}(>>`, replacement);
@@ -368,19 +439,27 @@
   }
 
   document.addEventListener("dblclick", function (e) {
-    // Check that the target is a table cell
+    // Ensure the target is a table cell
     if (e.target && e.target.tagName === "TD") {
       const row = e.target.getAttribute("data-row");
       const col = e.target.getAttribute("data-col");
+      const cellKey = `R${row}C${col}`;
+      const cellValue = window.cellsData[cellKey] || "";
+
       // If the double-clicked cell is the top-left cell (R1C1)
       if (row === "1" && col === "1") {
-        const cellValue = window.cellsData["R1C1"] || "";
-        // Check if this cell is acting as the nested wrapper (starts with a caret)
         if (cellValue.startsWith("^")) {
-          // Call the leaveNestedCell function defined in this file.
           leaveNestedCell();
+          return; // Stop further execution
         }
       }
+
+      // Check if the clicked cell contains a nested grid (starts with a comma)
+
+      //TODO: Works but conflicts with dblClick in script.js
+      // if (cellValue.startsWith(",")) {
+      //   enterNestedCell(e.target);
+      // }
     }
   });
 })();
