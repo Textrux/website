@@ -1,161 +1,52 @@
-/******************************************************
- * csv.js
- *
- * Custom CSV/TSV code that handles quotes & newlines
- ******************************************************/
+const spreadsheet = document.getElementById("spreadsheet");
 
-function fromCSV(csvString) {
-  // parse CSV with quotes, newlines, etc.
-  if (!csvString) return [];
+let blockJoins = [];
+let blockClusters = [];
+let NUMBER_OF_ROWS = 125;
+let NUMBER_OF_COLUMNS = 100;
+let ADDITIONAL_ROWS_COLUMNS = 50;
+let currentDelimiter = localStorage.getItem("savedDelimiter") || "tab";
+let cellToBlockMap = {};
+let blockList = [];
+let numberOfRows = NUMBER_OF_ROWS;
+let numberOfColumns = NUMBER_OF_COLUMNS;
+let selectedCells = [];
+let selectedCell = null;
+let isSelecting = false;
+let startCell = null;
+let endCell = null;
+let isMidPanning = false;
+let midPanStartX = 0;
+let midPanStartY = 0;
+let midPanScrollLeft = 0;
+let midPanScrollTop = 0;
+const PAN_THRESHOLD = 10;
+let isTouchPanning = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let scrollStartX = 0;
+let scrollStartY = 0;
+let longPressTimeout = null;
+let longPressDuration = 500; // how long before we consider it a long press
+let isLongPressFired = false;
+let isTouchSelecting = false;
+let touchSelectStartCell = null;
+const doubleTapDelay = 250;
+let lastTapTime = 0;
+let lastTapCell = null;
+let isDraggingBlock = false;
+let draggedBlock = null;
+let draggedSelection = null;
+let dragShadowCells = [];
+let isResizingCol = false;
+let isResizingRow = false;
+let startX, startY, startWidth, startHeight;
+let resizerCol, resizerRow;
+let isCutMode = false;
+let cutCellsData = null;
+let selectionAnchor = null;
+let isFormattingDisabled = false;
 
-  // normalize line endings
-  csvString = csvString.replace(/\r\n/g, "\n");
-
-  let rows = [];
-  let len = csvString.length;
-  let insideQuotes = false;
-  let cellValue = "";
-  let row = [];
-  let i = 0;
-
-  while (i < len) {
-    let ch = csvString[i];
-
-    if (ch === '"') {
-      if (!insideQuotes) {
-        insideQuotes = true;
-      } else {
-        // check for doubled-quote
-        if (i + 1 < len && csvString[i + 1] === '"') {
-          cellValue += '"';
-          i++;
-        } else {
-          insideQuotes = false;
-        }
-      }
-    } else if (!insideQuotes && (ch === "," || ch === "\n")) {
-      row.push(cellValue);
-      cellValue = "";
-      if (ch === "\n") {
-        rows.push(row);
-        row = [];
-      }
-    } else {
-      cellValue += ch;
-    }
-    i++;
-  }
-
-  // last cell
-  row.push(cellValue);
-  rows.push(row);
-
-  return rows;
-}
-
-function toCSV(arr2D) {
-  let lines = [];
-  for (let r = 0; r < arr2D.length; r++) {
-    let rowArr = arr2D[r] || [];
-    let lineParts = [];
-    for (let c = 0; c < rowArr.length; c++) {
-      let value = rowArr[c] == null ? "" : String(rowArr[c]);
-      // double up quotes
-      value = value.replace(/"/g, '""');
-      // if any special characters => wrap in quotes
-      if (/[",\n\r]/.test(value)) {
-        value = `"${value}"`;
-      }
-      lineParts.push(value);
-    }
-    lines.push(lineParts.join(","));
-  }
-  return lines.join("\r\n");
-}
-
-function fromTSV(tsvString) {
-  if (!tsvString) return [];
-
-  // Normalize line endings
-  tsvString = tsvString.replace(/\r\n/g, "\n");
-
-  let rows = [];
-  let len = tsvString.length;
-  let insideQuotes = false;
-  let cellValue = "";
-  let row = [];
-  let i = 0;
-
-  while (i < len) {
-    let ch = tsvString[i];
-
-    if (ch === '"') {
-      if (!insideQuotes) {
-        insideQuotes = true;
-      } else {
-        // Check for double-quote escape
-        if (i + 1 < len && tsvString[i + 1] === '"') {
-          cellValue += '"';
-          i++;
-        } else {
-          insideQuotes = false;
-        }
-      }
-    } else if (!insideQuotes && (ch === "\t" || ch === "\n")) {
-      row.push(cellValue);
-      cellValue = "";
-      if (ch === "\n") {
-        rows.push(row);
-        row = [];
-      }
-    } else {
-      cellValue += ch;
-    }
-    i++;
-  }
-
-  // Last cell
-  row.push(cellValue);
-  rows.push(row);
-
-  return rows;
-}
-
-function toTSV(arr2D) {
-  let lines = [];
-  for (let r = 0; r < arr2D.length; r++) {
-    let rowArr = arr2D[r] || [];
-    let lineParts = [];
-    for (let c = 0; c < rowArr.length; c++) {
-      let value = rowArr[c] == null ? "" : String(rowArr[c]);
-      // Double up quotes
-      value = value.replace(/"/g, '""');
-      // If special characters exist, wrap in quotes
-      if (/[\"\t\n\r]/.test(value)) {
-        value = `"${value}"`;
-      }
-      lineParts.push(value);
-    }
-    lines.push(lineParts.join("\t"));
-  }
-  return lines.join("\r\n");
-}
-
-/******************************************************
- * popup.js
- *
- * Shows the modal popup on gear icon click,
- * with four tabs: Settings, Examples, Instructions, About.
- ******************************************************/
-
-const overlay = document.getElementById("modalOverlay");
-const popupBox = document.getElementById("popupBox");
-const closeButton = document.getElementById("popupCloseButton");
-const tabs = document.querySelectorAll("#popupTabs .popupTab");
-const contentDiv = document.getElementById("popupContent");
-
-// Default "Copy as: CSV/TSV" setting is TSV.
-// We’ll use a simple <select> to control the global `currentDelimiter`.
 const settingsHTML = `
     <label for="delimiterSelect"><strong>Copy as:</strong></label>
     <select id="delimiterSelect">
@@ -228,21 +119,6 @@ const examples = [
   },
 ];
 
-// This function returns HTML that renders a <select> element
-// with a fixed size (to show 10 items at once), a description area,
-// and a Load button.
-function renderExamples() {
-  let html = `<p>Select one of the examples and press <i>Load</i>:</p>`;
-  html += `<select id="exampleSelect" size="10" style="width:100%; margin-bottom:10px;">`;
-  examples.forEach((ex) => {
-    html += `<option value="${ex.name}">${ex.name}</option>`;
-  });
-  html += `</select>`;
-  html += `<div id="exampleDescription" style="margin-bottom:10px; border:1px solid #ccc; padding:6px; min-height:100px;"></div>`;
-  html += `<button id="loadExampleButton" style="padding:6px 12px; font-size:14px;">Load</button>`;
-  return html;
-}
-
 const instructionsHTML = `
       <h3>Instructions</h3>
       <p>Enter text in cells to build text structures. The structures are built from the location of the filled cells on the grid.</p>
@@ -262,302 +138,49 @@ const aboutHTML = `
       <p>The Github repository for this site can be found <a href="https://github.com/Textrux/website" target="_blank">here</a>.</p>
     `;
 
-function saveGridToFile() {
-  let arr2D = [];
-  let maxRow = 1,
-    maxCol = 1;
+// Simple context menu for right-click copy (optional)
+const contextMenu = document.createElement("div");
+contextMenu.id = "customContextMenu";
+contextMenu.style.position = "absolute";
+contextMenu.style.display = "none";
+contextMenu.style.background = "#eee";
+contextMenu.style.border = "1px solid #999";
+contextMenu.innerHTML = `
+  <div style="padding:4px; cursor:pointer;" id="contextMenuCopy">Copy</div>
+`;
+document.body.appendChild(contextMenu);
 
-  // Determine the grid size from cellsData
-  for (let key in cellsData) {
-    let match = key.match(/R(\d+)C(\d+)/);
-    if (match) {
-      const row = parseInt(match[1]);
-      const col = parseInt(match[2]);
-      maxRow = Math.max(maxRow, row);
-      maxCol = Math.max(maxCol, col);
-    }
+/****************************************************
+ * Container class to match your C# approach
+ ****************************************************/
+class Container {
+  constructor(top, left, bottom, right) {
+    this.topRow = top;
+    this.leftColumn = left;
+    this.bottomRow = bottom;
+    this.rightColumn = right;
+    this.filledPoints = [];
   }
 
-  // Build a 2D array filled with empty strings
-  for (let r = 0; r < maxRow; r++) {
-    arr2D[r] = new Array(maxCol).fill("");
+  expandOutlineBy(expand, rowCount, colCount) {
+    const newTop = Math.max(1, this.topRow - expand);
+    const newLeft = Math.max(1, this.leftColumn - expand);
+    const newBottom = Math.min(rowCount, this.bottomRow + expand);
+    const newRight = Math.min(colCount, this.rightColumn + expand);
+
+    let c = new Container(newTop, newLeft, newBottom, newRight);
+    c.filledPoints = [...this.filledPoints];
+    return c;
   }
 
-  // Populate the array from cellsData
-  for (let key in cellsData) {
-    let match = key.match(/R(\d+)C(\d+)/);
-    if (match) {
-      const row = parseInt(match[1]) - 1;
-      const col = parseInt(match[2]) - 1;
-      arr2D[row][col] = cellsData[key];
-    }
-  }
-
-  // Convert the 2D array to CSV or TSV using your global functions
-  const text = currentDelimiter === "tab" ? toTSV(arr2D) : toCSV(arr2D);
-
-  // Generate the default file name based on the current date and time
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
-  const defaultName = `grid_${year}${month}${day}_${hours}${minutes}${seconds}`;
-
-  // Prompt the user to enter a file name (without extension)
-  let fileName = prompt("Enter file name (without extension):", defaultName);
-  if (fileName === null) {
-    // User hit cancel, so do not download anything.
-    return;
-  }
-  // If the user leaves it blank, use the default name.
-  if (!fileName) {
-    fileName = defaultName;
-  }
-
-  // Append the appropriate extension
-  fileName += currentDelimiter === "tab" ? ".tsv" : ".csv";
-
-  // Create a Blob and a temporary link to download the file
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// Update the loadExample function so that it accepts an example object.
-async function loadExample(example) {
-  let fileName;
-  if (typeof example === "object" && example.file) {
-    fileName = example.file;
-  } else if (typeof example === "string") {
-    // Fallback for the old format
-    fileName = example.replace(/\s+/g, "") + ".csv";
-  } else {
-    console.error("Invalid example input");
-    return;
-  }
-  const url = `./examples/${fileName}`;
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      alert("Failed to load " + url);
-      return;
-    }
-    const text = await resp.text();
-    // Parse as CSV
-    const data = fromCSV(text);
-    // Clear grid
-    cellsData = {};
-    // Populate the grid
-    for (let r = 0; r < data.length; r++) {
-      for (let c = 0; c < data[r].length; c++) {
-        const val = data[r][c];
-        if (val.trim()) {
-          const rowIndex = r + 1;
-          const colIndex = c + 1;
-          const key = `R${rowIndex}C${colIndex}`;
-          cellsData[key] = val;
-        }
-      }
-    }
-    // Re-parse & format the grid
-    parseAndFormatGrid();
-  } catch (err) {
-    console.error(err);
-    alert("Error loading example: " + err);
+  overlaps(other) {
+    if (this.topRow > other.bottomRow) return false;
+    if (other.topRow > this.bottomRow) return false;
+    if (this.leftColumn > other.rightColumn) return false;
+    if (other.leftColumn > this.rightColumn) return false;
+    return true;
   }
 }
-
-function loadTab(tabName) {
-  tabs.forEach((t) => t.classList.remove("active"));
-  let tabEl = Array.from(tabs).find((t) => t.dataset.tab === tabName);
-  if (tabEl) tabEl.classList.add("active");
-
-  switch (tabName) {
-    case "Settings":
-      contentDiv.innerHTML = settingsHTML;
-      const sel = contentDiv.querySelector("#delimiterSelect");
-      if (sel) {
-        // Load from localStorage or default to "tab" (TSV)
-        sel.value = localStorage.getItem("savedDelimiter") || "tab";
-        currentDelimiter = sel.value; // Ensure it's set globally
-
-        sel.addEventListener("change", () => {
-          currentDelimiter = sel.value;
-          localStorage.setItem("savedDelimiter", sel.value); // Save to localStorage
-        });
-      }
-
-      // Handle "Clear Grid" button click
-      const clearButton = contentDiv.querySelector("#clearGridButton");
-      if (clearButton) {
-        clearButton.addEventListener("click", () => {
-          if (
-            confirm("Are you sure you want to delete everything on the grid?")
-          ) {
-            cellsData = {}; // Reset all cell data
-            localStorage.removeItem(STORAGE_KEY); // Remove saved data
-            parseAndFormatGrid(); // Clear the grid visually
-            closePopup();
-          }
-        });
-      }
-
-      // Save Grid button
-      const saveGridButton = contentDiv.querySelector("#saveGridButton");
-      if (saveGridButton) {
-        saveGridButton.addEventListener("click", saveGridToFile);
-      }
-
-      // Load Grid from File button and file input handler
-      const loadGridButton = contentDiv.querySelector("#loadGridButton");
-      const loadGridFileInput = document.getElementById("loadGridFileInput");
-
-      if (loadGridButton) {
-        loadGridButton.addEventListener("click", () => {
-          loadGridFileInput.click();
-        });
-      }
-
-      loadGridFileInput.addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (event) {
-          const text = event.target.result;
-          // Determine delimiter automatically (TSV if tab exists)
-          const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
-          const dataArray = delim === "\t" ? fromTSV(text) : fromCSV(text);
-
-          // Clear current grid data
-          cellsData = {};
-
-          // Optionally, adjust the grid size if needed:
-          const requiredRows = dataArray.length;
-          const requiredCols = Math.max(...dataArray.map((row) => row.length));
-          if (requiredRows > numberOfRows) {
-            addRows(requiredRows - numberOfRows);
-          }
-          if (requiredCols > numberOfColumns) {
-            addColumns(requiredCols - numberOfColumns);
-          }
-
-          // Populate cellsData from the file’s contents
-          for (let r = 0; r < dataArray.length; r++) {
-            for (let c = 0; c < dataArray[r].length; c++) {
-              const val = dataArray[r][c];
-              if (val.trim()) {
-                const rowIndex = r + 1;
-                const colIndex = c + 1;
-                const key = `R${rowIndex}C${colIndex}`;
-                cellsData[key] = val;
-              }
-            }
-          }
-          parseAndFormatGrid();
-        };
-        reader.readAsText(file);
-        // Reset the file input so the same file can be reselected if desired
-        this.value = "";
-      });
-
-      break;
-
-    case "Examples":
-      contentDiv.innerHTML = renderExamples();
-
-      // Set up event listeners for the Examples tab.
-      const exampleSelect = contentDiv.querySelector("#exampleSelect");
-      const exampleDescriptionDiv = contentDiv.querySelector(
-        "#exampleDescription"
-      );
-      const loadExampleButton = contentDiv.querySelector("#loadExampleButton");
-
-      if (exampleSelect) {
-        // Update the description when the selection changes.
-        exampleSelect.addEventListener("change", () => {
-          const selectedValue = exampleSelect.value;
-          const selectedExample = examples.find(
-            (ex) => ex.name === selectedValue
-          );
-          if (selectedExample) {
-            exampleDescriptionDiv.innerHTML = selectedExample.description;
-          } else {
-            exampleDescriptionDiv.innerHTML = "";
-          }
-        });
-        // Trigger the change event immediately to load the description of the first example.
-        exampleSelect.dispatchEvent(new Event("change"));
-      }
-
-      if (loadExampleButton) {
-        loadExampleButton.addEventListener("click", () => {
-          const selectedValue = exampleSelect.value;
-          const selectedExample = examples.find(
-            (ex) => ex.name === selectedValue
-          );
-          if (selectedExample) {
-            loadExample(selectedExample);
-            closePopup();
-          } else {
-            alert("Please select an example");
-          }
-        });
-      }
-      break;
-
-    case "Instructions":
-      contentDiv.innerHTML = instructionsHTML;
-      break;
-
-    case "About":
-      contentDiv.innerHTML = aboutHTML;
-      break;
-  }
-}
-
-// Expose the openPopup function globally.
-function openPopup() {
-  overlay.classList.remove("hidden");
-  loadTab("Settings"); // default to settings
-}
-
-function closePopup() {
-  overlay.classList.add("hidden");
-}
-
-closeButton.addEventListener("click", closePopup);
-
-// Close the popup if the user clicks the background.
-overlay.addEventListener("click", (e) => {
-  if (e.target === overlay) {
-    closePopup();
-  }
-});
-
-// Set up tab clicks.
-tabs.forEach((t) => {
-  t.addEventListener("click", () => {
-    loadTab(t.dataset.tab);
-  });
-});
-
-/*******************************************************
- * patterns.js
- *
- * Defines a flexible system for describing "structures"
- * (Cell Patterns, Cell Cluster Patterns, Block Patterns, etc.)
- * along with parse and format routines.
- *******************************************************/
 
 PatternsManager = (function () {
   /*******************************************************
@@ -901,12 +524,6 @@ PatternsManager.registerPattern({
  ****************************************************/
 
 /****************************************************
- *  GLOBAL ARRAYS that script.js expects:
- ****************************************************/
-let blockJoins = [];
-let blockClusters = [];
-
-/****************************************************
  * parseAndFormatGrid (global)
  ****************************************************/
 function parseAndFormatGrid() {
@@ -1199,38 +816,6 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
   });
 
   return containers;
-}
-
-/****************************************************
- * Container class to match your C# approach
- ****************************************************/
-class Container {
-  constructor(top, left, bottom, right) {
-    this.topRow = top;
-    this.leftColumn = left;
-    this.bottomRow = bottom;
-    this.rightColumn = right;
-    this.filledPoints = [];
-  }
-
-  expandOutlineBy(expand, rowCount, colCount) {
-    const newTop = Math.max(1, this.topRow - expand);
-    const newLeft = Math.max(1, this.leftColumn - expand);
-    const newBottom = Math.min(rowCount, this.bottomRow + expand);
-    const newRight = Math.min(colCount, this.rightColumn + expand);
-
-    let c = new Container(newTop, newLeft, newBottom, newRight);
-    c.filledPoints = [...this.filledPoints];
-    return c;
-  }
-
-  overlaps(other) {
-    if (this.topRow > other.bottomRow) return false;
-    if (other.topRow > this.bottomRow) return false;
-    if (this.leftColumn > other.rightColumn) return false;
-    if (other.leftColumn > this.rightColumn) return false;
-    return true;
-  }
 }
 
 function createContainerFromPoint(pt) {
@@ -1596,6 +1181,297 @@ function clearFormatting() {
       td.textContent = "";
     }
   });
+}
+
+// This function returns HTML that renders a <select> element
+// with a fixed size (to show 10 items at once), a description area,
+// and a Load button.
+function renderExamples() {
+  let html = `<p>Select one of the examples and press <i>Load</i>:</p>`;
+  html += `<select id="exampleSelect" size="10" style="width:100%; margin-bottom:10px;">`;
+  examples.forEach((ex) => {
+    html += `<option value="${ex.name}">${ex.name}</option>`;
+  });
+  html += `</select>`;
+  html += `<div id="exampleDescription" style="margin-bottom:10px; border:1px solid #ccc; padding:6px; min-height:100px;"></div>`;
+  html += `<button id="loadExampleButton" style="padding:6px 12px; font-size:14px;">Load</button>`;
+  return html;
+}
+
+function saveGridToFile() {
+  let arr2D = [];
+  let maxRow = 1,
+    maxCol = 1;
+
+  // Determine the grid size from cellsData
+  for (let key in cellsData) {
+    let match = key.match(/R(\d+)C(\d+)/);
+    if (match) {
+      const row = parseInt(match[1]);
+      const col = parseInt(match[2]);
+      maxRow = Math.max(maxRow, row);
+      maxCol = Math.max(maxCol, col);
+    }
+  }
+
+  // Build a 2D array filled with empty strings
+  for (let r = 0; r < maxRow; r++) {
+    arr2D[r] = new Array(maxCol).fill("");
+  }
+
+  // Populate the array from cellsData
+  for (let key in cellsData) {
+    let match = key.match(/R(\d+)C(\d+)/);
+    if (match) {
+      const row = parseInt(match[1]) - 1;
+      const col = parseInt(match[2]) - 1;
+      arr2D[row][col] = cellsData[key];
+    }
+  }
+
+  // Convert the 2D array to CSV or TSV using your global functions
+  const text = currentDelimiter === "tab" ? toTSV(arr2D) : toCSV(arr2D);
+
+  // Generate the default file name based on the current date and time
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  const defaultName = `grid_${year}${month}${day}_${hours}${minutes}${seconds}`;
+
+  // Prompt the user to enter a file name (without extension)
+  let fileName = prompt("Enter file name (without extension):", defaultName);
+  if (fileName === null) {
+    // User hit cancel, so do not download anything.
+    return;
+  }
+  // If the user leaves it blank, use the default name.
+  if (!fileName) {
+    fileName = defaultName;
+  }
+
+  // Append the appropriate extension
+  fileName += currentDelimiter === "tab" ? ".tsv" : ".csv";
+
+  // Create a Blob and a temporary link to download the file
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Update the loadExample function so that it accepts an example object.
+async function loadExample(example) {
+  let fileName;
+  if (typeof example === "object" && example.file) {
+    fileName = example.file;
+  } else if (typeof example === "string") {
+    // Fallback for the old format
+    fileName = example.replace(/\s+/g, "") + ".csv";
+  } else {
+    console.error("Invalid example input");
+    return;
+  }
+  const url = `./examples/${fileName}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      alert("Failed to load " + url);
+      return;
+    }
+    const text = await resp.text();
+    // Parse as CSV
+    const data = fromCSV(text);
+    // Clear grid
+    cellsData = {};
+    // Populate the grid
+    for (let r = 0; r < data.length; r++) {
+      for (let c = 0; c < data[r].length; c++) {
+        const val = data[r][c];
+        if (val.trim()) {
+          const rowIndex = r + 1;
+          const colIndex = c + 1;
+          const key = `R${rowIndex}C${colIndex}`;
+          cellsData[key] = val;
+        }
+      }
+    }
+    // Re-parse & format the grid
+    parseAndFormatGrid();
+  } catch (err) {
+    console.error(err);
+    alert("Error loading example: " + err);
+  }
+}
+
+function loadTab(tabName) {
+  const tabs = document.querySelectorAll("#popupTabs .popupTab");
+  tabs.forEach((t) => t.classList.remove("active"));
+  let tabEl = Array.from(tabs).find((t) => t.dataset.tab === tabName);
+  if (tabEl) tabEl.classList.add("active");
+  const contentDiv = document.getElementById("popupContent");
+  switch (tabName) {
+    case "Settings":
+      contentDiv.innerHTML = settingsHTML;
+      const sel = contentDiv.querySelector("#delimiterSelect");
+      if (sel) {
+        // Load from localStorage or default to "tab" (TSV)
+        sel.value = localStorage.getItem("savedDelimiter") || "tab";
+        currentDelimiter = sel.value; // Ensure it's set globally
+
+        sel.addEventListener("change", () => {
+          currentDelimiter = sel.value;
+          localStorage.setItem("savedDelimiter", sel.value); // Save to localStorage
+        });
+      }
+
+      // Handle "Clear Grid" button click
+      const clearButton = contentDiv.querySelector("#clearGridButton");
+      if (clearButton) {
+        clearButton.addEventListener("click", () => {
+          if (
+            confirm("Are you sure you want to delete everything on the grid?")
+          ) {
+            cellsData = {}; // Reset all cell data
+            localStorage.removeItem(STORAGE_KEY); // Remove saved data
+            parseAndFormatGrid(); // Clear the grid visually
+            closePopup();
+          }
+        });
+      }
+
+      // Save Grid button
+      const saveGridButton = contentDiv.querySelector("#saveGridButton");
+      if (saveGridButton) {
+        saveGridButton.addEventListener("click", saveGridToFile);
+      }
+      const loadGridButton = contentDiv.querySelector("#loadGridButton");
+      if (loadGridButton) {
+        loadGridButton.addEventListener("click", () => {
+          document.getElementById("loadGridFileInput").click();
+        });
+      }
+
+      document
+        .getElementById("loadGridFileInput")
+        .addEventListener("change", function (e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = function (event) {
+            const text = event.target.result;
+            // Determine delimiter automatically (TSV if tab exists)
+            const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
+            const dataArray = delim === "\t" ? fromTSV(text) : fromCSV(text);
+
+            // Clear current grid data
+            cellsData = {};
+
+            // Optionally, adjust the grid size if needed:
+            const requiredRows = dataArray.length;
+            const requiredCols = Math.max(
+              ...dataArray.map((row) => row.length)
+            );
+            if (requiredRows > numberOfRows) {
+              addRows(requiredRows - numberOfRows);
+            }
+            if (requiredCols > numberOfColumns) {
+              addColumns(requiredCols - numberOfColumns);
+            }
+
+            // Populate cellsData from the file’s contents
+            for (let r = 0; r < dataArray.length; r++) {
+              for (let c = 0; c < dataArray[r].length; c++) {
+                const val = dataArray[r][c];
+                if (val.trim()) {
+                  const rowIndex = r + 1;
+                  const colIndex = c + 1;
+                  const key = `R${rowIndex}C${colIndex}`;
+                  cellsData[key] = val;
+                }
+              }
+            }
+            parseAndFormatGrid();
+          };
+          reader.readAsText(file);
+          // Reset the file input so the same file can be reselected if desired
+          this.value = "";
+        });
+
+      break;
+
+    case "Examples":
+      contentDiv.innerHTML = renderExamples();
+
+      // Set up event listeners for the Examples tab.
+      const exampleSelect = contentDiv.querySelector("#exampleSelect");
+      const exampleDescriptionDiv = contentDiv.querySelector(
+        "#exampleDescription"
+      );
+      const loadExampleButton = contentDiv.querySelector("#loadExampleButton");
+
+      if (exampleSelect) {
+        // Update the description when the selection changes.
+        exampleSelect.addEventListener("change", () => {
+          const selectedValue = exampleSelect.value;
+          const selectedExample = examples.find(
+            (ex) => ex.name === selectedValue
+          );
+          if (selectedExample) {
+            exampleDescriptionDiv.innerHTML = selectedExample.description;
+          } else {
+            exampleDescriptionDiv.innerHTML = "";
+          }
+        });
+        // Trigger the change event immediately to load the description of the first example.
+        exampleSelect.dispatchEvent(new Event("change"));
+      }
+
+      if (loadExampleButton) {
+        loadExampleButton.addEventListener("click", () => {
+          const selectedValue = exampleSelect.value;
+          const selectedExample = examples.find(
+            (ex) => ex.name === selectedValue
+          );
+          if (selectedExample) {
+            loadExample(selectedExample);
+            closePopup();
+          } else {
+            alert("Please select an example");
+          }
+        });
+      }
+      break;
+
+    case "Instructions":
+      contentDiv.innerHTML = instructionsHTML;
+      break;
+
+    case "About":
+      contentDiv.innerHTML = aboutHTML;
+      break;
+  }
+}
+
+// Expose the openPopup function globally.
+function openPopup() {
+  const overlay = document.getElementById("modalOverlay");
+  overlay.classList.remove("hidden");
+  loadTab("Settings"); // default to settings
+}
+
+function closePopup() {
+  const overlay = document.getElementById("modalOverlay");
+  overlay.classList.add("hidden");
 }
 
 /******************************************************
@@ -2061,95 +1937,6 @@ if (savedGridData) {
 }
 
 /***********************************************
- * Configuration
- ***********************************************/
-let NUMBER_OF_ROWS = 125;
-let NUMBER_OF_COLUMNS = 100;
-let ADDITIONAL_ROWS_COLUMNS = 50;
-
-// Our default delimiter => "tab" for TSV but first check for a local storage value
-currentDelimiter = localStorage.getItem("savedDelimiter") || "tab";
-
-/***********************************************
- * For Treet parser references
- ***********************************************/
-let cellToBlockMap = {};
-let blockList = [];
-
-// Keep track of total row/col counts
-let numberOfRows = NUMBER_OF_ROWS;
-let numberOfColumns = NUMBER_OF_COLUMNS;
-
-// Selected cells
-// Directly attach them to window
-selectedCells = [];
-selectedCell = null;
-let isSelecting = false;
-let startCell = null;
-let endCell = null;
-
-// Middle-click panning
-let isMidPanning = false;
-let midPanStartX = 0;
-let midPanStartY = 0;
-let midPanScrollLeft = 0;
-let midPanScrollTop = 0;
-
-// Mobile/touch
-const PAN_THRESHOLD = 10;
-let isTouchPanning = false;
-let touchStartX = 0;
-let touchStartY = 0;
-let scrollStartX = 0;
-let scrollStartY = 0;
-let longPressTimeout = null;
-let longPressDuration = 500; // how long before we consider it a long press
-let isLongPressFired = false;
-let isTouchSelecting = false;
-let touchSelectStartCell = null;
-const doubleTapDelay = 250;
-let lastTapTime = 0;
-let lastTapCell = null;
-let isDraggingBlock = false;
-let draggedBlock = null;
-let draggedSelection = null;
-let dragShadowCells = [];
-
-// For resizing columns/rows
-let isResizingCol = false;
-let isResizingRow = false;
-let startX, startY, startWidth, startHeight;
-let resizerCol, resizerRow;
-
-// DOM references
-const spreadsheet = document.getElementById("spreadsheet");
-const gridContainer = document.getElementById("gridContainer");
-const inputBox = document.getElementById("inputBox");
-const cellLabel = document.getElementById("cellLabel");
-const sidePanel = document.getElementById("sidePanel");
-// (If you had a "toggleSidePanelButton" in index.html uncommented, we’d reference it. Otherwise it's commented out.)
-// const toggleSidePanelButton = document.getElementById("toggleSidePanel");
-
-// NEW: For implementing cut/paste logic
-let isCutMode = false;
-let cutCellsData = null;
-
-// For Shift+ArrowKey Selection
-let selectionAnchor = null;
-
-// NEW: Simple context menu for right-click copy (optional)
-const contextMenu = document.createElement("div");
-contextMenu.id = "customContextMenu";
-contextMenu.style.position = "absolute";
-contextMenu.style.display = "none";
-contextMenu.style.background = "#eee";
-contextMenu.style.border = "1px solid #999";
-contextMenu.innerHTML = `
-  <div style="padding:4px; cursor:pointer;" id="contextMenuCopy">Copy</div>
-`;
-document.body.appendChild(contextMenu);
-
-/***********************************************
  * Generate Spreadsheet
  ***********************************************/
 function generateSpreadsheet() {
@@ -2239,10 +2026,8 @@ generateSpreadsheet();
  * Long Press on Select All => Move to R1C1
  ***********************************************/
 const selectAllCell = document.getElementById("selectAllCell");
-
 if (selectAllCell) {
   let longPressTimeout;
-
   selectAllCell.addEventListener("mousedown", (e) => {
     longPressTimeout = setTimeout(() => {
       moveSelectionToTopLeft();
@@ -2277,6 +2062,7 @@ if (selectAllCell) {
  ***********************************************/
 function moveSelectionToTopLeft() {
   const targetCell = getCellElement(1, 1);
+  const inputBox = document.getElementById("inputBox");
   if (targetCell) {
     clearSelection();
     targetCell.classList.add("selected");
@@ -2293,269 +2079,6 @@ function moveSelectionToTopLeft() {
     });
   }
 }
-
-/***********************************************
- * attachEventListeners
- ***********************************************/
-
-function attachEventListeners() {
-  // "Select All" cell
-  const selectAllCell = document.getElementById("selectAllCell");
-  if (selectAllCell) {
-    let longPressTimeout;
-    let isLongPress = false;
-
-    function startLongPressDetection() {
-      isLongPress = false;
-      longPressTimeout = setTimeout(() => {
-        isLongPress = true;
-        moveSelectionToTopLeft();
-      }, 500); // Adjust long-press duration if needed
-    }
-
-    function cancelLongPressDetection() {
-      clearTimeout(longPressTimeout);
-    }
-
-    selectAllCell.addEventListener("mousedown", (e) => {
-      startLongPressDetection();
-    });
-
-    selectAllCell.addEventListener("mouseup", (e) => {
-      cancelLongPressDetection();
-      if (!isLongPress) {
-        selectWholeGrid(); // Normal click behavior
-      }
-    });
-
-    selectAllCell.addEventListener("mouseleave", cancelLongPressDetection);
-
-    selectAllCell.addEventListener("touchstart", (e) => {
-      startLongPressDetection();
-    });
-
-    selectAllCell.addEventListener("touchend", (e) => {
-      cancelLongPressDetection();
-      if (!isLongPress) {
-        selectWholeGrid(); // Normal tap behavior
-      }
-    });
-
-    selectAllCell.addEventListener("touchcancel", cancelLongPressDetection);
-  }
-
-  /***********************************************
-   * Move Selection to Cell at R1C1 and Scroll
-   ***********************************************/
-  function moveSelectionToTopLeftCell() {
-    const targetCell = document.querySelector("td[data-row='1'][data-col='1']");
-    if (targetCell) {
-      clearSelection();
-      targetCell.classList.add("selected");
-      selectedCells = [targetCell];
-      selectedCell = targetCell;
-      inputBox.value = targetCell.textContent;
-      updateCellLabel(targetCell);
-
-      // Scroll the top-left part of the grid into view
-      targetCell.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-        inline: "start",
-      });
-    }
-  }
-
-  /***********************************************
-   * Default: Select the Whole Grid
-   ***********************************************/
-  function selectWholeGrid() {
-    const firstCell = document.querySelector("td[data-row='1'][data-col='1']");
-    const lastCell = document.querySelector(
-      `td[data-row='${numberOfRows}'][data-col='${numberOfColumns}']`
-    );
-    if (firstCell && lastCell) {
-      selectCells(firstCell, lastCell);
-    }
-  }
-
-  // Add row
-  const addRowButton = document.getElementById("addRowButton");
-  if (addRowButton) {
-    addRowButton.addEventListener("click", () => {
-      addRows(ADDITIONAL_ROWS_COLUMNS);
-    });
-  }
-
-  // Add column
-  const addColumnButton = document.getElementById("addColumnButton");
-  if (addColumnButton) {
-    addColumnButton.addEventListener("click", () => {
-      addColumns(ADDITIONAL_ROWS_COLUMNS);
-    });
-  }
-
-  // If you have a toggleSidePanelButton, uncomment:
-  /*
-  if (toggleSidePanelButton) {
-    toggleSidePanelButton.addEventListener("click", () => {
-      sidePanel.classList.toggle("hidden");
-      if (sidePanel.classList.contains("hidden")) {
-        toggleSidePanelButton.textContent = "Show Side Panel";
-      } else {
-        toggleSidePanelButton.textContent = "Hide Side Panel";
-      }
-    });
-  }
-  */
-
-  // Column/row resizing
-  spreadsheet.addEventListener("mousedown", (e) => {
-    if (e.target.classList.contains("resizer")) {
-      isResizingCol = true;
-      resizerCol = e.target;
-      startX = e.pageX;
-      const col = resizerCol.getAttribute("data-col");
-      // We can't directly do `querySelector(th[data-col='${col}'] )` with template literal incorrectly
-      // We'll fix it:
-      const th = spreadsheet.querySelector(`th[data-col='${col}']`);
-      if (th) {
-        startWidth = th.offsetWidth;
-      }
-      document.body.style.cursor = "col-resize";
-      e.preventDefault();
-    } else if (e.target.classList.contains("resizer-row")) {
-      isResizingRow = true;
-      resizerRow = e.target;
-      startY = e.pageY;
-      const row = resizerRow.getAttribute("data-row");
-      const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
-      if (rowTh) {
-        startHeight = rowTh.offsetHeight;
-      }
-      document.body.style.cursor = "row-resize";
-      e.preventDefault();
-    }
-  });
-}
-
-/***********************************************
- * Mouse interactions
- ***********************************************/
-// Middle-click => pan, left-click => selection
-spreadsheet.addEventListener("mousedown", (e) => {
-  // Right-click context menu?
-  if (e.button === 2) {
-    // Only show context menu if we have some selected cells
-    if (selectedCells.length > 0) {
-      e.preventDefault();
-      contextMenu.style.left = e.pageX + "px";
-      contextMenu.style.top = e.pageY + "px";
-      contextMenu.style.display = "block";
-    }
-    return;
-  }
-
-  if (e.button === 1) {
-    // middle-click => panning
-    isMidPanning = true;
-    midPanStartX = e.clientX;
-    midPanStartY = e.clientY;
-    midPanScrollLeft = gridContainer.scrollLeft;
-    midPanScrollTop = gridContainer.scrollTop;
-    e.preventDefault();
-    return;
-  }
-
-  if (e.button === 0) {
-    // left-click => start selection
-    let target = e.target;
-    if (target.tagName === "TD" && !target.closest(".plus-row")) {
-      selectionAnchor = target;
-      isSelecting = true;
-      startCell = target;
-      selectCells(startCell, startCell);
-      e.preventDefault();
-    }
-  }
-});
-
-spreadsheet.addEventListener("mousemove", (e) => {
-  // Middle-click panning
-  if (isMidPanning) {
-    const dx = e.clientX - midPanStartX;
-    const dy = e.clientY - midPanStartY;
-    gridContainer.scrollLeft = midPanScrollLeft - dx;
-    gridContainer.scrollTop = midPanScrollTop - dy;
-    e.preventDefault();
-    return;
-  }
-
-  // left-drag for multi selection
-  if (isSelecting) {
-    let target = e.target;
-    if (target.tagName === "TD" && !target.closest(".plus-row")) {
-      endCell = target;
-      selectCells(startCell, endCell);
-    }
-  }
-});
-
-/***********************************************
- * Formula bar events
- ***********************************************/
-inputBox.addEventListener("input", () => {
-  if (!selectedCell) return;
-  const key = getCellKey(selectedCell);
-  selectedCell.textContent = inputBox.value;
-  if (!inputBox.value.trim()) {
-    delete cellsData[key];
-  } else {
-    cellsData[key] = inputBox.value;
-  }
-  parseAndFormatGrid();
-});
-
-// SHIFT+Enter => up, Enter => down, Tab => left/right
-inputBox.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    // normal Enter => move down
-    e.preventDefault();
-    moveSelection(1, 0);
-  } else if (e.key === "Enter" && e.shiftKey) {
-    // SHIFT+Enter => move up
-    e.preventDefault();
-    moveSelection(-1, 0);
-  } else if (e.key === "Tab") {
-    // Tab => move right or left with shift
-    e.preventDefault();
-    if (e.shiftKey) moveSelection(0, -1);
-    else moveSelection(0, 1);
-  }
-});
-
-inputBox.addEventListener("focus", () => {
-  // highlight the text
-  setTimeout(() => {
-    inputBox.select();
-  }, 0);
-});
-
-inputBox.addEventListener("dblclick", () => {
-  // place cursor at end
-  const len = inputBox.value.length;
-  inputBox.setSelectionRange(len, len);
-});
-
-/***********************************************
- * Right-click "Copy" button
- ***********************************************/
-document.getElementById("contextMenuCopy").addEventListener("click", () => {
-  if (selectedCells.length > 0) {
-    handleCtrlC();
-  }
-  contextMenu.style.display = "none";
-});
 
 /***********************************************
  * Ctrl+X => cut
@@ -2607,6 +2130,7 @@ function selectCells(cell1, cell2) {
   if (selectedCells.length > 0) {
     selectedCell = getCellElement(minR, minC);
     if (selectedCell) {
+      const inputBox = document.getElementById("inputBox");
       inputBox.value = selectedCell.textContent;
       updateCellLabel(selectedCell);
       if (!isMobileDevice()) {
@@ -2625,6 +2149,7 @@ function clearSelection() {
 }
 
 function updateCellLabel(cell) {
+  const cellLabel = document.getElementById("cellLabel");
   const r = cell.getAttribute("data-row");
   const c = cell.getAttribute("data-col");
   cellLabel.textContent = `R${r}C${c}`;
@@ -2654,6 +2179,7 @@ function moveSelection(dr, dc) {
     nextCell.classList.add("selected");
     selectedCells = [nextCell];
     selectedCell = nextCell;
+    const inputBox = document.getElementById("inputBox");
     inputBox.value = nextCell.textContent;
     updateCellLabel(nextCell);
     if (!isMobileDevice()) {
@@ -2675,6 +2201,7 @@ function deleteSelectedCells() {
     cell.textContent = "";
     delete cellsData[key];
   }
+  const inputBox = document.getElementById("inputBox");
   inputBox.value = "";
   parseAndFormatGrid();
 }
@@ -2767,7 +2294,6 @@ function addColumns(count) {
     theadRow.appendChild(addColumnButton);
   }
 
-  const plusRow = document.getElementById("addRowButtonRow");
   if (plusRow) {
     while (plusRow.children.length > 1) {
       plusRow.removeChild(plusRow.lastChild);
@@ -2865,104 +2391,6 @@ function copySelectedCells() {
   return out;
 }
 
-/***********************************************
- * Touch on mobile
- ***********************************************/
-gridContainer.addEventListener("touchstart", (e) => {
-  if (e.touches.length !== 1) return;
-  let t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-  scrollStartX = gridContainer.scrollLeft;
-  scrollStartY = gridContainer.scrollTop;
-
-  isTouchPanning = false;
-  isLongPressFired = false;
-  isTouchSelecting = false;
-  isDraggingBlock = false;
-
-  // If user holds for longPressDuration => handle long press
-  longPressTimeout = setTimeout(() => {
-    if (!isTouchPanning) {
-      isLongPressFired = true;
-      let target = document.elementFromPoint(t.clientX, t.clientY);
-      handleLongPress(target);
-    }
-  }, longPressDuration);
-});
-
-gridContainer.addEventListener("touchmove", (e) => {
-  if (e.touches.length !== 1) return;
-  let t = e.touches[0];
-  let dx = t.clientX - touchStartX;
-  let dy = t.clientY - touchStartY;
-
-  if (isDraggingBlock) {
-    e.preventDefault();
-    handleDragMove(t);
-    return;
-  }
-  if (isTouchSelecting) {
-    e.preventDefault();
-    let target = document.elementFromPoint(t.clientX, t.clientY);
-    if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-      selectCells(touchSelectStartCell, target);
-    }
-    return;
-  }
-
-  // Decide if user is panning
-  if (!isTouchPanning) {
-    if (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
-      isTouchPanning = true;
-      clearTimeout(longPressTimeout);
-    }
-  }
-  if (isTouchPanning) {
-    e.preventDefault();
-    gridContainer.scrollLeft = scrollStartX - dx;
-    gridContainer.scrollTop = scrollStartY - dy;
-  }
-});
-
-gridContainer.addEventListener("touchend", (e) => {
-  clearTimeout(longPressTimeout);
-
-  if (isDraggingBlock) {
-    finalizeDrag();
-    isDraggingBlock = false;
-    return;
-  }
-
-  if (isTouchSelecting) {
-    isTouchSelecting = false;
-    return;
-  }
-
-  // If we haven't panned or long-pressed, check for single vs double tap
-  if (!isLongPressFired && !isTouchPanning) {
-    let now = Date.now();
-    let t = e.changedTouches[0];
-    let target = document.elementFromPoint(t.clientX, t.clientY);
-
-    if (now - lastTapTime < doubleTapDelay && target === lastTapCell) {
-      // double tap => inline edit
-      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-        startEditingCell(target);
-      }
-    } else {
-      // single tap => underscore toggling if blank, or just select
-      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
-        handleMobileSingleTap(target);
-      }
-    }
-    lastTapTime = now;
-    lastTapCell = target;
-  }
-
-  isTouchPanning = false;
-});
-
 function handleMobileSingleTap(cell) {
   const content = cell.textContent.trim();
   if (content === "" || content === "_") {
@@ -2981,6 +2409,7 @@ function handleMobileSingleTap(cell) {
     selectedCells = [cell];
     cell.classList.add("selected");
     selectedCell = cell;
+    const inputBox = document.getElementById("inputBox");
     inputBox.value = cell.textContent;
     updateCellLabel(cell);
   }
@@ -3086,16 +2515,6 @@ function finalizeDrag() {
     parseAndFormatGrid();
   }
 }
-
-/***********************************************
- * Double-click => multiline editing in cell
- ***********************************************/
-spreadsheet.addEventListener("dblclick", (e) => {
-  let target = e.target;
-  if (target.tagName === "TD" && !target.closest(".plus-row")) {
-    startEditingCell(target);
-  }
-});
 
 /***********************************************
  * Double-click editing with multiline
@@ -3297,6 +2716,7 @@ function moveBlock(direction, allowMerge) {
       newCell.classList.add("selected");
       selectedCells = [newCell];
       selectedCell = newCell;
+      const inputBox = document.getElementById("inputBox");
       inputBox.value = newCell.textContent;
       updateCellLabel(newCell);
 
@@ -3479,6 +2899,7 @@ function selectNearestBlock(direction) {
       cell.classList.add("selected");
       selectedCells = [cell];
       selectedCell = cell;
+      const inputBox = document.getElementById("inputBox");
       inputBox.value = cell.textContent;
       updateCellLabel(cell);
     }
@@ -3660,9 +3081,528 @@ parseAndFormatGrid = function () {
   saveGridToLocalStorage(); // Auto-save grid after reformatting
 };
 
+function fromCSV(csvString) {
+  // parse CSV with quotes, newlines, etc.
+  if (!csvString) return [];
+
+  // normalize line endings
+  csvString = csvString.replace(/\r\n/g, "\n");
+
+  let rows = [];
+  let len = csvString.length;
+  let insideQuotes = false;
+  let cellValue = "";
+  let row = [];
+  let i = 0;
+
+  while (i < len) {
+    let ch = csvString[i];
+
+    if (ch === '"') {
+      if (!insideQuotes) {
+        insideQuotes = true;
+      } else {
+        // check for doubled-quote
+        if (i + 1 < len && csvString[i + 1] === '"') {
+          cellValue += '"';
+          i++;
+        } else {
+          insideQuotes = false;
+        }
+      }
+    } else if (!insideQuotes && (ch === "," || ch === "\n")) {
+      row.push(cellValue);
+      cellValue = "";
+      if (ch === "\n") {
+        rows.push(row);
+        row = [];
+      }
+    } else {
+      cellValue += ch;
+    }
+    i++;
+  }
+
+  // last cell
+  row.push(cellValue);
+  rows.push(row);
+
+  return rows;
+}
+
+function toCSV(arr2D) {
+  let lines = [];
+  for (let r = 0; r < arr2D.length; r++) {
+    let rowArr = arr2D[r] || [];
+    let lineParts = [];
+    for (let c = 0; c < rowArr.length; c++) {
+      let value = rowArr[c] == null ? "" : String(rowArr[c]);
+      // double up quotes
+      value = value.replace(/"/g, '""');
+      // if any special characters => wrap in quotes
+      if (/[",\n\r]/.test(value)) {
+        value = `"${value}"`;
+      }
+      lineParts.push(value);
+    }
+    lines.push(lineParts.join(","));
+  }
+  return lines.join("\r\n");
+}
+
+function fromTSV(tsvString) {
+  if (!tsvString) return [];
+
+  // Normalize line endings
+  tsvString = tsvString.replace(/\r\n/g, "\n");
+
+  let rows = [];
+  let len = tsvString.length;
+  let insideQuotes = false;
+  let cellValue = "";
+  let row = [];
+  let i = 0;
+
+  while (i < len) {
+    let ch = tsvString[i];
+
+    if (ch === '"') {
+      if (!insideQuotes) {
+        insideQuotes = true;
+      } else {
+        // Check for double-quote escape
+        if (i + 1 < len && tsvString[i + 1] === '"') {
+          cellValue += '"';
+          i++;
+        } else {
+          insideQuotes = false;
+        }
+      }
+    } else if (!insideQuotes && (ch === "\t" || ch === "\n")) {
+      row.push(cellValue);
+      cellValue = "";
+      if (ch === "\n") {
+        rows.push(row);
+        row = [];
+      }
+    } else {
+      cellValue += ch;
+    }
+    i++;
+  }
+
+  // Last cell
+  row.push(cellValue);
+  rows.push(row);
+
+  return rows;
+}
+
+function toTSV(arr2D) {
+  let lines = [];
+  for (let r = 0; r < arr2D.length; r++) {
+    let rowArr = arr2D[r] || [];
+    let lineParts = [];
+    for (let c = 0; c < rowArr.length; c++) {
+      let value = rowArr[c] == null ? "" : String(rowArr[c]);
+      // Double up quotes
+      value = value.replace(/"/g, '""');
+      // If special characters exist, wrap in quotes
+      if (/[\"\t\n\r]/.test(value)) {
+        value = `"${value}"`;
+      }
+      lineParts.push(value);
+    }
+    lines.push(lineParts.join("\t"));
+  }
+  return lines.join("\r\n");
+}
+
 /***********************************************/
-//              EVENT LISTENERS
+//              EVENT_LISTENERS
 /***********************************************/
+
+/***********************************************
+ * attachEventListeners
+ ***********************************************/
+
+function attachEventListeners() {
+  const selectAllCell = document.getElementById("selectAllCell");
+  if (selectAllCell) {
+    let longPressTimeout;
+    let isLongPress = false;
+
+    function startLongPressDetection() {
+      isLongPress = false;
+      longPressTimeout = setTimeout(() => {
+        isLongPress = true;
+        moveSelectionToTopLeft();
+      }, 500); // Adjust long-press duration if needed
+    }
+
+    function cancelLongPressDetection() {
+      clearTimeout(longPressTimeout);
+    }
+
+    selectAllCell.addEventListener("mousedown", (e) => {
+      startLongPressDetection();
+    });
+
+    selectAllCell.addEventListener("mouseup", (e) => {
+      cancelLongPressDetection();
+      if (!isLongPress) {
+        selectWholeGrid(); // Normal click behavior
+      }
+    });
+
+    selectAllCell.addEventListener("mouseleave", cancelLongPressDetection);
+
+    selectAllCell.addEventListener("touchstart", (e) => {
+      startLongPressDetection();
+    });
+
+    selectAllCell.addEventListener("touchend", (e) => {
+      cancelLongPressDetection();
+      if (!isLongPress) {
+        selectWholeGrid(); // Normal tap behavior
+      }
+    });
+
+    selectAllCell.addEventListener("touchcancel", cancelLongPressDetection);
+  }
+
+  /***********************************************
+   * Move Selection to Cell at R1C1 and Scroll
+   ***********************************************/
+  function moveSelectionToTopLeftCell() {
+    const targetCell = document.querySelector("td[data-row='1'][data-col='1']");
+    const inputBox = document.getElementById("inputBox");
+    if (targetCell) {
+      clearSelection();
+      targetCell.classList.add("selected");
+      selectedCells = [targetCell];
+      selectedCell = targetCell;
+      inputBox.value = targetCell.textContent;
+      updateCellLabel(targetCell);
+
+      // Scroll the top-left part of the grid into view
+      targetCell.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: "start",
+      });
+    }
+  }
+
+  /***********************************************
+   * Default: Select the Whole Grid
+   ***********************************************/
+  function selectWholeGrid() {
+    const firstCell = document.querySelector("td[data-row='1'][data-col='1']");
+    const lastCell = document.querySelector(
+      `td[data-row='${numberOfRows}'][data-col='${numberOfColumns}']`
+    );
+    if (firstCell && lastCell) {
+      selectCells(firstCell, lastCell);
+    }
+  }
+
+  // Add row
+  const addRowButton = document.getElementById("addRowButton");
+  if (addRowButton) {
+    addRowButton.addEventListener("click", () => {
+      addRows(ADDITIONAL_ROWS_COLUMNS);
+    });
+  }
+
+  // Add column
+  const addColumnButton = document.getElementById("addColumnButton");
+  if (addColumnButton) {
+    addColumnButton.addEventListener("click", () => {
+      addColumns(ADDITIONAL_ROWS_COLUMNS);
+    });
+  }
+
+  // If you have a toggleSidePanelButton, uncomment:
+  /*
+  const toggleSidePanelButton = document.getElementById("toggleSidePanel");
+  if (toggleSidePanelButton) {
+    toggleSidePanelButton.addEventListener("click", () => {
+      const sidePanel = document.getElementById("sidePanel");
+      sidePanel.classList.toggle("hidden");
+      if (sidePanel.classList.contains("hidden")) {
+        toggleSidePanelButton.textContent = "Show Side Panel";
+      } else {
+        toggleSidePanelButton.textContent = "Hide Side Panel";
+      }
+    });
+  }
+  */
+
+  // Column/row resizing
+  spreadsheet.addEventListener("mousedown", (e) => {
+    if (e.target.classList.contains("resizer")) {
+      isResizingCol = true;
+      resizerCol = e.target;
+      startX = e.pageX;
+      const col = resizerCol.getAttribute("data-col");
+      // We can't directly do `querySelector(th[data-col='${col}'] )` with template literal incorrectly
+      // We'll fix it:
+      const th = spreadsheet.querySelector(`th[data-col='${col}']`);
+      if (th) {
+        startWidth = th.offsetWidth;
+      }
+      document.body.style.cursor = "col-resize";
+      e.preventDefault();
+    } else if (e.target.classList.contains("resizer-row")) {
+      isResizingRow = true;
+      resizerRow = e.target;
+      startY = e.pageY;
+      const row = resizerRow.getAttribute("data-row");
+      const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
+      if (rowTh) {
+        startHeight = rowTh.offsetHeight;
+      }
+      document.body.style.cursor = "row-resize";
+      e.preventDefault();
+    }
+  });
+}
+
+/***********************************************
+ * Mouse interactions
+ ***********************************************/
+// Middle-click => pan, left-click => selection
+spreadsheet.addEventListener("mousedown", (e) => {
+  // Right-click context menu?
+  if (e.button === 2) {
+    e.preventDefault();
+    // Only show context menu if we have some selected cells
+    if (selectedCells.length > 0) {
+      e.preventDefault();
+      contextMenu.style.left = e.pageX + "px";
+      contextMenu.style.top = e.pageY + "px";
+      contextMenu.style.display = "block";
+    }
+    return;
+  }
+
+  if (e.button === 1) {
+    const gridContainer = document.getElementById("gridContainer");
+    // middle-click => panning
+    isMidPanning = true;
+    midPanStartX = e.clientX;
+    midPanStartY = e.clientY;
+    midPanScrollLeft = gridContainer.scrollLeft;
+    midPanScrollTop = gridContainer.scrollTop;
+    e.preventDefault();
+    return;
+  }
+
+  if (e.button === 0) {
+    // left-click => start selection
+    let target = e.target;
+    if (target.tagName === "TD" && !target.closest(".plus-row")) {
+      selectionAnchor = target;
+      isSelecting = true;
+      startCell = target;
+      selectCells(startCell, startCell);
+      e.preventDefault();
+    }
+  }
+});
+
+spreadsheet.addEventListener("mousemove", (e) => {
+  // Middle-click panning
+  if (isMidPanning) {
+    const gridContainer = document.getElementById("gridContainer");
+    const dx = e.clientX - midPanStartX;
+    const dy = e.clientY - midPanStartY;
+    gridContainer.scrollLeft = midPanScrollLeft - dx;
+    gridContainer.scrollTop = midPanScrollTop - dy;
+    e.preventDefault();
+    return;
+  }
+
+  // left-drag for multi selection
+  if (isSelecting) {
+    let target = e.target;
+    if (target.tagName === "TD" && !target.closest(".plus-row")) {
+      endCell = target;
+      selectCells(startCell, endCell);
+    }
+  }
+});
+
+/***********************************************
+ * Formula bar events
+ ***********************************************/
+document.getElementById("inputBox").addEventListener("input", () => {
+  if (!selectedCell) return;
+  const inputBox = document.getElementById("inputBox");
+  const key = getCellKey(selectedCell);
+  selectedCell.textContent = inputBox.value;
+  if (!inputBox.value.trim()) {
+    delete cellsData[key];
+  } else {
+    cellsData[key] = inputBox.value;
+  }
+  parseAndFormatGrid();
+});
+
+// SHIFT+Enter => up, Enter => down, Tab => left/right
+document.getElementById("inputBox").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    // normal Enter => move down
+    e.preventDefault();
+    moveSelection(1, 0);
+  } else if (e.key === "Enter" && e.shiftKey) {
+    // SHIFT+Enter => move up
+    e.preventDefault();
+    moveSelection(-1, 0);
+  } else if (e.key === "Tab") {
+    // Tab => move right or left with shift
+    e.preventDefault();
+    if (e.shiftKey) moveSelection(0, -1);
+    else moveSelection(0, 1);
+  }
+});
+
+document.getElementById("inputBox").addEventListener("focus", () => {
+  const inputBox = document.getElementById("inputBox");
+  // highlight the text
+  setTimeout(() => {
+    inputBox.select();
+  }, 0);
+});
+
+// document.getElementById("inputBox").addEventListener("dblclick", () => {
+//   const inputBox = document.getElementById("inputBox");
+//   // place cursor at end
+//   const len = inputBox.value.length;
+//   inputBox.setSelectionRange(len, len);
+// });
+
+/***********************************************
+ * Right-click "Copy" button
+ ***********************************************/
+document.getElementById("contextMenuCopy").addEventListener("click", () => {
+  if (selectedCells.length > 0) {
+    handleCtrlC();
+  }
+  contextMenu.style.display = "none";
+});
+
+/***********************************************
+ * Double-click => multiline editing in cell
+ ***********************************************/
+spreadsheet.addEventListener("dblclick", (e) => {
+  let target = e.target;
+  if (target.tagName === "TD" && !target.closest(".plus-row")) {
+    startEditingCell(target);
+  }
+});
+
+/***********************************************
+ * Touch on mobile
+ ***********************************************/
+document.getElementById("gridContainer").addEventListener("touchstart", (e) => {
+  const gridContainer = document.getElementById("gridContainer");
+  if (e.touches.length !== 1) return;
+  let t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  scrollStartX = gridContainer.scrollLeft;
+  scrollStartY = gridContainer.scrollTop;
+
+  isTouchPanning = false;
+  isLongPressFired = false;
+  isTouchSelecting = false;
+  isDraggingBlock = false;
+
+  // If user holds for longPressDuration => handle long press
+  longPressTimeout = setTimeout(() => {
+    if (!isTouchPanning) {
+      isLongPressFired = true;
+      let target = document.elementFromPoint(t.clientX, t.clientY);
+      handleLongPress(target);
+    }
+  }, longPressDuration);
+});
+
+document.getElementById("gridContainer").addEventListener("touchmove", (e) => {
+  if (e.touches.length !== 1) return;
+  let t = e.touches[0];
+  let dx = t.clientX - touchStartX;
+  let dy = t.clientY - touchStartY;
+
+  if (isDraggingBlock) {
+    e.preventDefault();
+    handleDragMove(t);
+    return;
+  }
+  if (isTouchSelecting) {
+    e.preventDefault();
+    let target = document.elementFromPoint(t.clientX, t.clientY);
+    if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
+      selectCells(touchSelectStartCell, target);
+    }
+    return;
+  }
+
+  // Decide if user is panning
+  if (!isTouchPanning) {
+    if (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD) {
+      isTouchPanning = true;
+      clearTimeout(longPressTimeout);
+    }
+  }
+  if (isTouchPanning) {
+    const gridContainer = document.getElementById("gridContainer");
+
+    e.preventDefault();
+    gridContainer.scrollLeft = scrollStartX - dx;
+    gridContainer.scrollTop = scrollStartY - dy;
+  }
+});
+
+document.getElementById("gridContainer").addEventListener("touchend", (e) => {
+  clearTimeout(longPressTimeout);
+
+  if (isDraggingBlock) {
+    finalizeDrag();
+    isDraggingBlock = false;
+    return;
+  }
+
+  if (isTouchSelecting) {
+    isTouchSelecting = false;
+    return;
+  }
+
+  // If we haven't panned or long-pressed, check for single vs double tap
+  if (!isLongPressFired && !isTouchPanning) {
+    let now = Date.now();
+    let t = e.changedTouches[0];
+    let target = document.elementFromPoint(t.clientX, t.clientY);
+
+    if (now - lastTapTime < doubleTapDelay && target === lastTapCell) {
+      // double tap => inline edit
+      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
+        startEditingCell(target);
+      }
+    } else {
+      // single tap => underscore toggling if blank, or just select
+      if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
+        handleMobileSingleTap(target);
+      }
+    }
+    lastTapTime = now;
+    lastTapCell = target;
+  }
+
+  isTouchPanning = false;
+});
 
 // Listen for F3 and Escape in the global document:
 document.addEventListener("keydown", (e) => {
@@ -3708,9 +3648,9 @@ document.addEventListener("click", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const icon = document.getElementById("settingsIcon");
-  if (icon) {
-    icon.addEventListener("click", () => {
+  const settingsIcon = document.getElementById("settingsIcon");
+  if (settingsIcon) {
+    settingsIcon.addEventListener("click", () => {
       openPopup();
     });
   }
@@ -3810,6 +3750,7 @@ document.addEventListener("keydown", (e) => {
   // typed char => focus formula bar
   else {
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const inputBox = document.getElementById("inputBox");
       inputBox.focus();
     }
   }
@@ -3935,6 +3876,7 @@ document.addEventListener("paste", (e) => {
     firstPastedCell.classList.add("selected");
     selectedCells = [firstPastedCell];
     selectedCell = firstPastedCell;
+    const inputBox = document.getElementById("inputBox");
     inputBox.value = firstPastedCell.textContent;
     updateCellLabel(firstPastedCell);
     firstPastedCell.scrollIntoView({
@@ -4006,7 +3948,6 @@ document.addEventListener("DOMContentLoaded", loadGridFromLocalStorage);
 /***********************************************
  * Toggle Clear Formatting with Ctrl+Shift+~
  ***********************************************/
-let isFormattingDisabled = false;
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "~" && e.ctrlKey && e.shiftKey) {
@@ -4019,6 +3960,26 @@ document.addEventListener("keydown", (e) => {
       parseAndFormatGrid();
     }
   }
+});
+
+document
+  .getElementById("popupCloseButton")
+  .addEventListener("click", closePopup);
+
+const overlay = document.getElementById("modalOverlay");
+// Close the popup if the user clicks the background.
+overlay.addEventListener("click", (e) => {
+  if (e.target === overlay) {
+    closePopup();
+  }
+});
+
+// Set up tab clicks.
+const tabs = document.querySelectorAll("#popupTabs .popupTab");
+tabs.forEach((t) => {
+  t.addEventListener("click", () => {
+    loadTab(t.dataset.tab);
+  });
 });
 
 // Finally, parse/format once loaded
