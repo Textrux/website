@@ -1,15 +1,21 @@
 const spreadsheet = document.getElementById("spreadsheet");
 
-let blockJoins = [];
-let blockClusters = [];
-let NUMBER_OF_ROWS = 125;
-let NUMBER_OF_COLUMNS = 100;
-let ADDITIONAL_ROWS_COLUMNS = 50;
-let currentDelimiter = localStorage.getItem("savedDelimiter") || "tab";
-let cellToBlockMap = {};
-let blockList = [];
+const NUMBER_OF_ROWS = 125;
+const NUMBER_OF_COLUMNS = 100;
+const ADDITIONAL_ROWS_COLUMNS = 50;
+const STORAGE_KEY = "savedGridData";
+const SAVED_DELIMITER_KEY = "savedDelimiter";
+const PAN_THRESHOLD = 10;
+const DOUBLE_TAP_DELAY = 250;
+const LONG_PRESS_WAIT = 500;
+
 let numberOfRows = NUMBER_OF_ROWS;
 let numberOfColumns = NUMBER_OF_COLUMNS;
+let blockJoins = [];
+let blockClusters = [];
+let currentDelimiter = localStorage.getItem(SAVED_DELIMITER_KEY) || "tab";
+let cellToBlockMap = {};
+let blockList = [];
 let selectedCells = [];
 let selectedCell = null;
 let isSelecting = false;
@@ -20,18 +26,16 @@ let midPanStartX = 0;
 let midPanStartY = 0;
 let midPanScrollLeft = 0;
 let midPanScrollTop = 0;
-const PAN_THRESHOLD = 10;
 let isTouchPanning = false;
 let touchStartX = 0;
 let touchStartY = 0;
 let scrollStartX = 0;
 let scrollStartY = 0;
 let longPressTimeout = null;
-let longPressDuration = 500; // how long before we consider it a long press
+let longPressWait = LONG_PRESS_WAIT; // how long before we consider it a long press
 let isLongPressFired = false;
 let isTouchSelecting = false;
 let touchSelectStartCell = null;
-const doubleTapDelay = 250;
 let lastTapTime = 0;
 let lastTapCell = null;
 let isDraggingBlock = false;
@@ -46,6 +50,7 @@ let isCutMode = false;
 let cutCellsData = null;
 let selectionAnchor = null;
 let isFormattingDisabled = false;
+let isLongPress = false;
 
 const settingsHTML = `
     <label for="delimiterSelect"><strong>Copy as:</strong></label>
@@ -63,8 +68,6 @@ const settingsHTML = `
     <button id="loadGridButton" style="padding:6px 12px; font-size:14px;">Load Grid from File</button>
   `;
 
-// Instead of a simple list, we now define an array of example objects.
-// Each object contains the example's display name, file name, and description.
 const examples = [
   {
     name: "Block Basics",
@@ -150,9 +153,6 @@ contextMenu.innerHTML = `
 `;
 document.body.appendChild(contextMenu);
 
-/****************************************************
- * Container class to match your C# approach
- ****************************************************/
 class Container {
   constructor(top, left, bottom, right) {
     this.topRow = top;
@@ -507,25 +507,6 @@ PatternsManager.registerPattern({
   },
 });
 
-/****************************************************
- * parsing.js
- *
- * 1) We define a single "Container" class (no duplicates).
- * 2) We define getContainersJS(...) which implements your
- *    Linqpad "GetContainers" logic.
- * 3) We identify blocks by calling getContainersJS(filledCells,2,...).
- * 4) For each block, we identify cell-clusters by calling
- *    getContainersJS(block.canvasCells,1,...).
- * 5) We fill in Treet logic for block joins => locked/linked, etc.
- * 6) Finally, we define parseAndFormatGrid as a global function on
- *
- * ***IMPORTANT***: Load this file before script.js or
- *    any file that calls parseAndFormatGrid.
- ****************************************************/
-
-/****************************************************
- * parseAndFormatGrid (global)
- ****************************************************/
 function parseAndFormatGrid() {
   // Reset references (script.js uses these too)
   cellToBlockMap = {};
@@ -604,13 +585,6 @@ function parseAndFormatGrid() {
   applyBlockStyles(filledCells);
 }
 
-/****************************************************
- * finalizeBlock(b)
- *   - bounding box => emptyCanvasCells
- *   - cellClusters => getContainersJS(b.canvasCells,1,...)
- *   - find cluster-empty cells => bounding box
- *   - border/frame => getOutlineCells
- ****************************************************/
 function finalizeBlock(b) {
   // bounding box => emptyCanvasCells
   const fillSet = new Set(b.canvasCells.map((pt) => `${pt.row},${pt.col}`));
@@ -678,10 +652,6 @@ function finalizeBlock(b) {
   );
 }
 
-/****************************************************
- * getContainersJS
- *   JavaScript version of your Linqpad "GetContainers"
- ****************************************************/
 function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
   let containers = [];
   let overlappedPoints = [];
@@ -824,9 +794,6 @@ function createContainerFromPoint(pt) {
   return c;
 }
 
-/****************************************************
- * populateBlockJoins => locked or linked
- ****************************************************/
 function populateBlockJoins() {
   blockJoins = [];
   for (let i = 0; i < blockList.length; i++) {
@@ -871,9 +838,6 @@ function populateBlockJoins() {
   }
 }
 
-/****************************************************
- * populateBlockClusters => BFS on blockJoins
- ****************************************************/
 function populateBlockClusters() {
   let used = new Set();
   for (let block of blockList) {
@@ -931,9 +895,6 @@ function gatherCluster(start, clusterBlocks, clusterJoins) {
   }
 }
 
-/****************************************************
- * applyBlockStyles(filledCells)
- ****************************************************/
 function applyBlockStyles(filledCells) {
   for (let b of blockList) {
     for (let pt of b.emptyClusterCells) {
@@ -990,9 +951,6 @@ function applyBlockStyles(filledCells) {
   }
 }
 
-/****************************************************
- * getOutlineCells => border/frame expansions
- ****************************************************/
 function getOutlineCells(
   top,
   bottom,
@@ -1070,9 +1028,6 @@ function getOutlineCells(
   return Array.from(new Set(outline.map(JSON.stringify)), JSON.parse);
 }
 
-/****************************************************
- * areCanvasesWithinProximity => merges blocks, distance=2
- ****************************************************/
 function areCanvasesWithinProximity(a, b, proximity) {
   let vert = 0;
   if (a.bottomRow < b.topRow) {
@@ -1093,9 +1048,6 @@ function areCanvasesWithinProximity(a, b, proximity) {
   return vert < proximity && horiz < proximity;
 }
 
-/****************************************************
- * containersOverlap => locked vs linked
- ****************************************************/
 function containersOverlap(frameA, frameB, borderA, borderB) {
   let ff = overlapPoints(frameA, frameB);
   let ab = overlapPoints(borderA, frameB);
@@ -1103,9 +1055,6 @@ function containersOverlap(frameA, frameB, borderA, borderB) {
   return ff.length > 0 || ab.length > 0 || ba.length > 0;
 }
 
-/****************************************************
- * overlapPoints(listA,listB)
- ****************************************************/
 function overlapPoints(listA, listB) {
   const setB = new Set(listB.map((p) => `${p.row},${p.col}`));
   let out = [];
@@ -1118,9 +1067,6 @@ function overlapPoints(listA, listB) {
   return out;
 }
 
-/****************************************************
- * deduplicatePoints
- ****************************************************/
 function deduplicatePoints(arr) {
   let used = new Set();
   let out = [];
@@ -1134,10 +1080,6 @@ function deduplicatePoints(arr) {
   return out;
 }
 
-/****************************************************
- * getNeighbors(r,c,dist=1)
- * => up to 8 directions
- ****************************************************/
 function getNeighbors(r, c, dist) {
   let out = [];
   for (let dr = -dist; dr <= dist; dr++) {
@@ -1153,9 +1095,6 @@ function getNeighbors(r, c, dist) {
   return out;
 }
 
-/****************************************************
- * clearFormatting
- ****************************************************/
 function clearFormatting() {
   const allTds = document.querySelectorAll("#spreadsheet td");
   allTds.forEach((td) => {
@@ -1183,9 +1122,6 @@ function clearFormatting() {
   });
 }
 
-// This function returns HTML that renders a <select> element
-// with a fixed size (to show 10 items at once), a description area,
-// and a Load button.
 function renderExamples() {
   let html = `<p>Select one of the examples and press <i>Load</i>:</p>`;
   html += `<select id="exampleSelect" size="10" style="width:100%; margin-bottom:10px;">`;
@@ -1269,7 +1205,6 @@ function saveGridToFile() {
   URL.revokeObjectURL(url);
 }
 
-// Update the loadExample function so that it accepts an example object.
 async function loadExample(example) {
   let fileName;
   if (typeof example === "object" && example.file) {
@@ -1325,12 +1260,12 @@ function loadTab(tabName) {
       const sel = contentDiv.querySelector("#delimiterSelect");
       if (sel) {
         // Load from localStorage or default to "tab" (TSV)
-        sel.value = localStorage.getItem("savedDelimiter") || "tab";
+        sel.value = localStorage.getItem(SAVED_DELIMITER_KEY) || "tab";
         currentDelimiter = sel.value; // Ensure it's set globally
 
         sel.addEventListener("change", () => {
           currentDelimiter = sel.value;
-          localStorage.setItem("savedDelimiter", sel.value); // Save to localStorage
+          localStorage.setItem(SAVED_DELIMITER_KEY, sel.value); // Save to localStorage
         });
       }
 
@@ -1462,7 +1397,6 @@ function loadTab(tabName) {
   }
 }
 
-// Expose the openPopup function globally.
 function openPopup() {
   const overlay = document.getElementById("modalOverlay");
   overlay.classList.remove("hidden");
@@ -1474,24 +1408,13 @@ function closePopup() {
   overlay.classList.add("hidden");
 }
 
-/******************************************************
- * treetNested.js
- *
- * Replicates the Excel "nested CSV in a cell" approach.
- ******************************************************/
-
-// We'll define some top-level variables or references:
-
-// Markers / patterns used for nested levels:
-//  - A cell that starts with "," indicates it has an embedded grid.
-//  - The first cell (R1C1) can contain '^' plus CSV for parent “wrapper.”
-//  - When we enter a nested cell, that cell’s contents are replaced with a marker like `<<)1(>>`.
-//  - The top cell has CSV with placeholders to embed deeper levels, etc.
-
-/******************************************************
- * enterNestedCell(selectedCell)
- ******************************************************/
 function enterNestedCell(selectedCell) {
+  // Markers / patterns used for nested levels:
+  //  - A cell that starts with "," indicates it has an embedded grid.
+  //  - The first cell (R1C1) can contain '^' plus CSV for parent “wrapper.”
+  //  - When we enter a nested cell, that cell’s contents are replaced with a marker like `<<)1(>>`.
+  //  - The top cell has CSV with placeholders to embed deeper levels, etc.
+
   // 1) If the cell is empty, put a comma.
   let key = getCellKey(selectedCell);
   if (!cellsData[key] || cellsData[key].trim() === "") {
@@ -1572,9 +1495,6 @@ function enterNestedCell(selectedCell) {
   }
 }
 
-/******************************************************
- * leaveNestedCell()
- ******************************************************/
 function leaveNestedCell() {
   // 1) Check if we’re actually in a nested sheet by seeing if R1C1 starts with '^'.
   let firstCellKey = "R1C1";
@@ -1718,13 +1638,6 @@ function leaveNestedCell() {
   }
 }
 
-/***********************************************
- * Helpers used by the above two functions
- ***********************************************/
-
-/**
- * Convert the entire grid to CSV
- */
 function sheetToCsv(ignoreParentCell) {
   // Build a 2D array from cellsData:
   // 1) Find max row & column in cellsData
@@ -1775,10 +1688,10 @@ function sheetToCsv(ignoreParentCell) {
   return toCSV(arr);
 }
 
-/**
- * Replace the entire sheet with the data from a 2D array
- */
 function arrayToSheet(arr2D) {
+  /**
+   * Replace the entire sheet with the data from a 2D array
+   */
   // Clear out cellsData:
   cellsData = {};
   for (let r = 0; r < arr2D.length; r++) {
@@ -1792,11 +1705,11 @@ function arrayToSheet(arr2D) {
   }
 }
 
-/**
- * Example: parse something like '^<<)2(>>someCSV...'
- * and return numeric depth = 2
- */
 function getDepthFromWrapper(str) {
+  /**
+   * Example: parse something like '^<<)2(>>someCSV...'
+   * and return numeric depth = 2
+   */
   // You can store the depth explicitly, or parse from parentheses.
   // This is up to you. For simplicity, let’s find <<)N(>> if it exists.
   // If none, depth = 0
@@ -1816,10 +1729,6 @@ function removeCaret(str) {
   return str;
 }
 
-/**
- * Insert the child CSV into the parent's marker.
- * (Mirrors the original "Replace(csvWrapper, '<<)depth(>>', '<<(depth)childCsv(depth)>>'" logic)
- */
 function replaceMarkerInWrapper(csvWrapper, oldDepth, newSheetCsv) {
   // Example approach:
   let marker = `<<)${oldDepth}(>>`;
@@ -1827,10 +1736,6 @@ function replaceMarkerInWrapper(csvWrapper, oldDepth, newSheetCsv) {
   return csvWrapper.replace(marker, replacement);
 }
 
-/**
- * If we are multiple levels deep, replace the marker `<<)depth(>>`
- * with the nested CSV while preserving correct formatting.
- */
 function replaceDeepMarkerInWrapper(wrapper, depth, childCsv) {
   // Ensure childCsv is properly escaped (quotes, newlines, etc.)
   let escapedCsv = childCsv.replace(/"/g, '""'); // Escape double quotes
@@ -1852,17 +1757,11 @@ function replaceDeepMarkerInWrapper(wrapper, depth, childCsv) {
   return updatedWrapper;
 }
 
-/**
- * Rewrite the '^...' string so that the depth is decreased by 1
- */
 function rewriteWrapperDepth(str, newDepth) {
   // If we had '^<<)3(>>someCSV', we want '^<<)2(>>someCSV', etc.
   return str.replace(/<<\)\d+\(>>/, `<<)${newDepth}(>>`);
 }
 
-/**
- * Helper for final embedding once we get back to the top-level parent
- */
 function embedCurrentCsvInWrapper(parentCsv, depth, childCsv) {
   // Escape double quotes inside the child CSV
   let escapedChildCsv = childCsv.replace(/"/g, '""');
@@ -1881,9 +1780,6 @@ function embedCurrentCsvInWrapper(parentCsv, depth, childCsv) {
   return updatedParentCsv;
 }
 
-/**
- * Clear current selection
- */
 function clearSelection() {
   if (!selectedCells) return;
   for (let cell of selectedCells) {
@@ -1899,16 +1795,6 @@ function getCellKey(cell) {
   return `R${r}C${c}`;
 }
 
-/***********************************************
- * script.js - Merged version with mobile logic + new fixes
- ***********************************************/
-
-/***********************************************
- * Global data structure so parsing.js can see it
- ***********************************************/
-/***********************************************
- * Global data structure so parsing.js can see it
- ***********************************************/
 const savedGridData = localStorage.getItem("savedGridData");
 
 if (savedGridData) {
@@ -1936,9 +1822,6 @@ if (savedGridData) {
   cellsData = {}; // Default to empty grid
 }
 
-/***********************************************
- * Generate Spreadsheet
- ***********************************************/
 function generateSpreadsheet() {
   spreadsheet.innerHTML = "";
 
@@ -2016,50 +1899,10 @@ function generateSpreadsheet() {
     plusRow.appendChild(td);
   }
   tbody.appendChild(plusRow);
-
-  attachEventListeners();
 }
 
 generateSpreadsheet();
 
-/***********************************************
- * Long Press on Select All => Move to R1C1
- ***********************************************/
-const selectAllCell = document.getElementById("selectAllCell");
-if (selectAllCell) {
-  let longPressTimeout;
-  selectAllCell.addEventListener("mousedown", (e) => {
-    longPressTimeout = setTimeout(() => {
-      moveSelectionToTopLeft();
-    }, 500); // Adjust the delay if needed
-  });
-
-  selectAllCell.addEventListener("mouseup", () => {
-    clearTimeout(longPressTimeout);
-  });
-
-  selectAllCell.addEventListener("mouseleave", () => {
-    clearTimeout(longPressTimeout);
-  });
-
-  selectAllCell.addEventListener("touchstart", (e) => {
-    longPressTimeout = setTimeout(() => {
-      moveSelectionToTopLeft();
-    }, 500);
-  });
-
-  selectAllCell.addEventListener("touchend", () => {
-    clearTimeout(longPressTimeout);
-  });
-
-  selectAllCell.addEventListener("touchcancel", () => {
-    clearTimeout(longPressTimeout);
-  });
-}
-
-/***********************************************
- * Move Selection to R1C1 and Scroll
- ***********************************************/
 function moveSelectionToTopLeft() {
   const targetCell = getCellElement(1, 1);
   const inputBox = document.getElementById("inputBox");
@@ -2080,9 +1923,6 @@ function moveSelectionToTopLeft() {
   }
 }
 
-/***********************************************
- * Ctrl+X => cut
- ***********************************************/
 function handleCtrlX() {
   if (!selectedCells.length) return;
   // Store the data for the eventual paste
@@ -2101,9 +1941,6 @@ function handleCtrlX() {
   //  we remove them after user pastes.)
 }
 
-/***********************************************
- * Selecting cells
- ***********************************************/
 function selectCells(cell1, cell2) {
   clearSelection();
 
@@ -2206,9 +2043,6 @@ function deleteSelectedCells() {
   parseAndFormatGrid();
 }
 
-/***********************************************
- * Add Rows/Cols
- ***********************************************/
 function addRows(count) {
   let tbody = spreadsheet.querySelector("tbody");
   const plusRow = document.getElementById("addRowButtonRow");
@@ -2304,7 +2138,6 @@ function addColumns(count) {
   }
 }
 
-// For Ctrl+C in keydown
 function handleCtrlC() {
   const text = copySelectedCells();
   if (!text) return;
@@ -2320,9 +2153,6 @@ function handleCtrlC() {
   }
 }
 
-/***********************************************
- * Helper for removing original data on cut
- ***********************************************/
 function removeCutSourceData(pasteRegion) {
   // Helper function to check if a cell (row, col) is in the paste region
   function isInPasteRegion(row, col, region) {
@@ -2346,9 +2176,6 @@ function removeCutSourceData(pasteRegion) {
   cutCellsData = null;
 }
 
-/***********************************************
- * copySelectedCells
- ***********************************************/
 function copySelectedCells() {
   if (!selectedCells.length) return "";
   // find bounding box
@@ -2516,10 +2343,6 @@ function finalizeDrag() {
   }
 }
 
-/***********************************************
- * Double-click editing with multiline
- * + temporarily widen column
- ***********************************************/
 function startEditingCell(cell) {
   // If it's the first cell, and it starts with '^', skip it:
   const row = cell.getAttribute("data-row");
@@ -2655,13 +2478,6 @@ function insertAtCursor(textarea, text) {
   textarea.selectionStart = textarea.selectionEnd = start + text.length;
 }
 
-/***********************************************
- * Move/Select Block logic (Ctrl+Arrow, Alt+Arrow)
- * - Reworked so that:
- *   * We do NOT require single-cell selection.
- *   * If the first selected cell belongs to a block,
- *     we move that entire block's bounding box.
- ***********************************************/
 function moveBlock(direction, allowMerge) {
   if (!selectedCells.length) return;
 
@@ -2939,10 +2755,6 @@ function getBlockCenter(b) {
   return [centerR, centerC];
 }
 
-/************************************************
- * Keyboard Selection
- ***********************************************/
-
 function extendSelection(dr, dc) {
   // If no anchor is set, use the current selected cell as the anchor.
   if (!selectionAnchor) {
@@ -2976,9 +2788,6 @@ function extendSelection(dr, dc) {
   selectedCell = newActive;
 }
 
-/***********************************************
- * Helpers
- ***********************************************/
 function getCellKey(cell) {
   const r = cell.getAttribute("data-row");
   const c = cell.getAttribute("data-col");
@@ -2995,14 +2804,6 @@ function isMobileDevice() {
   );
 }
 
-/***********************************************
- * Local Storage: Save & Load Grid Data
- ***********************************************/
-
-// Key for localStorage
-const STORAGE_KEY = "savedGridData";
-
-// Save the current grid to localStorage
 function saveGridToLocalStorage() {
   const arr2D = [];
 
@@ -3039,7 +2840,6 @@ function saveGridToLocalStorage() {
   localStorage.setItem(STORAGE_KEY, text);
 }
 
-// Load saved grid from localStorage
 function loadGridFromLocalStorage() {
   const savedData = localStorage.getItem(STORAGE_KEY);
   if (!savedData) return;
@@ -3074,7 +2874,6 @@ function loadGridFromLocalStorage() {
   parseAndFormatGrid(); // Apply formatting
 }
 
-// Ensure every grid change is saved automatically
 const originalParseAndFormatGrid = parseAndFormatGrid;
 parseAndFormatGrid = function () {
   originalParseAndFormatGrid();
@@ -3218,225 +3017,114 @@ function toTSV(arr2D) {
   return lines.join("\r\n");
 }
 
-/***********************************************/
-//              EVENT_LISTENERS
-/***********************************************/
-
-/***********************************************
- * attachEventListeners
- ***********************************************/
-
-function attachEventListeners() {
-  const selectAllCell = document.getElementById("selectAllCell");
-  if (selectAllCell) {
-    let longPressTimeout;
-    let isLongPress = false;
-
-    function startLongPressDetection() {
-      isLongPress = false;
-      longPressTimeout = setTimeout(() => {
-        isLongPress = true;
-        moveSelectionToTopLeft();
-      }, 500); // Adjust long-press duration if needed
-    }
-
-    function cancelLongPressDetection() {
-      clearTimeout(longPressTimeout);
-    }
-
-    selectAllCell.addEventListener("mousedown", (e) => {
-      startLongPressDetection();
-    });
-
-    selectAllCell.addEventListener("mouseup", (e) => {
-      cancelLongPressDetection();
-      if (!isLongPress) {
-        selectWholeGrid(); // Normal click behavior
-      }
-    });
-
-    selectAllCell.addEventListener("mouseleave", cancelLongPressDetection);
-
-    selectAllCell.addEventListener("touchstart", (e) => {
-      startLongPressDetection();
-    });
-
-    selectAllCell.addEventListener("touchend", (e) => {
-      cancelLongPressDetection();
-      if (!isLongPress) {
-        selectWholeGrid(); // Normal tap behavior
-      }
-    });
-
-    selectAllCell.addEventListener("touchcancel", cancelLongPressDetection);
+function selectWholeGrid() {
+  const firstCell = document.querySelector("td[data-row='1'][data-col='1']");
+  const lastCell = document.querySelector(
+    `td[data-row='${numberOfRows}'][data-col='${numberOfColumns}']`
+  );
+  if (firstCell && lastCell) {
+    selectCells(firstCell, lastCell);
   }
-
-  /***********************************************
-   * Move Selection to Cell at R1C1 and Scroll
-   ***********************************************/
-  function moveSelectionToTopLeftCell() {
-    const targetCell = document.querySelector("td[data-row='1'][data-col='1']");
-    const inputBox = document.getElementById("inputBox");
-    if (targetCell) {
-      clearSelection();
-      targetCell.classList.add("selected");
-      selectedCells = [targetCell];
-      selectedCell = targetCell;
-      inputBox.value = targetCell.textContent;
-      updateCellLabel(targetCell);
-
-      // Scroll the top-left part of the grid into view
-      targetCell.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-        inline: "start",
-      });
-    }
-  }
-
-  /***********************************************
-   * Default: Select the Whole Grid
-   ***********************************************/
-  function selectWholeGrid() {
-    const firstCell = document.querySelector("td[data-row='1'][data-col='1']");
-    const lastCell = document.querySelector(
-      `td[data-row='${numberOfRows}'][data-col='${numberOfColumns}']`
-    );
-    if (firstCell && lastCell) {
-      selectCells(firstCell, lastCell);
-    }
-  }
-
-  // Add row
-  const addRowButton = document.getElementById("addRowButton");
-  if (addRowButton) {
-    addRowButton.addEventListener("click", () => {
-      addRows(ADDITIONAL_ROWS_COLUMNS);
-    });
-  }
-
-  // Add column
-  const addColumnButton = document.getElementById("addColumnButton");
-  if (addColumnButton) {
-    addColumnButton.addEventListener("click", () => {
-      addColumns(ADDITIONAL_ROWS_COLUMNS);
-    });
-  }
-
-  // If you have a toggleSidePanelButton, uncomment:
-  /*
-  const toggleSidePanelButton = document.getElementById("toggleSidePanel");
-  if (toggleSidePanelButton) {
-    toggleSidePanelButton.addEventListener("click", () => {
-      const sidePanel = document.getElementById("sidePanel");
-      sidePanel.classList.toggle("hidden");
-      if (sidePanel.classList.contains("hidden")) {
-        toggleSidePanelButton.textContent = "Show Side Panel";
-      } else {
-        toggleSidePanelButton.textContent = "Hide Side Panel";
-      }
-    });
-  }
-  */
-
-  // Column/row resizing
-  spreadsheet.addEventListener("mousedown", (e) => {
-    if (e.target.classList.contains("resizer")) {
-      isResizingCol = true;
-      resizerCol = e.target;
-      startX = e.pageX;
-      const col = resizerCol.getAttribute("data-col");
-      // We can't directly do `querySelector(th[data-col='${col}'] )` with template literal incorrectly
-      // We'll fix it:
-      const th = spreadsheet.querySelector(`th[data-col='${col}']`);
-      if (th) {
-        startWidth = th.offsetWidth;
-      }
-      document.body.style.cursor = "col-resize";
-      e.preventDefault();
-    } else if (e.target.classList.contains("resizer-row")) {
-      isResizingRow = true;
-      resizerRow = e.target;
-      startY = e.pageY;
-      const row = resizerRow.getAttribute("data-row");
-      const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
-      if (rowTh) {
-        startHeight = rowTh.offsetHeight;
-      }
-      document.body.style.cursor = "row-resize";
-      e.preventDefault();
-    }
-  });
 }
 
-/***********************************************
- * Mouse interactions
- ***********************************************/
-// Middle-click => pan, left-click => selection
-spreadsheet.addEventListener("mousedown", (e) => {
-  // Right-click context menu?
-  if (e.button === 2) {
-    e.preventDefault();
-    // Only show context menu if we have some selected cells
-    if (selectedCells.length > 0) {
-      e.preventDefault();
-      contextMenu.style.left = e.pageX + "px";
-      contextMenu.style.top = e.pageY + "px";
-      contextMenu.style.display = "block";
-    }
-    return;
-  }
+function startLongPressDetection() {
+  isLongPress = false;
+  longPressTimeout = setTimeout(() => {
+    isLongPress = true;
+    moveSelectionToTopLeft();
+  }, LONG_PRESS_WAIT); // Adjust long-press duration if needed
+}
 
-  if (e.button === 1) {
-    const gridContainer = document.getElementById("gridContainer");
-    // middle-click => panning
-    isMidPanning = true;
-    midPanStartX = e.clientX;
-    midPanStartY = e.clientY;
-    midPanScrollLeft = gridContainer.scrollLeft;
-    midPanScrollTop = gridContainer.scrollTop;
-    e.preventDefault();
-    return;
-  }
+function cancelLongPressDetection() {
+  clearTimeout(longPressTimeout);
+}
 
-  if (e.button === 0) {
-    // left-click => start selection
-    let target = e.target;
-    if (target.tagName === "TD" && !target.closest(".plus-row")) {
-      selectionAnchor = target;
-      isSelecting = true;
-      startCell = target;
-      selectCells(startCell, startCell);
-      e.preventDefault();
-    }
+document.getElementById("selectAllCell").addEventListener("mousedown", (e) => {
+  startLongPressDetection();
+});
+
+document.getElementById("selectAllCell").addEventListener("mouseup", (e) => {
+  cancelLongPressDetection();
+  if (!isLongPress) {
+    selectWholeGrid(); // Normal click behavior
   }
 });
 
-spreadsheet.addEventListener("mousemove", (e) => {
-  // Middle-click panning
-  if (isMidPanning) {
-    const gridContainer = document.getElementById("gridContainer");
-    const dx = e.clientX - midPanStartX;
-    const dy = e.clientY - midPanStartY;
-    gridContainer.scrollLeft = midPanScrollLeft - dx;
-    gridContainer.scrollTop = midPanScrollTop - dy;
-    e.preventDefault();
-    return;
-  }
+document.getElementById("selectAllCell").addEventListener("mouseleave", () => {
+  cancelLongPressDetection();
+});
 
-  // left-drag for multi selection
-  if (isSelecting) {
-    let target = e.target;
-    if (target.tagName === "TD" && !target.closest(".plus-row")) {
-      endCell = target;
-      selectCells(startCell, endCell);
-    }
+document.getElementById("selectAllCell").addEventListener("touchstart", (e) => {
+  startLongPressDetection();
+});
+
+document.getElementById("selectAllCell").addEventListener("touchend", (e) => {
+  cancelLongPressDetection();
+  if (!isLongPress) {
+    selectWholeGrid(); // Normal tap behavior
   }
 });
 
-/***********************************************
- * Formula bar events
- ***********************************************/
+document
+  .getElementById("selectAllCell")
+  .addEventListener("touchcancel", (e) => {
+    cancelLongPressDetection();
+  });
+
+document
+  .getElementById("selectAllCell")
+  .addEventListener("mouseleave", cancelLongPressDetection);
+
+document
+  .getElementById("selectAllCell")
+  .addEventListener("touchcancel", cancelLongPressDetection);
+
+document.getElementById("addRowButton").addEventListener("click", () => {
+  addRows(ADDITIONAL_ROWS_COLUMNS);
+});
+
+document.getElementById("addColumnButton").addEventListener("click", () => {
+  addColumns(ADDITIONAL_ROWS_COLUMNS);
+});
+
+document.getElementById("toggleSidePanel")?.addEventListener("click", () => {
+  const sidePanel = document.getElementById("sidePanel");
+  sidePanel.classList.toggle("hidden");
+  if (sidePanel.classList.contains("hidden")) {
+    toggleSidePanelButton.textContent = "Show Side Panel";
+  } else {
+    toggleSidePanelButton.textContent = "Hide Side Panel";
+  }
+});
+
+document.getElementById("spreadsheet").addEventListener("mousedown", (e) => {
+  if (e.target.classList.contains("resizer")) {
+    isResizingCol = true;
+    resizerCol = e.target;
+    startX = e.pageX;
+    const col = resizerCol.getAttribute("data-col");
+    // We can't directly do `querySelector(th[data-col='${col}'] )` with template literal incorrectly
+    // We'll fix it:
+    const th = spreadsheet.querySelector(`th[data-col='${col}']`);
+    if (th) {
+      startWidth = th.offsetWidth;
+    }
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+  } else if (e.target.classList.contains("resizer-row")) {
+    isResizingRow = true;
+    resizerRow = e.target;
+    startY = e.pageY;
+    const row = resizerRow.getAttribute("data-row");
+    const rowTh = spreadsheet.querySelector(`th[data-row='${row}']`);
+    if (rowTh) {
+      startHeight = rowTh.offsetHeight;
+    }
+    document.body.style.cursor = "row-resize";
+    e.preventDefault();
+  }
+});
+
 document.getElementById("inputBox").addEventListener("input", () => {
   if (!selectedCell) return;
   const inputBox = document.getElementById("inputBox");
@@ -3450,7 +3138,6 @@ document.getElementById("inputBox").addEventListener("input", () => {
   parseAndFormatGrid();
 });
 
-// SHIFT+Enter => up, Enter => down, Tab => left/right
 document.getElementById("inputBox").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     // normal Enter => move down
@@ -3476,16 +3163,6 @@ document.getElementById("inputBox").addEventListener("focus", () => {
   }, 0);
 });
 
-// document.getElementById("inputBox").addEventListener("dblclick", () => {
-//   const inputBox = document.getElementById("inputBox");
-//   // place cursor at end
-//   const len = inputBox.value.length;
-//   inputBox.setSelectionRange(len, len);
-// });
-
-/***********************************************
- * Right-click "Copy" button
- ***********************************************/
 document.getElementById("contextMenuCopy").addEventListener("click", () => {
   if (selectedCells.length > 0) {
     handleCtrlC();
@@ -3493,19 +3170,6 @@ document.getElementById("contextMenuCopy").addEventListener("click", () => {
   contextMenu.style.display = "none";
 });
 
-/***********************************************
- * Double-click => multiline editing in cell
- ***********************************************/
-spreadsheet.addEventListener("dblclick", (e) => {
-  let target = e.target;
-  if (target.tagName === "TD" && !target.closest(".plus-row")) {
-    startEditingCell(target);
-  }
-});
-
-/***********************************************
- * Touch on mobile
- ***********************************************/
 document.getElementById("gridContainer").addEventListener("touchstart", (e) => {
   const gridContainer = document.getElementById("gridContainer");
   if (e.touches.length !== 1) return;
@@ -3527,7 +3191,7 @@ document.getElementById("gridContainer").addEventListener("touchstart", (e) => {
       let target = document.elementFromPoint(t.clientX, t.clientY);
       handleLongPress(target);
     }
-  }, longPressDuration);
+  }, longPressWait);
 });
 
 document.getElementById("gridContainer").addEventListener("touchmove", (e) => {
@@ -3586,7 +3250,7 @@ document.getElementById("gridContainer").addEventListener("touchend", (e) => {
     let t = e.changedTouches[0];
     let target = document.elementFromPoint(t.clientX, t.clientY);
 
-    if (now - lastTapTime < doubleTapDelay && target === lastTapCell) {
+    if (now - lastTapTime < DOUBLE_TAP_DELAY && target === lastTapCell) {
       // double tap => inline edit
       if (target && target.tagName === "TD" && !target.closest(".plus-row")) {
         startEditingCell(target);
@@ -3604,71 +3268,6 @@ document.getElementById("gridContainer").addEventListener("touchend", (e) => {
   isTouchPanning = false;
 });
 
-// Listen for F3 and Escape in the global document:
-document.addEventListener("keydown", (e) => {
-  if (e.key === "F3") {
-    e.preventDefault();
-    if (selectedCells && selectedCells.length === 1) {
-      let cell = selectedCells[0];
-      enterNestedCell(cell);
-    }
-  } else if (e.key === "Escape") {
-    e.preventDefault();
-    leaveNestedCell();
-  }
-});
-
-document.addEventListener("dblclick", function (e) {
-  // Ensure the target is a table cell
-  if (e.target && e.target.tagName === "TD") {
-    const row = e.target.getAttribute("data-row");
-    const col = e.target.getAttribute("data-col");
-    const cellKey = `R${row}C${col}`;
-    const cellValue = cellsData[cellKey] || "";
-
-    // If the double-clicked cell is the top-left cell (R1C1)
-    if (row === "1" && col === "1") {
-      if (cellValue.startsWith("^")) {
-        leaveNestedCell();
-        return; // Stop further execution
-      }
-    }
-
-    // Check if the clicked cell contains a nested grid (starts with a comma)
-
-    //TODO: Works but conflicts with dblClick in script.js
-    // if (cellValue.startsWith(",")) {
-    //   enterNestedCell(e.target);
-    // }
-  }
-});
-
-document.addEventListener("click", () => {
-  contextMenu.style.display = "none";
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  const settingsIcon = document.getElementById("settingsIcon");
-  if (settingsIcon) {
-    settingsIcon.addEventListener("click", () => {
-      openPopup();
-    });
-  }
-});
-
-document.addEventListener("mouseup", (e) => {
-  if (isMidPanning && e.button === 1) {
-    isMidPanning = false;
-    return;
-  }
-  if (isSelecting && e.button === 0) {
-    isSelecting = false;
-  }
-});
-
-/***********************************************
- * Keyboard shortcuts (arrows, ctrl+c, ctrl+x, etc.)
- ***********************************************/
 document.addEventListener("keydown", (e) => {
   if (!selectedCell) return;
   // If cell is in inline editing mode
@@ -3756,9 +3355,78 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-/***********************************************
- * Resizing columns/rows
- ***********************************************/
+document.addEventListener("keydown", (e) => {
+  if (e.key === "F3") {
+    e.preventDefault();
+    if (selectedCells && selectedCells.length === 1) {
+      let cell = selectedCells[0];
+      enterNestedCell(cell);
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    leaveNestedCell();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "~" && e.ctrlKey && e.shiftKey) {
+    e.preventDefault();
+    isFormattingDisabled = !isFormattingDisabled;
+
+    if (isFormattingDisabled) {
+      clearFormatting();
+    } else {
+      parseAndFormatGrid();
+    }
+  }
+});
+
+document.addEventListener("dblclick", function (e) {
+  // Ensure the target is a table cell
+  if (e.target && e.target.tagName === "TD") {
+    const row = e.target.getAttribute("data-row");
+    const col = e.target.getAttribute("data-col");
+    const cellKey = `R${row}C${col}`;
+    const cellValue = cellsData[cellKey] || "";
+
+    // If the double-clicked cell is the top-left cell (R1C1)
+    if (row === "1" && col === "1") {
+      if (cellValue.startsWith("^")) {
+        leaveNestedCell();
+        return; // Stop further execution
+      }
+    }
+
+    // Check if the clicked cell contains a nested grid (starts with a comma)
+
+    //TODO: Works but conflicts with dblClick in script.js
+    // if (cellValue.startsWith(",")) {
+    //   enterNestedCell(e.target);
+    // }
+  }
+});
+
+spreadsheet.addEventListener("dblclick", (e) => {
+  let target = e.target;
+  if (target.tagName === "TD" && !target.closest(".plus-row")) {
+    startEditingCell(target);
+  }
+});
+
+document.addEventListener("click", () => {
+  contextMenu.style.display = "none";
+});
+
+document.addEventListener("mouseup", (e) => {
+  if (isMidPanning && e.button === 1) {
+    isMidPanning = false;
+    return;
+  }
+  if (isSelecting && e.button === 0) {
+    isSelecting = false;
+  }
+});
+
 document.addEventListener("mousemove", (e) => {
   if (isResizingCol) {
     let dx = e.pageX - startX;
@@ -3795,22 +3463,73 @@ document.addEventListener("mouseup", () => {
   }
 });
 
-/***********************************************
- * Copy/Paste logic
- ***********************************************/
+spreadsheet.addEventListener("mousedown", (e) => {
+  // Right-click context menu?
+  if (e.button === 2) {
+    e.preventDefault();
+    // Only show context menu if we have some selected cells
+    if (selectedCells.length > 0) {
+      e.preventDefault();
+      contextMenu.style.left = e.pageX + "px";
+      contextMenu.style.top = e.pageY + "px";
+      contextMenu.style.display = "block";
+    }
+    return;
+  }
 
-// 1) We also capture 'copy' event to set "text/plain"
+  if (e.button === 1) {
+    const gridContainer = document.getElementById("gridContainer");
+    // middle-click => panning
+    isMidPanning = true;
+    midPanStartX = e.clientX;
+    midPanStartY = e.clientY;
+    midPanScrollLeft = gridContainer.scrollLeft;
+    midPanScrollTop = gridContainer.scrollTop;
+    e.preventDefault();
+    return;
+  }
+
+  if (e.button === 0) {
+    // left-click => start selection
+    let target = e.target;
+    if (target.tagName === "TD" && !target.closest(".plus-row")) {
+      selectionAnchor = target;
+      isSelecting = true;
+      startCell = target;
+      selectCells(startCell, startCell);
+      e.preventDefault();
+    }
+  }
+});
+
+spreadsheet.addEventListener("mousemove", (e) => {
+  // Middle-click panning
+  if (isMidPanning) {
+    const gridContainer = document.getElementById("gridContainer");
+    const dx = e.clientX - midPanStartX;
+    const dy = e.clientY - midPanStartY;
+    gridContainer.scrollLeft = midPanScrollLeft - dx;
+    gridContainer.scrollTop = midPanScrollTop - dy;
+    e.preventDefault();
+    return;
+  }
+
+  // left-drag for multi selection
+  if (isSelecting) {
+    let target = e.target;
+    if (target.tagName === "TD" && !target.closest(".plus-row")) {
+      endCell = target;
+      selectCells(startCell, endCell);
+    }
+  }
+});
+
 document.addEventListener("copy", (e) => {
   if (!selectedCells.length) return;
   e.preventDefault();
   e.clipboardData.setData("text/plain", copySelectedCells());
 });
 
-// 2) Paste event
-/***********************************************
- * Pasting => detect CSV or TSV automatically
- ***********************************************/
-// In your paste event listener:
 document.addEventListener("paste", (e) => {
   if (!selectedCell) return;
   e.preventDefault();
@@ -3887,9 +3606,6 @@ document.addEventListener("paste", (e) => {
   }
 });
 
-/***********************************************
- * Drag & Drop CSV/TSV File Upload
- ***********************************************/
 document.addEventListener("dragover", (e) => {
   e.preventDefault(); // Prevent browser from opening the file
   e.dataTransfer.dropEffect = "copy"; // Show a copy cursor
@@ -3942,45 +3658,32 @@ document.addEventListener("drop", (e) => {
   reader.readAsText(file); // Read file as text
 });
 
-// Load grid data when the page loads
-document.addEventListener("DOMContentLoaded", loadGridFromLocalStorage);
-
-/***********************************************
- * Toggle Clear Formatting with Ctrl+Shift+~
- ***********************************************/
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "~" && e.ctrlKey && e.shiftKey) {
-    e.preventDefault();
-    isFormattingDisabled = !isFormattingDisabled;
-
-    if (isFormattingDisabled) {
-      clearFormatting();
-    } else {
-      parseAndFormatGrid();
-    }
-  }
-});
-
 document
   .getElementById("popupCloseButton")
   .addEventListener("click", closePopup);
 
-const overlay = document.getElementById("modalOverlay");
-// Close the popup if the user clicks the background.
-overlay.addEventListener("click", (e) => {
+document.getElementById("modalOverlay").addEventListener("click", (e) => {
+  const overlay = document.getElementById("modalOverlay");
   if (e.target === overlay) {
     closePopup();
   }
 });
 
-// Set up tab clicks.
-const tabs = document.querySelectorAll("#popupTabs .popupTab");
-tabs.forEach((t) => {
+document.querySelectorAll("#popupTabs .popupTab").forEach((t) => {
   t.addEventListener("click", () => {
     loadTab(t.dataset.tab);
   });
 });
 
-// Finally, parse/format once loaded
+document.addEventListener("DOMContentLoaded", loadGridFromLocalStorage);
+
+document.addEventListener("DOMContentLoaded", () => {
+  const settingsIcon = document.getElementById("settingsIcon");
+  if (settingsIcon) {
+    settingsIcon.addEventListener("click", () => {
+      openPopup();
+    });
+  }
+});
+
 parseAndFormatGrid();
