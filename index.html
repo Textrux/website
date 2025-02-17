@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- We handle pinch ourselves, so disable default pinch-zoom: -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+
+    <title>Virtual Grid (1-based), Sticky Address, Middle-Click Pan</title>
+    <style>
+      /* Make the page fill the screen, no scrolling on body */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: sans-serif;
+        background: #f0f0f0;
+      }
+
+      /* Formula bar at the top. */
+      #formulaBar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: #ccc;
+        display: flex;
+        align-items: center;
+        box-sizing: border-box;
+        padding: 0 8px;
+        z-index: 100;
+      }
+
+      /* Fixed-width area for the selected cell address (e.g. "R1C1") */
+      #cellAddress {
+        width: 80px; /* fixed width so it won't grow/shrink */
+        margin-right: 8px;
+        overflow: hidden; /* just in case it’s large */
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: right;
+        font-weight: bold;
+      }
+
+      #formulaInput {
+        flex: 1; /* the input expands the remaining space */
+        height: 28px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      /* Main container below the formula bar. */
+      #outerContainer {
+        position: absolute;
+        top: 48px; /* below formula bar */
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        background: #f9f9f9;
+      }
+
+      /* The top-left "corner" cell for row/column header intersection. */
+      #cornerCell {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 50px;
+        height: 30px;
+        background: #ddd;
+        box-sizing: border-box;
+        border-right: 1px solid #999;
+        border-bottom: 1px solid #999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        font-weight: bold;
+      }
+
+      /* Column header container pinned at the top (beside corner cell). */
+      #columnHeaderContainer {
+        position: absolute;
+        top: 0;
+        left: 50px;
+        right: 0;
+        height: 30px;
+        overflow-x: hidden; /* sync scrollLeft with main grid */
+        border-bottom: 1px solid #999;
+        background: #eee;
+        z-index: 9;
+        touch-action: none; /* We handle pinch in JS */
+      }
+
+      /* Row header container pinned at the left (below corner cell). */
+      #rowHeaderContainer {
+        position: absolute;
+        top: 30px;
+        left: 0;
+        bottom: 0;
+        width: 50px;
+        overflow-y: hidden; /* sync scrollTop with main grid */
+        border-right: 1px solid #999;
+        background: #eee;
+        z-index: 8;
+        touch-action: none;
+      }
+
+      /* Main scrollable container for the cells. */
+      #gridContainer {
+        position: absolute;
+        top: 30px; /* below column headers */
+        left: 50px; /* to the right of row headers */
+        right: 0;
+        bottom: 0;
+        overflow: auto;
+        background: #fff;
+        z-index: 1;
+        touch-action: pan-x pan-y; /* allow 1-finger scroll, we'll handle pinch */
+        cursor: default;
+      }
+
+      /* A big spacer for the full data size. */
+      #gridSpacer {
+        position: relative;
+      }
+
+      /* Basic "cell" styling. */
+      .cell {
+        position: absolute;
+        box-sizing: border-box;
+        border: 1px solid #ddd;
+        display: flex;
+        align-items: center;
+        padding: 0 4px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        background: #fff;
+        cursor: default;
+      }
+      .headerCell {
+        background: #eee;
+        border-color: #999;
+        font-weight: bold;
+        justify-content: center;
+      }
+
+      /* Editing highlight. */
+      .editing {
+        outline: 2px solid #66f;
+      }
+      .cell-editor {
+        width: 100%;
+        height: 100%;
+        border: none;
+        margin: 0;
+        padding: 0 4px;
+        box-sizing: border-box;
+        font-family: inherit;
+      }
+
+      /* Optional style for panning cursor. We switch to this when middle-click dragging. */
+      .grabbing {
+        cursor: grabbing !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="formulaBar">
+      <div id="cellAddress">R1C1</div>
+      <input id="formulaInput" type="text" placeholder="Cell value…" />
+    </div>
+
+    <div id="outerContainer">
+      <div id="cornerCell">■</div>
+      <div id="columnHeaderContainer"></div>
+      <div id="rowHeaderContainer"></div>
+      <div id="gridContainer">
+        <div id="gridSpacer"></div>
+      </div>
+    </div>
+
+    <script>
+      /* ------------------------------------------------------------------
+   1) Grid data, sizing, 1-based references, zoom
+   ------------------------------------------------------------------ */
+      const ROW_COUNT = 1000;
+      const COL_COUNT = 100;
+
+      /* We store the data in 0-based arrays, but display them as R+1, C+1. */
+      const baseRowHeight = 24;
+      const baseColWidth = 60;
+      const baseFontSize = 14;
+
+      let zoomLevel = 1.0;
+
+      let rowHeight = baseRowHeight;
+      let colWidth = baseColWidth;
+      let fontSize = baseFontSize;
+
+      function recalcSizes() {
+        rowHeight = baseRowHeight * zoomLevel;
+        colWidth = baseColWidth * zoomLevel;
+        fontSize = baseFontSize * zoomLevel;
+      }
+
+      function updateGridSpacerSize() {
+        gridSpacer.style.width = COL_COUNT * colWidth + "px";
+        gridSpacer.style.height = ROW_COUNT * rowHeight + "px";
+      }
+
+      /* Initialize data in a 2D array (still 0-based internally). */
+      const data = Array.from({ length: ROW_COUNT }, (_, r) =>
+        Array.from({ length: COL_COUNT }, (_, c) => `R${r + 1}C${c + 1}`)
+      );
+
+      /* DOM references */
+      const cellAddress = document.getElementById("cellAddress");
+      const formulaInput = document.getElementById("formulaInput");
+      const cornerCell = document.getElementById("cornerCell");
+      const columnHeaderContainer = document.getElementById(
+        "columnHeaderContainer"
+      );
+      const rowHeaderContainer = document.getElementById("rowHeaderContainer");
+      const gridContainer = document.getElementById("gridContainer");
+      const gridSpacer = document.getElementById("gridSpacer");
+
+      /* Rendered elements map:
+   renderedCells[rowIndex] = { colIndex: cellDiv, ... }
+   for row/col headers as well. */
+      let renderedCells = {};
+      let renderedRowHeaders = {};
+      let renderedColHeaders = {};
+
+      /* Track the selected cell in 0-based, but show as 1-based in UI. */
+      let selectedRow = 0;
+      let selectedCol = 0;
+
+      /* On init */
+      recalcSizes();
+      updateGridSpacerSize();
+      renderAll();
+
+      /* Sync scroll for row/col headers. */
+      gridContainer.addEventListener("scroll", () => {
+        rowHeaderContainer.scrollTop = gridContainer.scrollTop;
+        columnHeaderContainer.scrollLeft = gridContainer.scrollLeft;
+        renderAll();
+      });
+
+      /* ------------------------------------------------------------------
+   2) Virtual rendering
+   ------------------------------------------------------------------ */
+      function renderAll() {
+        const scrollTop = gridContainer.scrollTop;
+        const scrollLeft = gridContainer.scrollLeft;
+        const clientWidth = gridContainer.clientWidth;
+        const clientHeight = gridContainer.clientHeight;
+
+        const startRow = Math.floor(scrollTop / rowHeight);
+        const endRow = Math.floor((scrollTop + clientHeight) / rowHeight);
+        const startCol = Math.floor(scrollLeft / colWidth);
+        const endCol = Math.floor((scrollLeft + clientWidth) / colWidth);
+
+        const buffer = 2;
+        const renderStartRow = Math.max(0, startRow - buffer);
+        const renderEndRow = Math.min(ROW_COUNT - 1, endRow + buffer);
+        const renderStartCol = Math.max(0, startCol - buffer);
+        const renderEndCol = Math.min(COL_COUNT - 1, endCol + buffer);
+
+        // (A) Main cells
+        // Remove out-of-range rows
+        for (const rStr in renderedCells) {
+          const r = parseInt(rStr, 10);
+          if (r < renderStartRow || r > renderEndRow) {
+            // remove entire row from DOM
+            for (const cStr in renderedCells[r]) {
+              gridSpacer.removeChild(renderedCells[r][cStr]);
+            }
+            delete renderedCells[r];
+          } else {
+            // remove columns out of range
+            for (const cStr in renderedCells[r]) {
+              const c = parseInt(cStr, 10);
+              if (c < renderStartCol || c > renderEndCol) {
+                gridSpacer.removeChild(renderedCells[r][c]);
+                delete renderedCells[r][c];
+              }
+            }
+          }
+        }
+
+        // Add missing cells
+        for (let r = renderStartRow; r <= renderEndRow; r++) {
+          if (!renderedCells[r]) {
+            renderedCells[r] = {};
+          }
+          for (let c = renderStartCol; c <= renderEndCol; c++) {
+            if (!renderedCells[r][c]) {
+              const cellDiv = document.createElement("div");
+              cellDiv.className = "cell";
+              cellDiv.style.top = r * rowHeight + "px";
+              cellDiv.style.left = c * colWidth + "px";
+              cellDiv.style.width = colWidth + "px";
+              cellDiv.style.height = rowHeight + "px";
+              cellDiv.style.fontSize = fontSize + "px";
+              cellDiv.textContent = data[r][c];
+
+              cellDiv.addEventListener("click", () =>
+                onCellClick(r, c, cellDiv)
+              );
+
+              gridSpacer.appendChild(cellDiv);
+              renderedCells[r][c] = cellDiv;
+            }
+          }
+        }
+
+        // (B) Row headers
+        renderRowHeaders(renderStartRow, renderEndRow);
+
+        // (C) Column headers
+        renderColHeaders(renderStartCol, renderEndCol);
+      }
+
+      function renderRowHeaders(startR, endR) {
+        // remove out-of-range
+        for (const rStr in renderedRowHeaders) {
+          const r = parseInt(rStr, 10);
+          if (r < startR || r > endR) {
+            rowHeaderContainer.removeChild(renderedRowHeaders[r]);
+            delete renderedRowHeaders[r];
+          }
+        }
+
+        // add needed
+        for (let r = startR; r <= endR; r++) {
+          if (!renderedRowHeaders[r]) {
+            const rowHdr = document.createElement("div");
+            rowHdr.className = "cell headerCell";
+            rowHdr.style.top = r * rowHeight + "px";
+            rowHdr.style.left = "0px";
+            rowHdr.style.width = "50px";
+            rowHdr.style.height = rowHeight + "px";
+            rowHdr.style.fontSize = fontSize + "px";
+
+            // Display as R(r+1)
+            rowHdr.textContent = "R" + (r + 1);
+
+            rowHeaderContainer.appendChild(rowHdr);
+            renderedRowHeaders[r] = rowHdr;
+          }
+        }
+      }
+
+      function renderColHeaders(startC, endC) {
+        // remove out-of-range
+        for (const cStr in renderedColHeaders) {
+          const c = parseInt(cStr, 10);
+          if (c < startC || c > endC) {
+            columnHeaderContainer.removeChild(renderedColHeaders[c]);
+            delete renderedColHeaders[c];
+          }
+        }
+
+        // add needed
+        for (let c = startC; c <= endC; c++) {
+          if (!renderedColHeaders[c]) {
+            const colHdr = document.createElement("div");
+            colHdr.className = "cell headerCell";
+            colHdr.style.top = "0px";
+            colHdr.style.left = c * colWidth + "px";
+            colHdr.style.width = colWidth + "px";
+            colHdr.style.height = "30px";
+            colHdr.style.fontSize = fontSize + "px";
+
+            // Display as C(c+1)
+            colHdr.textContent = "C" + (c + 1);
+
+            columnHeaderContainer.appendChild(colHdr);
+            renderedColHeaders[c] = colHdr;
+          }
+        }
+      }
+
+      /* ------------------------------------------------------------------
+   3) Selecting & editing a cell + formula bar
+   ------------------------------------------------------------------ */
+      let editingCell = null;
+
+      function onCellClick(r, c, cellEl) {
+        // If we're editing a different cell, finish that edit first
+        if (editingCell && editingCell !== cellEl) {
+          finishEdit();
+        }
+
+        // Mark (r,c) as selected
+        selectedRow = r;
+        selectedCol = c;
+        cellAddress.textContent = `R${r + 1}C${c + 1}`;
+        formulaInput.value = data[r][c];
+
+        // Start editing on single click (optional)
+        startEdit(r, c, cellEl);
+      }
+
+      function startEdit(r, c, cellEl) {
+        if (editingCell === cellEl) return;
+        editingCell = cellEl;
+        cellEl.classList.add("editing");
+
+        const oldVal = data[r][c];
+
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.className = "cell-editor";
+        inp.value = oldVal;
+        inp.style.fontSize = fontSize + "px";
+
+        cellEl.textContent = "";
+        cellEl.appendChild(inp);
+
+        inp.focus();
+        inp.select();
+
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            finishEdit();
+          }
+        });
+        inp.addEventListener("blur", finishEdit);
+
+        function finishEdit() {
+          if (!editingCell) return;
+          const newVal = inp.value;
+          data[r][c] = newVal;
+          editingCell.classList.remove("editing");
+          editingCell.textContent = newVal;
+          editingCell.removeChild(inp);
+          editingCell = null;
+          // Update formula bar if still selected
+          if (selectedRow === r && selectedCol === c) {
+            formulaInput.value = newVal;
+          }
+        }
+      }
+
+      function finishEdit() {
+        // If there's a cell in editing mode, finalize it
+        if (!editingCell) return;
+        const inp = editingCell.querySelector("input");
+        if (inp) {
+          const [r, c] = findCellIndices(editingCell);
+          if (r != null && c != null) {
+            data[r][c] = inp.value;
+            editingCell.classList.remove("editing");
+            editingCell.textContent = inp.value;
+            editingCell.removeChild(inp);
+            editingCell = null;
+            // If this cell is the selected one, update formula bar
+            if (r === selectedRow && c === selectedCol) {
+              formulaInput.value = inp.value;
+            }
+          }
+        }
+      }
+
+      function findCellIndices(cellEl) {
+        // We stored them in renderedCells. Let's do a quick search:
+        for (const rStr in renderedCells) {
+          for (const cStr in renderedCells[rStr]) {
+            if (renderedCells[rStr][cStr] === cellEl) {
+              return [parseInt(rStr), parseInt(cStr)];
+            }
+          }
+        }
+        return [null, null];
+      }
+
+      /* If user edits formula bar, update the selected cell. */
+      formulaInput.addEventListener("change", () => {
+        if (selectedRow == null || selectedCol == null) return;
+        const val = formulaInput.value;
+        data[selectedRow][selectedCol] = val;
+        // Update the rendered cell if visible
+        if (
+          renderedCells[selectedRow] &&
+          renderedCells[selectedRow][selectedCol]
+        ) {
+          renderedCells[selectedRow][selectedCol].textContent = val;
+        }
+      });
+
+      /* ------------------------------------------------------------------
+   4) Zooming: Ctrl+Wheel on desktop, pinch on mobile
+   ------------------------------------------------------------------ */
+      gridContainer.addEventListener(
+        "wheel",
+        (e) => {
+          if (e.ctrlKey) {
+            e.preventDefault();
+            const oldW = COL_COUNT * colWidth;
+            const oldH = ROW_COUNT * rowHeight;
+            const fracX = gridContainer.scrollLeft / oldW;
+            const fracY = gridContainer.scrollTop / oldH;
+
+            if (e.deltaY < 0) {
+              zoomLevel *= 1.1;
+            } else {
+              zoomLevel *= 0.9;
+              if (zoomLevel < 0.2) zoomLevel = 0.2;
+            }
+            recalcSizes();
+            updateGridSpacerSize();
+
+            const newW = COL_COUNT * colWidth;
+            const newH = ROW_COUNT * rowHeight;
+            gridContainer.scrollLeft = fracX * newW;
+            gridContainer.scrollTop = fracY * newH;
+
+            clearAllDOM();
+            renderAll();
+          }
+        },
+        { passive: false }
+      );
+
+      /* Two-finger pinch on mobile */
+      let pinchActive = false;
+      let pinchStartDist = 1;
+      let pinchStartZoom = 1;
+      let pinchFracX = 0.5;
+      let pinchFracY = 0.5;
+
+      gridContainer.addEventListener(
+        "touchstart",
+        (e) => {
+          if (e.touches.length === 2) {
+            pinchActive = true;
+            e.preventDefault();
+            pinchStartDist = getTouchesDistance(e.touches[0], e.touches[1]);
+            pinchStartZoom = zoomLevel;
+            const oldW = COL_COUNT * colWidth;
+            const oldH = ROW_COUNT * rowHeight;
+            pinchFracX = gridContainer.scrollLeft / oldW;
+            pinchFracY = gridContainer.scrollTop / oldH;
+          }
+        },
+        { passive: false }
+      );
+
+      gridContainer.addEventListener(
+        "touchmove",
+        (e) => {
+          if (pinchActive && e.touches.length === 2) {
+            e.preventDefault();
+            const newDist = getTouchesDistance(e.touches[0], e.touches[1]);
+            const ratio = newDist / pinchStartDist;
+            zoomLevel = pinchStartZoom * ratio;
+            if (zoomLevel < 0.2) zoomLevel = 0.2;
+            if (zoomLevel > 10) zoomLevel = 10;
+
+            recalcSizes();
+            updateGridSpacerSize();
+
+            const newW = COL_COUNT * colWidth;
+            const newH = ROW_COUNT * rowHeight;
+            gridContainer.scrollLeft = pinchFracX * newW;
+            gridContainer.scrollTop = pinchFracY * newH;
+
+            clearAllDOM();
+            renderAll();
+          }
+        },
+        { passive: false }
+      );
+
+      gridContainer.addEventListener("touchend", (e) => {
+        if (pinchActive && e.touches.length < 2) {
+          pinchActive = false;
+        }
+      });
+      gridContainer.addEventListener(
+        "touchcancel",
+        () => (pinchActive = false)
+      );
+
+      function getTouchesDistance(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      /* ------------------------------------------------------------------
+   5) Middle-click drag (same-direction panning)
+   ------------------------------------------------------------------ */
+      let isMidPanning = false;
+      let midPanStartX = 0;
+      let midPanStartY = 0;
+      let startScrollLeft = 0;
+      let startScrollTop = 0;
+
+      /* Listen for mousedown => if button===1 => start panning. */
+      gridContainer.addEventListener("mousedown", (e) => {
+        if (e.button === 1) {
+          // middle button
+          e.preventDefault();
+          // store start coords
+          isMidPanning = true;
+          midPanStartX = e.clientX;
+          midPanStartY = e.clientY;
+          startScrollLeft = gridContainer.scrollLeft;
+          startScrollTop = gridContainer.scrollTop;
+          gridContainer.classList.add("grabbing"); // change cursor
+        }
+      });
+
+      /* On mousemove => if mid-panning, update scroll. */
+      document.addEventListener("mousemove", (e) => {
+        if (isMidPanning) {
+          e.preventDefault();
+          // move in the same direction
+          const dx = e.clientX - midPanStartX;
+          const dy = e.clientY - midPanStartY;
+          gridContainer.scrollLeft = startScrollLeft - dx;
+          // Typically, if you move mouse right, we want to see columns further to the right => scrollLeft decreases.
+          // But user wants "the grid moves in the same direction as the mouse."
+          // If you prefer truly "same direction," you'd do:
+          //   gridContainer.scrollLeft = startScrollLeft + dx;
+          //   gridContainer.scrollTop  = startScrollTop  + dy;
+          // Decide which one you actually want:
+
+          // "same direction" for vertical:
+          gridContainer.scrollTop = startScrollTop - dy;
+        }
+      });
+
+      /* On mouseup => stop panning. */
+      document.addEventListener("mouseup", (e) => {
+        if (isMidPanning && e.button === 1) {
+          isMidPanning = false;
+          gridContainer.classList.remove("grabbing");
+        }
+      });
+
+      /* ------------------------------------------------------------------
+   Clear all DOM if needed (e.g. after zoom)
+   ------------------------------------------------------------------ */
+      function clearAllDOM() {
+        // main cells
+        for (const rStr in renderedCells) {
+          for (const cStr in renderedCells[rStr]) {
+            gridSpacer.removeChild(renderedCells[rStr][cStr]);
+          }
+        }
+        renderedCells = {};
+        // row headers
+        for (const rStr in renderedRowHeaders) {
+          rowHeaderContainer.removeChild(renderedRowHeaders[rStr]);
+        }
+        renderedRowHeaders = {};
+        // col headers
+        for (const cStr in renderedColHeaders) {
+          columnHeaderContainer.removeChild(renderedColHeaders[cStr]);
+        }
+        renderedColHeaders = {};
+      }
+    </script>
+  </body>
+</html>
