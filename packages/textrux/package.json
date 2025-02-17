@@ -1,0 +1,8 @@
+{
+  "name": "textrux",
+  "version": "1.0.0",
+  "description": "Text Structures in simple CSV",
+  "main": "src/index.ts",
+  "author": "Textrux",
+  "license": "CC0-1.0"
+}
