@@ -1,26 +1,22 @@
+// src/App.tsx
 import React from "react";
-import { GridView } from "./components/GridView";
-import { FormulaBar } from "./components/FormulaBar";
-import { Controls } from "./components/Controls";
+import { GridModel, GridView } from "textrux";
 
-const App: React.FC = () => {
+function App() {
+  // Create the model once
+  const model = React.useMemo(() => {
+    const m = new GridModel(1000, 50);
+    // Example formula cell
+    m.setCell(4, 8, "=R9C4+R4C3");
+    m.setCellFormat(4, 8, { backgroundColor: "lightgreen" });
+    return m;
+  }, []);
+
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden">
-      {/* ✅ Fixed formula bar at the top */}
-      <div className="flex flex-col bg-white shadow-md z-10">
-        {/* <h1 className="text-3xl font-bold text-blue-600 p-4">Textrux Grid</h1> */}
-        <div className="flex justify-center space-x-2 p-2">
-          <Controls />
-        </div>
-        <FormulaBar />
-      </div>
-
-      {/* ✅ Grid takes up remaining space with a single scrollbar */}
-      <div className="flex-1 overflow-auto">
-        <GridView />
-      </div>
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <GridView grid={model} />
     </div>
   );
-};
+}
 
 export default App;
