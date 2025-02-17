@@ -29,6 +29,7 @@ export const Controls = () => {
       >
         Zoom In
       </button>
+      <span className="text-gray-600 font-bold">Zoom: {zoom.toFixed(1)}x</span>
     </div>
   );
 };

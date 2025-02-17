@@ -20,7 +20,10 @@ export const useGridStore = create<GridState>((set, get) => {
     selectedCell: { row: 1, col: 1 },
     zoom: 1,
 
-    selectCell: (row, col) => set({ selectedCell: { row, col } }),
+    selectCell: (row, col) => {
+      console.log(`Selected R${row}C${col}`);
+      set({ selectedCell: { row, col } });
+    },
 
     updateCell: (row, col, value) => {
       gridInstance.setCell(row, col, value);
