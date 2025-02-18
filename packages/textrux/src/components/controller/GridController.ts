@@ -1,4 +1,5 @@
-// GridController.tsx
+// GridController.ts
+
 import { useCallback, useRef, useEffect } from "react";
 import { GridModel } from "../model/GridModel";
 
@@ -11,13 +12,10 @@ export interface UseGridControllerOptions {
   colPx: number; // base col width * zoom
   rowPx: number; // base row height * zoom
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
-  // etc. Any additional references you need
 }
 
 /**
  * A custom hook that sets up event handlers for pinch zoom, middle-click drag, etc.
- * The main React component can import this hook, call it, and attach the returned callbacks
- * to the relevant DOM elements.
  */
 export function useGridController(options: UseGridControllerOptions) {
   const {
@@ -49,31 +47,30 @@ export function useGridController(options: UseGridControllerOptions) {
     scrollTop: 0,
   });
 
-  // Ctrl+wheel => zoom
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // --(A) Desktop Ctrl+wheel => custom zoom, not browser page zoom --
+  useEffect(() => {
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    function handleWheel(e: WheelEvent) {
       if (e.ctrlKey) {
         e.preventDefault();
-        const container = gridContainerRef.current;
-        if (!container) return;
-
-        // const oldW = grid.cols * colPx;
-        // const oldH = grid.rows * rowPx;
-        // const fracX = container.scrollLeft / oldW;
-        // const fracY = container.scrollTop / oldH;
 
         let newZoom = zoom * (e.deltaY < 0 ? 1.1 : 0.9);
         if (newZoom < minZoom) newZoom = minZoom;
         if (newZoom > maxZoom) newZoom = maxZoom;
-
         setZoom(newZoom);
       }
-    },
-    // [grid, zoom, setZoom, colPx, rowPx, minZoom, maxZoom, gridContainerRef]
-    [zoom, setZoom, minZoom, maxZoom, gridContainerRef]
-  );
+    }
 
-  // Pinch (touch)
+    // Add the wheel listener with {passive: false} so e.preventDefault() works.
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [zoom, setZoom, minZoom, maxZoom, gridContainerRef]);
+
+  // --(B) Touch pinch to zoom --
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (e.touches.length === 2) {
@@ -119,11 +116,10 @@ export function useGridController(options: UseGridControllerOptions) {
     }
   }, []);
 
-  // Middle-click drag
+  // --(C) Middle-click drag/pan --
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 1) {
-        // middle
         e.preventDefault();
         const container = gridContainerRef.current;
         if (!container) return;
@@ -166,7 +162,6 @@ export function useGridController(options: UseGridControllerOptions) {
     [gridContainerRef]
   );
 
-  // Hook up doc-level listeners for mousemove/mouseup if midPan is active
   useEffect(() => {
     document.addEventListener("mousemove", onMouseMoveDoc);
     document.addEventListener("mouseup", onMouseUpDoc);
@@ -176,10 +171,8 @@ export function useGridController(options: UseGridControllerOptions) {
     };
   }, [onMouseMoveDoc, onMouseUpDoc]);
 
-  // For undo/redo, you can define methods that call grid.undo()/grid.redo().
-
   return {
-    onWheel,
+    // We still export these so the GridView can attach them to its container:
     onTouchStart,
     onTouchMove,
     onTouchEnd,

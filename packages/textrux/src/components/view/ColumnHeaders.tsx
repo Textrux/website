@@ -1,87 +1,127 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useEffect, useRef, useState } from "react";
+// ColumnHeaders.tsx
+
+import { useEffect, useState } from "react";
 import { GridModel } from "../model/GridModel";
 
-/** A sub-component for column headers, but we also virtualize them. */
 export function ColumnHeaders({
   grid,
-  zoom,
-  rowPx,
-  colPx,
+  rowHeights,
+  colWidths,
   fontSize,
   version,
+  gridContainerRef,
 }: {
   grid: GridModel;
-  zoom: number;
-  rowPx: number;
-  colPx: number;
+  rowHeights: number[];
+  colWidths: number[];
   fontSize: number;
   version: number;
+  gridContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  // We'll track visible columns by reading parent's scrollLeft
-  const containerRef = useRef<HTMLDivElement>(null);
   const [visibleCols, setVisibleCols] = useState({ startCol: 1, endCol: 1 });
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   useEffect(() => {
-    const container = containerRef.current?.parentElement; // the parent is the absolute wrapper
+    const container = gridContainerRef.current;
     if (!container) return;
-    // Actually we want the #gridContainer to see its scrollLeft
-    const gridContainer = container.nextElementSibling as HTMLDivElement | null;
-    if (!gridContainer) return;
 
     function updateVisibleRange() {
-      const scrollLeft = gridContainer?.scrollLeft ?? 30; // just hard coded this number to prevent errors. TODO: need to revisit
-      const clientWidth = gridContainer?.clientWidth ?? 30; // just hard coded this number to prevent errors. TODO: need to revisit
-      const startCol = Math.floor(scrollLeft / colPx) + 1; // 1-based
-      const endCol = Math.floor((scrollLeft + clientWidth) / colPx) + 1;
+      const sl = container?.scrollLeft ?? 0;
+      const cw = container?.clientWidth ?? 0;
+      setScrollLeft(sl);
+
+      const start = findFirstColInView(sl, colWidths);
+      const end = findLastColInView(sl + cw, colWidths);
       const buffer = 2;
-      const renderStartCol = Math.max(1, startCol - buffer);
-      const renderEndCol = Math.min(grid.cols, endCol + buffer);
-      setVisibleCols({ startCol: renderStartCol, endCol: renderEndCol });
+      const renderStart = Math.max(1, start - buffer);
+      const renderEnd = Math.min(grid.cols, end + buffer);
+
+      setVisibleCols({ startCol: renderStart, endCol: renderEnd });
     }
 
     updateVisibleRange();
-    gridContainer.addEventListener("scroll", updateVisibleRange);
+    container.addEventListener("scroll", updateVisibleRange);
     window.addEventListener("resize", updateVisibleRange);
     return () => {
-      gridContainer.removeEventListener("scroll", updateVisibleRange);
+      container.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [colPx, grid.cols]);
+  }, [colWidths, grid.cols, gridContainerRef]);
+
+  const totalWidth = colWidths.reduce((a, b) => a + b, 0);
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute top-0 left-[50px] right-0 h-[30px] overflow-hidden bg-gray-200 border-b border-gray-600 z-9"
-    >
+    <div className="absolute top-0 left-[50px] right-0 h-[30px] bg-gray-200 border-b border-gray-600 z-9 overflow-hidden">
       <div
         className="relative"
         style={{
-          width: grid.cols * colPx,
+          width: totalWidth,
           height: 30,
+          transform: `translateX(-${scrollLeft}px)`,
         }}
       >
         {Array.from({
           length: visibleCols.endCol - visibleCols.startCol + 1,
         }).map((_, i) => {
           const c = visibleCols.startCol + i;
-          const leftPx = (c - 1) * colPx;
+          const x = sumUpTo(colWidths, c - 1);
+          const w = colWidths[c - 1];
+          const label = `C${c}`;
+          const labelElement = (
+            <>
+              <span className="text-black">C</span>
+              {c}
+            </>
+          );
+
           return (
             <div
               key={c}
-              className="absolute top-0 flex items-center justify-center border-r border-gray-300 bg-gray-100 text-xs font-bold"
+              className="absolute top-0 flex items-center justify-center border-r border-gray-300 bg-gray-100 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
               style={{
-                left: leftPx,
-                width: colPx,
+                left: x,
+                width: w,
                 height: 30,
                 fontSize,
               }}
+              title={label}
             >
-              {`C${c}`}
+              {labelElement}
             </div>
           );
         })}
       </div>
     </div>
   );
+}
+
+function sumUpTo(arr: number[], n: number) {
+  let s = 0;
+  for (let i = 0; i < n; i++) s += arr[i];
+  return s;
+}
+
+function findFirstColInView(scrollLeft: number, widths: number[]) {
+  let cum = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i];
+    if (scrollLeft < cum + w) {
+      return i + 1;
+    }
+    cum += w;
+  }
+  return widths.length;
+}
+
+function findLastColInView(right: number, widths: number[]) {
+  let cum = 0;
+  let last = 1;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i];
+    if (cum > right) break;
+    last = i + 1;
+    cum += w;
+  }
+  return last;
 }

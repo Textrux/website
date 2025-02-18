@@ -1,38 +1,69 @@
 /* eslint-disable react-hooks/rules-of-hooks */
+// GridCells.tsx
+
 import { useEffect, useRef, useState } from "react";
 import { GridModel } from "../model/GridModel";
 import { SelectionRange } from "./GridView";
 import { CellView } from "./CellView";
 
-/** The main grid cells area, which is also virtualized. */
-export function GridCells({
-  grid,
-  rowPx,
-  colPx,
-  fontSize,
-  version,
-  selectionRange,
-  activeRow,
-  activeCol,
-  editingCell,
-  onCellClick,
-  onCellDoubleClick,
-  onCommitEdit,
-}: {
+interface GridCellsProps {
   grid: GridModel;
-  rowPx: number;
-  colPx: number;
-  fontSize: number;
-  version: number; // triggers re-render
+  rowHeights: number[];
+  colWidths: number[];
   selectionRange: SelectionRange;
   activeRow: number;
   activeCol: number;
   editingCell: { row: number; col: number } | null;
+  fontSize: number;
+  version: number;
+
+  onCellMouseDown: (r: number, c: number, e: React.MouseEvent) => void;
   onCellClick: (r: number, c: number, e: React.MouseEvent) => void;
   onCellDoubleClick: (r: number, c: number) => void;
-  onCommitEdit: (r: number, c: number, val: string) => void;
-}) {
+  onCommitEdit: (
+    r: number,
+    c: number,
+    val: string,
+    opts?: { escape?: boolean }
+  ) => void;
+  onKeyboardNav: (
+    r: number,
+    c: number,
+    direction: "down" | "right" | "left"
+  ) => void;
+
+  // NEW: For real-time dynamic sizing + partial edit:
+  measureAndExpand: (r: number, c: number, text: string) => void;
+  sharedEditingValue: string;
+  setSharedEditingValue: (txt: string) => void;
+}
+
+/**
+ * The main grid cells area, with virtualization plus variable row/col sizes.
+ */
+export function GridCells({
+  grid,
+  rowHeights,
+  colWidths,
+  selectionRange,
+  activeRow,
+  activeCol,
+  editingCell,
+  fontSize,
+  version,
+  onCellMouseDown,
+  onCellClick,
+  onCellDoubleClick,
+  onCommitEdit,
+  onKeyboardNav,
+
+  // NEW props:
+  measureAndExpand,
+  sharedEditingValue,
+  setSharedEditingValue,
+}: GridCellsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
   const [visibleRows, setVisibleRows] = useState({ startRow: 1, endRow: 1 });
   const [visibleCols, setVisibleCols] = useState({ startCol: 1, endCol: 1 });
 
@@ -48,10 +79,13 @@ export function GridCells({
       const clientWidth = gridContainer?.clientWidth ?? 0;
       const clientHeight = gridContainer?.clientHeight ?? 0;
 
-      const startRow = Math.floor(scrollTop / rowPx) + 1;
-      const endRow = Math.floor((scrollTop + clientHeight) / rowPx) + 1;
-      const startCol = Math.floor(scrollLeft / colPx) + 1;
-      const endCol = Math.floor((scrollLeft + clientWidth) / colPx) + 1;
+      // find visible row range
+      const startRow = findFirstRowInView(scrollTop, rowHeights);
+      const endRow = findLastRowInView(scrollTop + clientHeight, rowHeights);
+
+      // find visible col range
+      const startCol = findFirstColInView(scrollLeft, colWidths);
+      const endCol = findLastColInView(scrollLeft + clientWidth, colWidths);
 
       const buffer = 2;
       const renderStartRow = Math.max(1, startRow - buffer);
@@ -70,21 +104,25 @@ export function GridCells({
       gridContainer.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [rowPx, colPx, version, grid.rows, grid.cols]);
+  }, [version, grid.rows, grid.cols, rowHeights, colWidths]);
 
-  const cells: React.ReactNode[] = [];
+  // Build the visible cells
+  const cells: JSX.Element[] = [];
+
   for (let r = visibleRows.startRow; r <= visibleRows.endRow; r++) {
+    const topPx = sumUpTo(rowHeights, r - 1);
+    const rowHeight = rowHeights[r - 1];
+
     for (let c = visibleCols.startCol; c <= visibleCols.endCol; c++) {
+      const leftPx = sumUpTo(colWidths, c - 1);
+      const colWidth = colWidths[c - 1];
+
       const val = grid.getCellValue(r, c);
-      const formula = grid.getCellRaw(r, c).startsWith("=")
-        ? grid.getCellRaw(r, c)
-        : null;
+      const raw = grid.getCellRaw(r, c);
+      const formula = raw.startsWith("=") ? raw : null;
       const format = grid.getCellFormat(r, c);
-      const topPx = (r - 1) * rowPx;
-      const leftPx = (c - 1) * colPx;
 
       const isActive = r === activeRow && c === activeCol;
-      // check if within selection range
       const inSelection =
         r >= selectionRange.startRow &&
         r <= selectionRange.endRow &&
@@ -107,12 +145,18 @@ export function GridCells({
           isEditing={isEditing ?? false}
           top={topPx}
           left={leftPx}
-          width={colPx}
-          height={rowPx}
+          width={colWidth}
+          height={rowHeight}
           fontSize={fontSize}
+          onCellMouseDown={onCellMouseDown}
           onClick={onCellClick}
           onDoubleClick={onCellDoubleClick}
           onCommitEdit={onCommitEdit}
+          onKeyboardNav={onKeyboardNav}
+          // Pass the new props so the cell can do real-time expansion & partial edit
+          measureAndExpand={measureAndExpand}
+          sharedEditingValue={sharedEditingValue}
+          setSharedEditingValue={setSharedEditingValue}
         />
       );
     }
@@ -123,4 +167,63 @@ export function GridCells({
       {cells}
     </div>
   );
+}
+
+/** sumUpTo(arr, n) => sum of arr[0..n-1]. */
+function sumUpTo(arr: number[], n: number) {
+  let s = 0;
+  for (let i = 0; i < n; i++) {
+    s += arr[i];
+  }
+  return s;
+}
+
+/** find the first row in view given a scrollTop and rowHeights. */
+function findFirstRowInView(scrollTop: number, rowHeights: number[]): number {
+  let cum = 0;
+  for (let r = 0; r < rowHeights.length; r++) {
+    const h = rowHeights[r];
+    if (scrollTop < cum + h) {
+      return r + 1;
+    }
+    cum += h;
+  }
+  return rowHeights.length;
+}
+
+function findLastRowInView(bottomPx: number, rowHeights: number[]): number {
+  let cum = 0;
+  let lastR = 1;
+  for (let r = 0; r < rowHeights.length; r++) {
+    const h = rowHeights[r];
+    if (cum > bottomPx) break;
+    lastR = r + 1;
+    cum += h;
+  }
+  return lastR;
+}
+
+/** find the first col in view given scrollLeft + colWidths. */
+function findFirstColInView(scrollLeft: number, colWidths: number[]): number {
+  let cum = 0;
+  for (let c = 0; c < colWidths.length; c++) {
+    const w = colWidths[c];
+    if (scrollLeft < cum + w) {
+      return c + 1;
+    }
+    cum += w;
+  }
+  return colWidths.length;
+}
+
+function findLastColInView(rightPx: number, colWidths: number[]): number {
+  let cum = 0;
+  let lastC = 1;
+  for (let c = 0; c < colWidths.length; c++) {
+    const w = colWidths[c];
+    if (cum > rightPx) break;
+    lastC = c + 1;
+    cum += w;
+  }
+  return lastC;
 }

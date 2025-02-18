@@ -1,0 +1,12 @@
+/* .\project.css */
+.grabbing {
+  cursor: grabbing;
+}
+
+/* NEW: Disallow text selection when we apply .noselect to body */
+.noselect {
+  -webkit-user-select: none; /* for Safari */
+  -moz-user-select: none; /* for Firefox */
+  -ms-user-select: none; /* for IE/Edge */
+  user-select: none;
+}

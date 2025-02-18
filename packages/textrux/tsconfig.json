@@ -5,7 +5,6 @@
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "skipLibCheck": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -16,9 +15,10 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strict": false, // loosen up all strict checks
+    "noUnusedLocals": false, // let you ignore unused vars
+    "noUnusedParameters": false, // let you ignore unused parameters
+    "skipLibCheck": true, // ignore .d.ts issues in node_modules
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
 

@@ -1,87 +1,124 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { useEffect, useRef, useState } from "react";
+// RowHeaders.tsx
+
+import { useEffect, useState } from "react";
 import { GridModel } from "../model/GridModel";
 
-/** A sub-component for row headers, also virtualized. */
 export function RowHeaders({
   grid,
-  zoom,
-  rowPx,
-  colPx,
+  rowHeights,
+  colWidths, // not used here, but in param for consistency
   fontSize,
   version,
+  gridContainerRef,
 }: {
   grid: GridModel;
-  zoom: number;
-  rowPx: number;
-  colPx: number;
+  rowHeights: number[];
+  colWidths: number[];
   fontSize: number;
   version: number;
+  gridContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [visibleRows, setVisibleRows] = useState({ startRow: 1, endRow: 1 });
+  const [scrollTop, setScrollTop] = useState(0);
 
   useEffect(() => {
-    const container = containerRef.current?.parentElement;
+    const container = gridContainerRef.current;
     if (!container) return;
-    // The parent's next sibling is the main grid container
-    const gridContainer = container.nextElementSibling
-      ?.nextElementSibling as HTMLDivElement | null;
-    if (!gridContainer) return;
 
     function updateVisibleRange() {
-      const scrollTop = gridContainer?.scrollTop ?? 0;
-      const clientHeight = gridContainer?.clientHeight ?? 0;
-      const startRow = Math.floor(scrollTop / rowPx) + 1;
-      const endRow = Math.floor((scrollTop + clientHeight) / rowPx) + 1;
+      const st = container?.scrollTop ?? 0;
+      const ch = container?.clientHeight ?? 0;
+      setScrollTop(st);
+
+      // find which rows are in view
+      const start = findFirstRowInView(st, rowHeights);
+      const end = findLastRowInView(st + ch, rowHeights);
       const buffer = 2;
-      const renderStartRow = Math.max(1, startRow - buffer);
-      const renderEndRow = Math.min(grid.rows, endRow + buffer);
-      setVisibleRows({ startRow: renderStartRow, endRow: renderEndRow });
+      const renderStart = Math.max(1, start - buffer);
+      const renderEnd = Math.min(grid.rows, end + buffer);
+
+      setVisibleRows({ startRow: renderStart, endRow: renderEnd });
     }
 
     updateVisibleRange();
-    gridContainer.addEventListener("scroll", updateVisibleRange);
+    container.addEventListener("scroll", updateVisibleRange);
     window.addEventListener("resize", updateVisibleRange);
     return () => {
-      gridContainer.removeEventListener("scroll", updateVisibleRange);
+      container.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [rowPx, grid.rows]);
+  }, [rowHeights, grid.rows, gridContainerRef]);
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute top-[30px] left-0 bottom-0 w-[50px] overflow-hidden bg-gray-200 border-r border-gray-600 z-8"
-    >
+    <div className="absolute top-[30px] left-0 bottom-0 w-[50px] bg-gray-200 border-r border-gray-600 z-8 overflow-hidden">
       <div
         className="relative"
         style={{
           width: 50,
-          height: grid.rows * rowPx,
+          // total height = sum rowHeights
+          height: rowHeights.reduce((a, b) => a + b, 0),
+          transform: `translateY(-${scrollTop}px)`,
         }}
       >
         {Array.from({
           length: visibleRows.endRow - visibleRows.startRow + 1,
         }).map((_, i) => {
           const r = visibleRows.startRow + i;
-          const topPx = (r - 1) * rowPx;
+          const topPx = sumUpTo(rowHeights, r - 1); // dynamic
+          const h = rowHeights[r - 1];
+          const label = `R${r}`;
+          const labelElement = (
+            <>
+              <span className="text-black">R</span>
+              {r}
+            </>
+          );
+
           return (
             <div
               key={r}
-              className="absolute left-0 flex items-center justify-center border-b border-gray-300 bg-gray-100 text-xs font-bold"
+              className="absolute left-0 flex items-center justify-center border-b border-gray-300 bg-gray-100 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
               style={{
                 top: topPx,
                 width: 50,
-                height: rowPx,
+                height: h,
                 fontSize,
               }}
+              title={label}
             >
-              {`R${r}`}
+              {labelElement}
             </div>
           );
         })}
       </div>
     </div>
   );
+}
+
+function sumUpTo(arr: number[], n: number) {
+  let s = 0;
+  for (let i = 0; i < n; i++) s += arr[i];
+  return s;
+}
+
+function findFirstRowInView(scrollTop: number, heights: number[]) {
+  let cum = 0;
+  for (let i = 0; i < heights.length; i++) {
+    if (scrollTop < cum + heights[i]) {
+      return i + 1;
+    }
+    cum += heights[i];
+  }
+  return heights.length;
+}
+
+function findLastRowInView(bottom: number, heights: number[]) {
+  let cum = 0;
+  let last = 1;
+  for (let i = 0; i < heights.length; i++) {
+    if (cum > bottom) break;
+    last = i + 1;
+    cum += heights[i];
+  }
+  return last;
 }
