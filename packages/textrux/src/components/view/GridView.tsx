@@ -50,7 +50,7 @@ export function GridView({
   const [zoom, setZoom] = useState(1.0);
   const fontSize = baseFontSize * zoom;
 
-  // For dynamic row/column sizing: store them in arrays
+  // Row/column sizing
   const [rowHeights, setRowHeights] = useState<number[]>(() =>
     Array(grid.rows).fill(baseRowHeight * zoom)
   );
@@ -58,7 +58,7 @@ export function GridView({
     Array(grid.cols).fill(baseColWidth * zoom)
   );
 
-  // If zoom changes, re-init. Or you could scale them proportionally if desired.
+  // If zoom changes, reset row/col sizes (or scale them if you prefer).
   useEffect(() => {
     setRowHeights(Array(grid.rows).fill(baseRowHeight * zoom));
     setColWidths(Array(grid.cols).fill(baseColWidth * zoom));
@@ -89,8 +89,8 @@ export function GridView({
       setZoom,
       minZoom: 0.2,
       maxZoom: 10,
-      colPx: baseColWidth, // not used much with variable
-      rowPx: baseRowHeight, // same note
+      colPx: baseColWidth,
+      rowPx: baseRowHeight,
       gridContainerRef,
     });
 
@@ -103,8 +103,15 @@ export function GridView({
     row: number;
     col: number;
   } | null>(null);
-  // The partial text typed so far (shared with formula bar & the editing cell).
+
+  // The partial text typed so far (shared with formula bar & cell)
   const [editingValue, setEditingValue] = useState("");
+
+  // Whether the user is focusing the cell text area or the formula bar
+  // 'cell' => cell text area, 'formula' => formula bar, null => not editing
+  const [focusTarget, setFocusTarget] = useState<"cell" | "formula" | null>(
+    null
+  );
 
   // measure text => possibly expand row or column
   const measureAndExpand = useCallback(
@@ -123,8 +130,8 @@ export function GridView({
       const lineHeight = fontSize * 1.2;
       let neededHeight = lines.length * lineHeight + 4;
 
-      const maxColWidth = 4 * baseColWidth * zoom; // bump up if you like
-      const maxRowHeight = 6 * baseRowHeight * zoom; // likewise
+      const maxColWidth = 4 * baseColWidth * zoom;
+      const maxRowHeight = 6 * baseRowHeight * zoom;
       if (neededWidth > maxColWidth) neededWidth = maxColWidth;
       if (neededHeight > maxRowHeight) neededHeight = maxRowHeight;
 
@@ -142,29 +149,28 @@ export function GridView({
     [fontSize, baseColWidth, baseRowHeight, zoom]
   );
 
-  // --(F) commitEdit => store in model, measure => expand
+  // Commit the cell edit
   const commitEdit = useCallback(
     (r: number, c: number, newValue: string, opts?: { escape?: boolean }) => {
       if (opts?.escape) {
         // revert => do nothing
       } else {
-        // store
         grid.setCell(r, c, newValue);
         measureAndExpand(r, c, newValue);
       }
       setEditingCell(null);
       setEditingValue("");
+      setFocusTarget(null);
       forceRefresh();
     },
     [grid, measureAndExpand]
   );
 
-  // --(A) MOUSE DOWN => start selection or commit old cell--
+  // Mousedown => selection or commit old cell
   const handleCellMouseDown = useCallback(
     (row: number, col: number, e: React.MouseEvent) => {
       // If we were editing a different cell => commit it
       if (editingCell && (editingCell.row !== row || editingCell.col !== col)) {
-        // commit old partial
         commitEdit(editingCell.row, editingCell.col, editingValue);
       }
 
@@ -172,7 +178,6 @@ export function GridView({
       dragSelectRef.current.anchorRow = row;
       dragSelectRef.current.anchorCol = col;
 
-      // Single selection unless shift
       if (!e.shiftKey) {
         setActiveRow(row);
         setActiveCol(col);
@@ -184,7 +189,6 @@ export function GridView({
         });
         anchorRef.current = { row, col };
       } else if (anchorRef.current) {
-        // shift => multi
         const startR = anchorRef.current.row;
         const startC = anchorRef.current.col;
         setSelectionRange({
@@ -196,25 +200,33 @@ export function GridView({
         setActiveRow(row);
         setActiveCol(col);
       }
+
+      // IMPORTANT FIX: If not already editing, focus the container
+      // so subsequent keys are captured by handleContainerKeyDown.
+      if (!editingCell) {
+        gridContainerRef.current?.focus();
+      }
     },
     [commitEdit, editingCell, editingValue]
   );
 
-  // --(B) Single click => typically no-op, selection is done in handleCellMouseDown
-  const handleCellClick = useCallback(() => {}, []);
+  // Single click => no-op
+  const handleCellClick = useCallback(() => {
+    // no-op
+  }, []);
 
-  // --(C) Double click => begin editing that cell
+  // Double click => begin editing in the cell
   const handleCellDoubleClick = useCallback(
     (row: number, col: number) => {
-      // load the cell's current raw into editingValue
       const raw = grid.getCellRaw(row, col);
       setEditingValue(raw);
       setEditingCell({ row, col });
+      setFocusTarget("cell");
     },
     [grid]
   );
 
-  // --(D) doc-level mousemove/up => drag selection
+  // Mouse move => drag selection
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dragSelectRef.current.active) return;
@@ -255,100 +267,217 @@ export function GridView({
     };
   }, [rowHeights, colWidths]);
 
-  // --(E) Keydown => if single cell selected & not editing => start editing if user types char
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+  // KeyDown => if not editing in the cell or formula bar
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // If focus is in formula bar, do nothing here
+      if (focusTarget === "formula") return;
+
+      // If we're editing in the cell, let the <textarea> handle it
+      if (editingCell) {
+        return;
+      }
+
       const { startRow, endRow, startCol, endCol } = selectionRange;
       const singleSelected =
         startRow === endRow && startCol === endCol && !editingCell;
-      if (!singleSelected) return;
 
-      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        // start editing, preload with existing raw + typed char
-        const raw = grid.getCellRaw(activeRow, activeCol);
-        const newText = raw + e.key;
-        setEditingValue(newText);
-        setEditingCell({ row: activeRow, col: activeCol });
+      // 1) Arrow keys => move selection or (if shift) expand selection
+      if (
+        e.key === "ArrowDown" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight"
+      ) {
         e.preventDefault();
-      } else if (e.key === "F2") {
-        const raw = grid.getCellRaw(activeRow, activeCol);
-        setEditingValue(raw);
-        setEditingCell({ row: activeRow, col: activeCol });
+        let r = activeRow;
+        let c = activeCol;
+        if (e.key === "ArrowDown" && r < grid.rows) r++;
+        else if (e.key === "ArrowUp" && r > 1) r--;
+        else if (e.key === "ArrowLeft" && c > 1) c--;
+        else if (e.key === "ArrowRight" && c < grid.cols) c++;
+
+        if (e.shiftKey && anchorRef.current) {
+          // SHIFT+arrow => expand selection
+          setSelectionRange({
+            startRow: Math.min(anchorRef.current.row, r),
+            endRow: Math.max(anchorRef.current.row, r),
+            startCol: Math.min(anchorRef.current.col, c),
+            endCol: Math.max(anchorRef.current.col, c),
+          });
+        } else {
+          // normal arrow => move anchor
+          setSelectionRange({
+            startRow: r,
+            endRow: r,
+            startCol: c,
+            endCol: c,
+          });
+          anchorRef.current = { row: r, col: c };
+        }
+        setActiveRow(r);
+        setActiveCol(c);
+        return;
+      }
+
+      // 2) Enter => move down
+      if (e.key === "Enter") {
         e.preventDefault();
+        let r = activeRow;
+        let c = activeCol;
+        if (r < grid.rows) r++;
+        setActiveRow(r);
+        setActiveCol(c);
+        setSelectionRange({ startRow: r, endRow: r, startCol: c, endCol: c });
+        anchorRef.current = { row: r, col: c };
+        return;
+      }
+
+      // 3) Tab => move right or left if shift
+      if (e.key === "Tab") {
+        e.preventDefault();
+        let r = activeRow;
+        let c = activeCol;
+        if (e.shiftKey) {
+          if (c > 1) c--;
+        } else {
+          if (c < grid.cols) c++;
+        }
+        setActiveRow(r);
+        setActiveCol(c);
+        setSelectionRange({ startRow: r, endRow: r, startCol: c, endCol: c });
+        anchorRef.current = { row: r, col: c };
+        return;
+      }
+
+      // 4) Delete => clear all selected cells
+      if (e.key === "Delete") {
+        e.preventDefault();
+        for (
+          let rr = selectionRange.startRow;
+          rr <= selectionRange.endRow;
+          rr++
+        ) {
+          for (
+            let cc = selectionRange.startCol;
+            cc <= selectionRange.endCol;
+            cc++
+          ) {
+            grid.setCell(rr, cc, "");
+          }
+        }
+        forceRefresh();
+        return;
+      }
+
+      // 5) If exactly one cell is selected, pressing a normal char => start editing
+      if (singleSelected) {
+        // F2 => edit existing text
+        if (e.key === "F2") {
+          e.preventDefault();
+          const raw = grid.getCellRaw(activeRow, activeCol);
+          setEditingValue(raw);
+          setEditingCell({ row: activeRow, col: activeCol });
+          setFocusTarget("cell");
+          return;
+        }
+
+        // Normal character => start editing with that char
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          e.preventDefault();
+          // Start with the typed char
+          setEditingValue(e.key);
+          setEditingCell({ row: activeRow, col: activeCol });
+          setFocusTarget("cell");
+          return;
+        }
       }
     },
-    [selectionRange, editingCell, activeRow, activeCol, grid]
+    [
+      focusTarget,
+      editingCell,
+      activeRow,
+      activeCol,
+      grid,
+      selectionRange,
+      forceRefresh,
+    ]
   );
 
-  // --(G) handleKeyboardNav => e.g. after Enter => move down
+  // Called by the cell text area when user hits Enter/Tab/arrow
+  // (expanded directions to include "up" as well)
   const handleKeyboardNav = useCallback(
-    (r: number, c: number, direction: "down" | "right" | "left") => {
-      // once user hits Enter or Tab, we commit
-      if (direction === "down") {
-        let nr = r < grid.rows ? r + 1 : r;
-        setActiveRow(nr);
-        setActiveCol(c);
-        setSelectionRange({ startRow: nr, endRow: nr, startCol: c, endCol: c });
-        anchorRef.current = { row: nr, col: c };
-      } else if (direction === "right") {
-        const nc = c < grid.cols ? c + 1 : c;
-        setActiveRow(r);
-        setActiveCol(nc);
-        setSelectionRange({ startRow: r, endRow: r, startCol: nc, endCol: nc });
-        anchorRef.current = { row: r, col: nc };
+    (r: number, c: number, direction: "up" | "down" | "left" | "right") => {
+      let nr = r;
+      let nc = c;
+
+      if (direction === "up") {
+        if (nr > 1) nr--;
+      } else if (direction === "down") {
+        if (nr < grid.rows) nr++;
       } else if (direction === "left") {
-        const nc = c > 1 ? c - 1 : 1;
-        setActiveRow(r);
-        setActiveCol(nc);
-        setSelectionRange({ startRow: r, endRow: r, startCol: nc, endCol: nc });
-        anchorRef.current = { row: r, col: nc };
+        if (nc > 1) nc--;
+      } else if (direction === "right") {
+        if (nc < grid.cols) nc++;
       }
+      setActiveRow(nr);
+      setActiveCol(nc);
+      setSelectionRange({
+        startRow: nr,
+        endRow: nr,
+        startCol: nc,
+        endCol: nc,
+      });
+      anchorRef.current = { row: nr, col: nc };
       setEditingCell(null);
       setEditingValue("");
+      setFocusTarget(null);
     },
     [grid.rows, grid.cols]
   );
 
-  // --(H) Formula bar
-  // If the current cell is being edited, formula bar = editingValue,
-  // else show the raw from the model
-  const isEditingActiveCell = !!(
+  // Formula bar text:
+  const isEditingActiveCell =
     editingCell &&
     editingCell.row === activeRow &&
-    editingCell.col === activeCol
-  );
+    editingCell.col === activeCol;
   const cellRaw = grid.getCellRaw(activeRow, activeCol);
   const formulaText = isEditingActiveCell ? editingValue : cellRaw;
 
+  // When user types in formula bar
   const onFormulaChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFocusTarget("formula");
       if (!isEditingActiveCell) {
-        // start editing
         setEditingCell({ row: activeRow, col: activeCol });
       }
       const newVal = e.target.value;
       setEditingValue(newVal);
-      // measure as they type => real-time expansion
       measureAndExpand(activeRow, activeCol, newVal);
     },
-    [isEditingActiveCell, activeRow, activeCol, measureAndExpand]
+    [
+      isEditingActiveCell,
+      activeRow,
+      activeCol,
+      setEditingCell,
+      setEditingValue,
+      measureAndExpand,
+    ]
   );
 
+  // Keydown in formula bar => commit or escape
   const onFormulaKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!editingCell) return;
       if (e.key === "Enter") {
         e.preventDefault();
-        commitEdit(activeRow, activeCol, editingValue);
+        commitEdit(editingCell.row, editingCell.col, editingValue);
       } else if (e.key === "Escape") {
         e.preventDefault();
-        if (editingCell) {
-          commitEdit(editingCell.row, editingCell.col, cellRaw, {
-            escape: true,
-          });
-        }
+        commitEdit(editingCell.row, editingCell.col, cellRaw, { escape: true });
       }
     },
-    [activeRow, activeCol, editingValue, editingCell, commitEdit, cellRaw]
+    [editingCell, commitEdit, editingValue, cellRaw]
   );
 
   // total grid size
@@ -368,8 +497,6 @@ export function GridView({
     <div
       className={`relative ${className}`}
       style={{ width, height, ...style }}
-      onKeyDown={onKeyDown}
-      tabIndex={0}
     >
       {/* Formula bar */}
       <div className="absolute top-0 left-0 right-0 h-12 bg-gray-300 flex items-center px-2 z-50">
@@ -394,6 +521,12 @@ export function GridView({
           value={formulaText}
           onChange={onFormulaChange}
           onKeyDown={onFormulaKeyDown}
+          onFocus={() => {
+            setFocusTarget("formula");
+            if (!editingCell) {
+              setEditingCell({ row: activeRow, col: activeCol });
+            }
+          }}
         />
       </div>
 
@@ -430,11 +563,13 @@ export function GridView({
         <div
           ref={gridContainerRef}
           className="absolute top-[30px] left-[50px] right-0 bottom-0 overflow-auto bg-white"
-          onMouseDown={onMouseDown} // middle-click
+          onMouseDown={onMouseDown} // middle-click/pan from controller
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
+          onKeyDown={handleContainerKeyDown}
+          tabIndex={0} // so it can receive key events if clicked
         >
           <div
             className="relative"
@@ -456,12 +591,12 @@ export function GridView({
               onCellMouseDown={handleCellMouseDown}
               onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
-              onCommitEdit={(r, c, val) => commitEdit(r, c, val)}
+              onCommitEdit={(r, c, val, opts) => commitEdit(r, c, val, opts)}
               onKeyboardNav={handleKeyboardNav}
-              // We'll also pass measureAndExpand so the cell can grow while user types
-              measureAndExpand={measureAndExpand} // We'll use in CellView
+              measureAndExpand={measureAndExpand}
               sharedEditingValue={editingValue}
               setSharedEditingValue={setEditingValue}
+              focusTarget={focusTarget}
             />
           </div>
         </div>
@@ -470,7 +605,7 @@ export function GridView({
   );
 }
 
-/** find which row/col at position y/x with variable sizes */
+/** find which row at position y with variable sizes */
 function findRowByY(y: number, rowHeights: number[]): number {
   let cum = 0;
   for (let r = 0; r < rowHeights.length; r++) {
@@ -480,6 +615,7 @@ function findRowByY(y: number, rowHeights: number[]): number {
   }
   return rowHeights.length;
 }
+/** find which column at position x with variable sizes */
 function findColByX(x: number, colWidths: number[]): number {
   let cum = 0;
   for (let c = 0; c < colWidths.length; c++) {

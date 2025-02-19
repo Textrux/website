@@ -1,5 +1,4 @@
 // CellView.tsx
-
 import { useCallback, useEffect, useRef } from "react";
 import { CellFormat } from "../model/GridModel";
 
@@ -18,7 +17,7 @@ interface CellViewProps {
   height: number;
   fontSize: number;
 
-  // The parent's multi-purpose callbacks:
+  // The parent's callbacks:
   onCellMouseDown: (r: number, c: number, e: React.MouseEvent) => void;
   onClick: (r: number, c: number, e: React.MouseEvent) => void;
   onDoubleClick: (r: number, c: number) => void;
@@ -31,13 +30,16 @@ interface CellViewProps {
   onKeyboardNav: (
     r: number,
     c: number,
-    direction: "down" | "right" | "left"
+    direction: "up" | "down" | "left" | "right"
   ) => void;
 
-  // For real-time partial editing + dynamic resizing:
+  // For real-time partial editing + dynamic sizing
   measureAndExpand: (r: number, c: number, text: string) => void;
   sharedEditingValue: string;
   setSharedEditingValue: (txt: string) => void;
+
+  // Whether we should autoFocus the cell text area or not
+  focusTarget: "cell" | "formula" | null;
 }
 
 export function CellView({
@@ -62,20 +64,15 @@ export function CellView({
   measureAndExpand,
   sharedEditingValue,
   setSharedEditingValue,
+  focusTarget,
 }: CellViewProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // If we just toggled into editing, ensure parent's sharedEditingValue is correct:
+  // Once we enter editing, if our parent's shared value is empty, fill with formula or current value
   useEffect(() => {
-    if (isEditing) {
-      // If parent's sharedEditingValue is still from a different cell,
-      // or empty, we can set it to formula or value
-      // We'll do a simple check: if shared is different from formula
-      // For safety, we might do:
-      if (sharedEditingValue === "") {
-        setSharedEditingValue(formula ?? value);
-        measureAndExpand(row, col, formula ?? value);
-      }
+    if (isEditing && sharedEditingValue === "") {
+      setSharedEditingValue(formula ?? value);
+      measureAndExpand(row, col, formula ?? value);
     }
   }, [
     isEditing,
@@ -88,18 +85,27 @@ export function CellView({
     col,
   ]);
 
-  // Mousedown => start selection
+  // If editing and focusTarget === 'cell', focus the textarea so subsequent chars go here
+  useEffect(() => {
+    if (isEditing && focusTarget === "cell" && textareaRef.current) {
+      textareaRef.current.focus();
+      // Optionally place cursor at end:
+      const len = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(len, len);
+    }
+  }, [isEditing, focusTarget]);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 0) {
-        e.preventDefault();
+        // Removing e.preventDefault() so normal focus/click behavior can happen:
+        // e.preventDefault();
         onCellMouseDown(row, col, e);
       }
     },
     [row, col, onCellMouseDown]
   );
 
-  // Single-click => no-op in here (the parent does selection)
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       onClick(row, col, e);
@@ -107,17 +113,15 @@ export function CellView({
     [row, col, onClick]
   );
 
-  // Double-click => edit
   const handleDoubleClick = useCallback(() => {
     onDoubleClick(row, col);
   }, [row, col, onDoubleClick]);
 
-  // Called each time user types in the textarea
+  // If user types in the textarea
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newVal = e.target.value;
       setSharedEditingValue(newVal);
-      // Expand the cell in real time
       measureAndExpand(row, col, newVal);
     },
     [row, col, setSharedEditingValue, measureAndExpand]
@@ -131,12 +135,16 @@ export function CellView({
     [row, col, onCommitEdit]
   );
 
-  // If user blurs away => commit the partial text
+  // If user blurs away from the textarea => commit partial
   const handleBlur = useCallback(() => {
-    commitAndClose(sharedEditingValue);
-  }, [commitAndClose, sharedEditingValue]);
+    // Only commit if focusTarget === 'cell'. If user switched to formula bar,
+    // we don't want to auto-commit the partial (the formula bar is continuing).
+    if (focusTarget === "cell") {
+      commitAndClose(sharedEditingValue);
+    }
+  }, [commitAndClose, sharedEditingValue, focusTarget]);
 
-  // Keydown => alt+enter => newline, etc.
+  // Keydown => alt+enter => newline, or arrow keys => commit & navigate
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter") {
@@ -150,7 +158,6 @@ export function CellView({
           const after = sharedEditingValue.slice(end);
           const newVal = before + "\n" + after;
           setSharedEditingValue(newVal);
-          // measure expansion
           measureAndExpand(row, col, newVal);
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = start + 1;
@@ -174,6 +181,20 @@ export function CellView({
           onKeyboardNav(row, col, "right");
         }
       }
+      // If user wants arrow keys to exit editing and move selection:
+      else if (
+        e.key === "ArrowDown" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight"
+      ) {
+        e.preventDefault();
+        commitAndClose(sharedEditingValue);
+        if (e.key === "ArrowDown") onKeyboardNav(row, col, "down");
+        if (e.key === "ArrowUp") onKeyboardNav(row, col, "up");
+        if (e.key === "ArrowLeft") onKeyboardNav(row, col, "left");
+        if (e.key === "ArrowRight") onKeyboardNav(row, col, "right");
+      }
     },
     [
       row,
@@ -196,8 +217,7 @@ export function CellView({
     fontWeight: format.fontWeight,
   };
 
-  // Let user expand up to 5-6x in each dimension, or you can do more
-  // We'll do 6x here for demonstration
+  // Limit how big the editor can expand
   const maxEditorWidth = 6 * width;
   const maxEditorHeight = 6 * height;
 
@@ -232,7 +252,8 @@ export function CellView({
             maxHeight: maxEditorHeight,
             overflow: "auto",
           }}
-          autoFocus
+          // Only autofocus if we're actually editing in the cell
+          autoFocus={focusTarget === "cell"}
         />
       ) : (
         <div className="w-full h-full px-1 whitespace-pre-wrap">{value}</div>
