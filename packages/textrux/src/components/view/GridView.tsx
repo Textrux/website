@@ -13,6 +13,8 @@ import { useGridController } from "../controller/GridController";
 import { ColumnHeaders } from "./ColumnHeaders";
 import { RowHeaders } from "./RowHeaders";
 import { GridCells } from "./GridCells";
+import { FormulaBar } from "./FormulaBar";
+import { AppModal } from "../../modal/AppModal";
 
 export interface SelectionRange {
   startRow: number;
@@ -493,42 +495,64 @@ export function GridView({
   // address text
   const addressText = `R${activeRow}C${activeCol}`;
 
+  // For the formula bar gear icon => show/hide modal
+  const [isModalOpen, setModalOpen] = useState(false);
+  const openModal = () => setModalOpen(true);
+  const closeModal = () => setModalOpen(false);
+
+  // handle drag & drop CSV/TSV
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const delim = text.includes("\t") ? "\t" : ",";
+      const arr =
+        delim === "\t"
+          ? (window as any).fromTSV?.(text) || []
+          : (window as any).fromCSV?.(text) || [];
+      // Clear existing
+      (window as any).cellsData = {};
+      // Fill in
+      for (let r = 0; r < arr.length; r++) {
+        for (let c = 0; c < arr[r].length; c++) {
+          let val = arr[r][c];
+          if (val.trim()) {
+            (window as any).cellsData[`R${r + 1}C${c + 1}`] = val;
+          }
+        }
+      }
+      (window as any).parseAndFormatGrid?.();
+    };
+    reader.readAsText(file);
+  }, []);
+
   return (
     <div
       className={`relative ${className}`}
       style={{ width, height, ...style }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }}
+      onDrop={onDrop}
     >
       {/* Formula bar */}
-      <div className="absolute top-0 left-0 right-0 h-12 bg-gray-300 flex items-center px-2 z-50">
-        <div
-          className="mr-2 text-right font-bold overflow-hidden whitespace-nowrap truncate"
-          style={{
-            width: "4rem",
-            minWidth: 0,
-            textOverflow: "ellipsis",
-            fontSize: `max(0.6rem, calc(5rem / ${addressText.length}))`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-          }}
-          title={addressText}
-        >
-          {addressText}
-        </div>
-        <input
-          className="flex-1 h-8 text-sm px-2 bg-white"
-          type="text"
-          value={formulaText}
-          onChange={onFormulaChange}
-          onKeyDown={onFormulaKeyDown}
-          onFocus={() => {
-            setFocusTarget("formula");
-            if (!editingCell) {
-              setEditingCell({ row: activeRow, col: activeCol });
-            }
-          }}
-        />
-      </div>
+      <FormulaBar
+        address={addressText}
+        formulaText={formulaText}
+        onFormulaChange={onFormulaChange}
+        onFormulaKeyDown={onFormulaKeyDown}
+        onFocus={() => {
+          setFocusTarget("formula");
+          if (!editingCell) {
+            setEditingCell({ row: activeRow, col: activeCol });
+          }
+        }}
+        onGearClick={openModal}
+      />
 
       <div className="absolute left-0 right-0 bottom-0" style={{ top: "3rem" }}>
         {/* Corner cell */}
@@ -596,11 +620,12 @@ export function GridView({
               measureAndExpand={measureAndExpand}
               sharedEditingValue={editingValue}
               setSharedEditingValue={setEditingValue}
-              focusTarget={focusTarget}
+              // focusTarget={focusTarget}
             />
           </div>
         </div>
       </div>
+      <AppModal isOpen={isModalOpen} onClose={closeModal} />
     </div>
   );
 }

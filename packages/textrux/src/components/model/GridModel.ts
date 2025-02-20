@@ -1,4 +1,5 @@
-// GridModel.ts
+// File: packages/textrux/src/components/model/GridModel.ts
+
 export interface CellFormat {
   backgroundColor?: string;
   color?: string;
@@ -19,11 +20,47 @@ export class GridModel {
   private formats: Record<string, CellFormat>; // Track cell formatting by "R{row}C{col}"
 
   constructor(public rows: number = 1000, public cols: number = 50) {
+    // Allocate initial data array
     this.data = Array.from({ length: rows }, () => Array(cols).fill(""));
     this.formulas = {};
     this.history = [];
     this.future = [];
-    this.formats = {}; // empty initially
+    this.formats = {};
+  }
+
+  /**
+   * Resize the grid to have at least `newRowCount` rows.
+   * If newRowCount > current rows, push more row arrays.
+   */
+  resizeRows(newRowCount: number) {
+    if (newRowCount <= this.rows) {
+      this.rows = newRowCount; // or do nothing if you only expand
+      return;
+    }
+    const additional = newRowCount - this.rows;
+    for (let i = 0; i < additional; i++) {
+      this.data.push(Array(this.cols).fill(""));
+    }
+    this.rows = newRowCount;
+  }
+
+  /**
+   * Resize the grid to have at least `newColCount` columns.
+   * If newColCount > current cols, expand each row.
+   */
+  resizeCols(newColCount: number) {
+    if (newColCount <= this.cols) {
+      this.cols = newColCount;
+      return;
+    }
+    const additional = newColCount - this.cols;
+    for (let r = 0; r < this.data.length; r++) {
+      const row = this.data[r];
+      for (let i = 0; i < additional; i++) {
+        row.push("");
+      }
+    }
+    this.cols = newColCount;
   }
 
   /** Return the displayed value of a cell (after formula evaluation) */
@@ -32,7 +69,7 @@ export class GridModel {
     return this.data[row - 1][col - 1] || "";
   }
 
-  /** Return the raw input of a cell. If it's a formula, returns the "='...'" string. Otherwise the literal. */
+  /** Return the raw input of a cell. If it's a formula, returns "=..." string. Otherwise the literal. */
   getCellRaw(row: number, col: number): string {
     const key = `R${row}C${col}`;
     if (this.formulas[key]) {
@@ -44,6 +81,12 @@ export class GridModel {
 
   /** Set the cell's content. If it starts with '=', treat as formula. Evaluate it. */
   setCell(row: number, col: number, value: string): void {
+    // Ensure row/col is within current data. If not, do nothing or expand if you prefer.
+    // (Alternatively, you can do nothing if row/col is out of range.)
+    if (row > this.rows || col > this.cols) {
+      return;
+    }
+
     const key = `R${row}C${col}`;
     // Save current state for undo
     this.saveStateToHistory();
@@ -61,7 +104,7 @@ export class GridModel {
     this.future = [];
   }
 
-  /** Evaluate a formula string, e.g. "=R9C4+R4C3". Returns the evaluated result or "ERROR". */
+  /** Evaluate a formula string, e.g. "=R9C4+R4C3". Returns the result or "ERROR". */
   evaluateFormula(formula: string): string {
     try {
       let expr = formula.slice(1); // remove leading '='
@@ -71,9 +114,7 @@ export class GridModel {
         // If blank, treat as "0"
         return val || "0";
       });
-      // Evaluate
-      // We can do a quick parse with JS eval.
-      // For safety you'd want a safer evaluator, but let's keep it simple.
+      // Evaluate (for real usage, do a safer parse)
       const result = eval(expr);
       return String(result);
     } catch {
@@ -106,14 +147,11 @@ export class GridModel {
   /** Set the formatting for a cell. Merges with existing. */
   setCellFormat(row: number, col: number, format: CellFormat): void {
     const key = `R${row}C${col}`;
-    // In production, you'd also track these changes for undo.
-    // We'll keep it simple. You can call `saveStateToHistory()` if desired.
     const old = this.formats[key] || {};
     this.formats[key] = { ...old, ...format };
   }
 
   private saveStateToHistory(): void {
-    // clone data
     this.history.push(this.cloneData(this.data));
   }
 

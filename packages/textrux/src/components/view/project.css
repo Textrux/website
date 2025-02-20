@@ -10,3 +10,16 @@
   -ms-user-select: none; /* for IE/Edge */
   user-select: none;
 }
+
+.canvas-cell {
+  background-color: white !important;
+}
+.border-cell {
+  background-color: lightyellow !important;
+}
+.frame-cell {
+  background-color: yellow !important;
+}
+.linked-cell {
+  background-color: orange !important;
+}
