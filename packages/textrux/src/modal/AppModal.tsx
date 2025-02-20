@@ -378,55 +378,53 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
             <div>
               <h3>Instructions</h3>
               <p>
-                <p>
-                  Enter text in cells to build text structures. The structures
-                  are built from the location of the filled cells on the grid.
-                </p>
-                <p>
-                  The primary structure is a "block" which is surrounded by a
-                  light yellow "border" and and bright yellow "frame".
-                </p>
-                <p>
-                  The area inside the border of a block is called the "canvas".
-                  The canvas has filled cells with a white background along with
-                  empty canvas cells with a light blue background. Nearby filled
-                  cells on a canvas form a "cell cluster" and the empty cells in
-                  a cell cluster have a darker blue background.
-                </p>
-                <p>
-                  When two blocks are placed close enough to each other their
-                  borders and frames may overlap. If only the frames overlap,
-                  the background color of those cells is orange. If a frame
-                  overlaps with a border, the background color of those cells is
-                  red. Blocks that share only orange cells are considered
-                  "linked" while blocks that also share red cells are considered
-                  "locked". These overlapping blocks form "block clusters".{" "}
-                </p>
-                <p>
-                  Select a cell in a block's canvas and then hit{" "}
-                  <code>Ctrl+ArrowKey</code> to move the cell in that direction
-                  (but stop before merging with any blocks in its path).
-                </p>
-                <p>
-                  Select a cell in a block's canvas and then hit{" "}
-                  <code>Ctrl+Alt+ArrowKey</code> to move the cell in that
-                  direction and merge with any blocks in its path.
-                </p>
-                <p>
-                  Select a cell in a block's canvas and then hit{" "}
-                  <code>Alt+ArrowKey</code> to select another block in that
-                  direction.
-                </p>
-                <p>
-                  To view the grid without any formatting press{" "}
-                  <code>Ctrl+Shift+Tilde</code>.
-                </p>
-                <p>
-                  To create a grid within a cell, select a cell and press{" "}
-                  <code>F3</code>. Make changes and press <code>Esc</code> to
-                  return to the outer grid. Can create any number of grid cells
-                  at any number of levels (still a little buggy).
-                </p>
+                Enter text in cells to build text structures. The structures are
+                built from the location of the filled cells on the grid.
+              </p>
+              <p>
+                The primary structure is a "block" which is surrounded by a
+                light yellow "border" and and bright yellow "frame".
+              </p>
+              <p>
+                The area inside the border of a block is called the "canvas".
+                The canvas has filled cells with a white background along with
+                empty canvas cells with a light blue background. Nearby filled
+                cells on a canvas form a "cell cluster" and the empty cells in a
+                cell cluster have a darker blue background.
+              </p>
+              <p>
+                When two blocks are placed close enough to each other their
+                borders and frames may overlap. If only the frames overlap, the
+                background color of those cells is orange. If a frame overlaps
+                with a border, the background color of those cells is red.
+                Blocks that share only orange cells are considered "linked"
+                while blocks that also share red cells are considered "locked".
+                These overlapping blocks form "block clusters".{" "}
+              </p>
+              <p>
+                Select a cell in a block's canvas and then hit{" "}
+                <code>Ctrl+ArrowKey</code> to move the cell in that direction
+                (but stop before merging with any blocks in its path).
+              </p>
+              <p>
+                Select a cell in a block's canvas and then hit{" "}
+                <code>Ctrl+Alt+ArrowKey</code> to move the cell in that
+                direction and merge with any blocks in its path.
+              </p>
+              <p>
+                Select a cell in a block's canvas and then hit{" "}
+                <code>Alt+ArrowKey</code> to select another block in that
+                direction.
+              </p>
+              <p>
+                To view the grid without any formatting press{" "}
+                <code>Ctrl+Shift+Tilde</code>.
+              </p>
+              <p>
+                To create a grid within a cell, select a cell and press{" "}
+                <code>F3</code>. Make changes and press <code>Esc</code> to
+                return to the outer grid. Can create any number of grid cells at
+                any number of levels (still a little buggy).
               </p>
             </div>
           )}
