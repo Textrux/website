@@ -279,17 +279,13 @@ The results and possibilities outlined for Binary Spatial Semantics (BSS) point 
 
    - Programming Paradigms: BSS opens the door to new forms of visual programming, where developers can manipulate logic and data structures in a 2D space. This could inspire a new generation of programming languages or environments that prioritize spatial relationships, especially in domains like machine learning, simulation, and data processing.
 
-## Conclusion and Future Directions
+## Conclusion
 
 Binary Spatial Semantics (BSS) opens up new avenues for rethinking data representation and computation. By shifting the emphasis from content within individual cells to the spatial relationships between them, BSS challenges many of the assumptions that underlie traditional data structures and programming paradigms. This paper has demonstrated the core principles and foundational elements of BSS, exploring its practical applications in API design, recursive data structures, and visual programming environments.
 
-However, the potential of BSS extends beyond its immediate applications. One particularly intriguing possibility for future research is wave computing—a speculative approach that envisions a grid of computational nodes operating based on non-linear communication. In traditional computing, operations are carried out in a step-by-step manner, with inputs explicitly directed to functions. Wave computing introduces the idea of ambient, non-linear communication where nodes in a grid can "listen" and "broadcast" signals, similar to how humans can hear and respond to ambient sounds in a shared environment.
+## Exploring Wave Computing as a Future Extension
 
-This paradigm shift could introduce new methods of programming where functions, or nodes, passively listen for specific signals to execute tasks, allowing for a continuous flow of computation rather than discrete, linear processes. As described in speculative scenarios of broadcast-based wave computing, nodes would be analogous to cells in BSS, capable of interacting not just based on direct input but by detecting signals broadcast by other nodes.
-
-By utilizing recursive CSV cells — cells containing their own CSV grids — BSS can assign entire programs to specific points on the main grid. This allows for a direct mapping of computational nodes onto a physical grid, creating a real-world representation of the system. Such a setup opens the door to nonlinear, dynamic networks where the relationships between nodes can evolve continuously. This approach could inspire future research into wave computing, where spatial relationships drive new methods for digital signal processing and innovative grid-based hardware systems.
-
-While much of this remains theoretical, wave computing represents an exciting frontier for BSS, with the potential to introduce broadcasted computation, nonlinear node communication, and ambient awareness into the grid-based programming model. Such advancements could redefine not only the way we structure and manipulate data but also how we conceptualize computation itself, making BSS a foundational layer for future computing paradigms.
+BSS’s grid-based structure also hints at unconventional computing paradigms, such as wave computing. Imagine a physical grid where each cell, represented by a node with transceiver capabilities, broadcasts and listens for signals—akin to walkie-talkies in a shared medium—rather than relying on linear data flow. Recursive CSV cells could map functions to specific nodes, enabling computation to propagate like waves across the grid. Nodes might process inputs based on signal strength, frequency, or spatial proximity, offering a non-linear alternative to traditional step-by-step logic. For example, a BSS grid could program a digital wave computer to recalculate dynamically (like a spreadsheet) or an analog system to evolve continuously, settling into repeating patterns. While still theoretical, this concept—explored in projects like the QUEN processor’s wavefront arrays—suggests BSS could someday bridge software and hardware innovation. Appendix B provides further details on this possibility, including potential operators for programming such systems.
 
 ## References
 
@@ -341,6 +337,14 @@ While much of this remains theoretical, wave computing represents an exciting fr
 and then here is a separate discussion of wave computing. how would you think to add this into the current paper, if at all. i want it to not take center stage but it is an interesting future possibility:
 
 ## Appendix B - Further Wave Computing Consideration
+
+The potential of BSS extends beyond its immediate applications. One particularly intriguing possibility for future research is wave computing—a speculative approach that envisions a grid of computational nodes operating based on non-linear communication. In traditional computing, operations are carried out in a step-by-step manner, with inputs explicitly directed to functions. Wave computing introduces the idea of ambient, non-linear communication where nodes in a grid can "listen" and "broadcast" signals, similar to how humans can hear and respond to ambient sounds in a shared environment.
+
+This paradigm shift could introduce new methods of programming where functions, or nodes, passively listen for specific signals to execute tasks, allowing for a continuous flow of computation rather than discrete, linear processes. As described in speculative scenarios of broadcast-based wave computing, nodes would be analogous to cells in BSS, capable of interacting not just based on direct input but by detecting signals broadcast by other nodes.
+
+By utilizing recursive CSV cells — cells containing their own CSV grids — BSS can assign entire programs to specific points on the main grid. This allows for a direct mapping of computational nodes onto a physical grid, creating a real-world representation of the system. Such a setup opens the door to nonlinear, dynamic networks where the relationships between nodes can evolve continuously. This approach could inspire future research into wave computing, where spatial relationships drive new methods for digital signal processing and innovative grid-based hardware systems.
+
+While much of this remains theoretical, wave computing represents an exciting frontier for BSS, with the potential to introduce broadcasted computation, nonlinear node communication, and ambient awareness into the grid-based programming model. Such advancements could redefine not only the way we structure and manipulate data but also how we conceptualize computation itself, making BSS a foundational layer for future computing paradigms.
 
 In computing, we rarely using broadcasting. We have cell phones that broadcast data...to a specific cell tower, but that is still just a linear transmission of data. No other phones in our area "hear" that signal or at least pay any attention to it. They merely wait on communication to come from a specific cell tower nearby. Point-to-point communication is how computing is done.
 
