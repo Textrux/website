@@ -652,11 +652,17 @@ function finalizeBlock(b) {
   );
 }
 
+// Old,slow, but working approach
 function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+  console.time("Total getContainersJS Execution Time");
+
+  // console.time("1) Initialize Data Structures");
   let containers = [];
   let overlappedPoints = [];
   let remainingPoints = [...filledPoints];
+  // console.timeEnd("1) Initialize Data Structures");
 
+  // console.time("2) Processing Filled Points");
   for (let cell of filledPoints) {
     // skip if we've already merged it
     if (
@@ -664,22 +670,23 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
     ) {
       continue;
     }
-
     // create a container from this point
+    // console.time("2A) Create Initial Container");
     let tempContainer = createContainerFromPoint(cell);
     let tempExpanded = tempContainer;
+    // console.timeEnd("2A) Create Initial Container");
 
     let allCellsOverlappingThisContainer = [];
     let cellsOverlappingThisContainer = [];
 
     // (A) Merge other FILLed points that overlap the expanded bounding box
+    // console.time("2B) Merge Overlapping Points");
     do {
       let expanded = tempContainer.expandOutlineBy(
         expandOutlineBy,
         rowCount,
         colCount
       );
-
       tempExpanded = expanded;
 
       // find any other points that overlap
@@ -728,7 +735,9 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
       }
     } while (cellsOverlappingThisContainer.length > 0);
 
+    // console.timeEnd("2B) Merge Overlapping Points");
     // (B) Merge repeatedly with EXISTING containers
+    // console.time("2C) Merge with Existing Containers");
     let mergedSomething;
     do {
       mergedSomething = false;
@@ -772,20 +781,508 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
       // after merging, we loop again to see if the bigger bounding box
       // overlaps another container we haven't merged with yet
     } while (mergedSomething);
+    // console.timeEnd("2C) Merge with Existing Containers");
 
     // now that we've merged with everything possible, push the final container
     containers.push(tempContainer);
   }
+  // console.timeEnd("2) Processing Filled Points");
 
   // sort or do whatever you normally do
+  // console.time("3) Sorting Containers");
   containers.sort((a, b) => {
     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
     return a.rightColumn - b.rightColumn;
   });
+  // console.timeEnd("3) Sorting Containers");
 
+  console.timeEnd("Total getContainersJS Execution Time");
   return containers;
+}
+
+// Grok 3 approach:
+// class UnionFind {
+//   constructor(size) {
+//     this.parent = Array(size)
+//       .fill()
+//       .map((_, i) => i);
+//     this.rank = Array(size).fill(0);
+//   }
+//   find(x) {
+//     if (this.parent[x] !== x) {
+//       this.parent[x] = this.find(this.parent[x]); // Path compression
+//     }
+//     return this.parent[x];
+//   }
+//   union(x, y) {
+//     let rootX = this.find(x);
+//     let rootY = this.find(y);
+//     if (rootX === rootY) return;
+//     if (this.rank[rootX] < this.rank[rootY]) {
+//       this.parent[rootX] = rootY;
+//     } else if (this.rank[rootX] > this.rank[rootY]) {
+//       this.parent[rootY] = rootX;
+//     } else {
+//       this.parent[rootY] = rootX;
+//       this.rank[rootX]++;
+//     }
+//   }
+// }
+// function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+//   const n = filledPoints.length;
+//   if (n === 0) return [];
+
+//   // Step 1: Initialize union-find
+//   const uf = new UnionFind(n);
+
+//   // Step 2: Build row map (row -> sorted list of [col, index])
+//   const rowMap = new Map();
+//   for (let i = 0; i < n; i++) {
+//     const { row, col } = filledPoints[i];
+//     if (!rowMap.has(row)) rowMap.set(row, []);
+//     rowMap.get(row).push([col, i]);
+//   }
+//   for (let list of rowMap.values()) {
+//     list.sort((a, b) => a[0] - b[0]); // Sort by column
+//   }
+
+//   // Step 3: Union overlapping points
+//   for (let i = 0; i < n; i++) {
+//     const p = filledPoints[i];
+//     const r = p.row;
+//     const c = p.col;
+//     const maxRow = Math.min(rowCount - 1, r + 2 * expandOutlineBy);
+//     for (let r2 = r; r2 <= maxRow; r2++) {
+//       if (!rowMap.has(r2)) continue;
+//       const list = rowMap.get(r2);
+//       const minCol = c - 2 * expandOutlineBy;
+//       const maxCol = c + 2 * expandOutlineBy;
+
+//       // Binary search for left bound
+//       let left = 0,
+//         right = list.length;
+//       while (left < right) {
+//         const mid = Math.floor((left + right) / 2);
+//         if (list[mid][0] < minCol) left = mid + 1;
+//         else right = mid;
+//       }
+//       const start = left;
+
+//       // Binary search for right bound
+//       left = 0;
+//       right = list.length;
+//       while (left < right) {
+//         const mid = Math.floor((left + right) / 2);
+//         if (list[mid][0] <= maxCol) left = mid + 1;
+//         else right = mid;
+//       }
+//       const end = right;
+
+//       // Union with points in range
+//       for (let k = start; k < end; k++) {
+//         const j = list[k][1];
+//         if (i !== j) uf.union(i, j);
+//       }
+//     }
+//   }
+
+//   // Step 4: Extract containers
+//   const componentMap = new Map();
+//   for (let i = 0; i < n; i++) {
+//     const root = uf.find(i);
+//     if (!componentMap.has(root)) componentMap.set(root, []);
+//     componentMap.get(root).push(filledPoints[i]);
+//   }
+
+//   const containers = [];
+//   for (let points of componentMap.values()) {
+//     const minR = Math.min(...points.map((p) => p.row));
+//     const maxR = Math.max(...points.map((p) => p.row));
+//     const minC = Math.min(...points.map((p) => p.col));
+//     const maxC = Math.max(...points.map((p) => p.col));
+//     containers.push({
+//       topRow: minR,
+//       bottomRow: maxR,
+//       leftColumn: minC,
+//       rightColumn: maxC,
+//       filledPoints: points,
+//     });
+//   }
+
+//   // Step 5: Sort containers
+//   containers.sort((a, b) => {
+//     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
+//     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
+//     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
+//     return a.rightColumn - b.rightColumn;
+//   });
+
+//   return containers;
+// }
+
+// After showing new and old approach to GPT 4o, got this
+// Didn't work right either
+// class UnionFind {
+//   constructor(size) {
+//     this.parent = Array(size)
+//       .fill()
+//       .map((_, i) => i);
+//     this.rank = Array(size).fill(0);
+//   }
+
+//   find(x) {
+//     if (this.parent[x] !== x) {
+//       this.parent[x] = this.find(this.parent[x]); // Path compression
+//     }
+//     return this.parent[x];
+//   }
+
+//   union(x, y) {
+//     let rootX = this.find(x);
+//     let rootY = this.find(y);
+//     if (rootX === rootY) return;
+
+//     if (this.rank[rootX] < this.rank[rootY]) {
+//       this.parent[rootX] = rootY;
+//     } else if (this.rank[rootX] > this.rank[rootY]) {
+//       this.parent[rootY] = rootX;
+//     } else {
+//       this.parent[rootY] = rootX;
+//       this.rank[rootX]++;
+//     }
+//   }
+// }
+
+// function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+//   const n = filledPoints.length;
+//   if (n === 0) return [];
+
+//   // Step 1: Initialize union-find
+//   const uf = new UnionFind(n);
+
+//   // Step 2: Build a spatial map for quick lookup
+//   const pointIndexMap = new Map();
+//   for (let i = 0; i < n; i++) {
+//     const { row, col } = filledPoints[i];
+//     pointIndexMap.set(`${row},${col}`, i);
+//   }
+
+//   // Step 3: Union overlapping points, checking both row and column adjacency
+//   for (let i = 0; i < n; i++) {
+//     const { row, col } = filledPoints[i];
+//     const minRow = Math.max(0, row - expandOutlineBy);
+//     const maxRow = Math.min(rowCount - 1, row + expandOutlineBy);
+//     const minCol = Math.max(0, col - expandOutlineBy);
+//     const maxCol = Math.min(colCount - 1, col + expandOutlineBy);
+
+//     // Check within the bounding box
+//     for (let r = minRow; r <= maxRow; r++) {
+//       for (let c = minCol; c <= maxCol; c++) {
+//         if (r === row && c === col) continue; // Skip itself
+//         if (pointIndexMap.has(`${r},${c}`)) {
+//           const j = pointIndexMap.get(`${r},${c}`);
+//           uf.union(i, j);
+//         }
+//       }
+//     }
+//   }
+
+//   // Step 4: Extract connected components
+//   const componentMap = new Map();
+//   for (let i = 0; i < n; i++) {
+//     const root = uf.find(i);
+//     if (!componentMap.has(root)) componentMap.set(root, []);
+//     componentMap.get(root).push(filledPoints[i]);
+//   }
+
+//   // Step 5: Create bounding boxes for clusters
+//   let containers = [];
+//   for (let points of componentMap.values()) {
+//     const minR = Math.min(...points.map((p) => p.row));
+//     const maxR = Math.max(...points.map((p) => p.row));
+//     const minC = Math.min(...points.map((p) => p.col));
+//     const maxC = Math.max(...points.map((p) => p.col));
+//     containers.push({
+//       topRow: minR,
+//       bottomRow: maxR,
+//       leftColumn: minC,
+//       rightColumn: maxC,
+//       filledPoints: points,
+//     });
+//   }
+
+//   // Step 6: Merge overlapping containers
+//   let mergedContainers = [];
+//   while (containers.length > 0) {
+//     let tempContainer = containers.pop();
+//     let merged = true;
+
+//     while (merged) {
+//       merged = false;
+//       for (let i = 0; i < containers.length; i++) {
+//         let other = containers[i];
+//         if (overlaps(tempContainer, other)) {
+//           // Merge the two
+//           tempContainer = mergeContainers(tempContainer, other);
+//           containers.splice(i, 1);
+//           merged = true;
+//           break;
+//         }
+//       }
+//     }
+//     mergedContainers.push(tempContainer);
+//   }
+
+//   // Step 7: Sort containers
+//   mergedContainers.sort((a, b) => {
+//     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
+//     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
+//     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
+//     return a.rightColumn - b.rightColumn;
+//   });
+
+//   return mergedContainers;
+// }
+
+// GPT 4o's approach on its own
+// class UnionFind {
+//   constructor(n) {
+//     // parent[i] is the parent index of i; if parent[i]===i, i is a root
+//     this.parent = new Array(n);
+//     this.rank = new Array(n);
+
+//     // bounding box for each set (only valid/used at the root)
+//     this.topRow = new Array(n);
+//     this.bottomRow = new Array(n);
+//     this.leftColumn = new Array(n);
+//     this.rightColumn = new Array(n);
+
+//     for (let i = 0; i < n; i++) {
+//       this.parent[i] = i;
+//       this.rank[i] = 0;
+//       // We'll fill in the bounding boxes externally (at init time)
+//     }
+//   }
+
+//   find(i) {
+//     if (this.parent[i] !== i) {
+//       this.parent[i] = this.find(this.parent[i]); // path compression
+//     }
+//     return this.parent[i];
+//   }
+
+//   union(a, b) {
+//     let rootA = this.find(a);
+//     let rootB = this.find(b);
+//     if (rootA === rootB) return rootA; // already united
+
+//     // union by rank
+//     if (this.rank[rootA] < this.rank[rootB]) {
+//       // swap
+//       let tmp = rootA;
+//       rootA = rootB;
+//       rootB = tmp;
+//     }
+//     // attach smaller tree (rootB) under larger tree (rootA)
+//     this.parent[rootB] = rootA;
+//     if (this.rank[rootA] === this.rank[rootB]) {
+//       this.rank[rootA]++;
+//     }
+
+//     // Merge bounding boxes at rootA
+//     this.topRow[rootA] = Math.min(this.topRow[rootA], this.topRow[rootB]);
+//     this.leftColumn[rootA] = Math.min(
+//       this.leftColumn[rootA],
+//       this.leftColumn[rootB]
+//     );
+//     this.bottomRow[rootA] = Math.max(
+//       this.bottomRow[rootA],
+//       this.bottomRow[rootB]
+//     );
+//     this.rightColumn[rootA] = Math.max(
+//       this.rightColumn[rootA],
+//       this.rightColumn[rootB]
+//     );
+
+//     return rootA;
+//   }
+// }
+
+// function getChunkKey(row, col, chunkSize) {
+//   // If your rows/cols start at 1, offset by -1 to keep zero-based chunk indexing consistent:
+//   let rChunk = Math.floor((row - 1) / chunkSize);
+//   let cChunk = Math.floor((col - 1) / chunkSize);
+//   return rChunk + "," + cChunk;
+// }
+
+/**
+ * Builds containers from the filledPoints by repeatedly
+ * expanding bounding boxes and merging overlapping sets,
+ * using a Union-Find plus a 2D chunk index for speed.
+ *
+ * @param {Array} filledPoints   Array of {row, col} objects
+ * @param {Number} expandOutlineBy
+ * @param {Number} rowCount
+ * @param {Number} colCount
+ * @returns {Array} Array of Container objects with .filledPoints, bounding rows/cols, etc.
+ */
+// function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+//   if (!filledPoints || filledPoints.length === 0) return [];
+
+//   console.time("Total getContainersJS Execution Time");
+
+//   // console.time("1) Initialize Union-Find");
+//   const n = filledPoints.length;
+//   const uf = new UnionFind(n);
+//   // console.timeEnd("1) Initialize Union-Find");
+
+//   // console.time("2) Initialize Bounding Boxes and Chunk Map");
+//   const CHUNK_SIZE = 20;
+//   const chunkMap = new Map();
+
+//   for (let i = 0; i < n; i++) {
+//     const pt = filledPoints[i];
+//     uf.topRow[i] = pt.row;
+//     uf.bottomRow[i] = pt.row;
+//     uf.leftColumn[i] = pt.col;
+//     uf.rightColumn[i] = pt.col;
+
+//     const chunkKey = getChunkKey(pt.row, pt.col, CHUNK_SIZE);
+//     if (!chunkMap.has(chunkKey)) {
+//       chunkMap.set(chunkKey, []);
+//     }
+//     chunkMap.get(chunkKey).push(i);
+//   }
+//   // console.timeEnd("2) Initialize Bounding Boxes and Chunk Map");
+
+//   // console.time("3) Initialize Processing Queue");
+//   let queue = Array.from({ length: n }, (_, i) => i);
+//   const visitedInQueue = new Set();
+//   // console.timeEnd("3) Initialize Processing Queue");
+
+//   // console.time("4) Merging Bounding Boxes");
+//   while (queue.length > 0) {
+//     const idx = queue.shift();
+//     visitedInQueue.delete(idx);
+//     let root = uf.find(idx);
+
+//     if (root !== idx) {
+//       if (!visitedInQueue.has(root)) {
+//         queue.push(root);
+//         visitedInQueue.add(root);
+//       }
+//       continue;
+//     }
+
+//     let top = uf.topRow[root];
+//     let left = uf.leftColumn[root];
+//     let bottom = uf.bottomRow[root];
+//     let right = uf.rightColumn[root];
+
+//     const t = Math.max(1, top - expandOutlineBy);
+//     const l = Math.max(1, left - expandOutlineBy);
+//     const b = Math.min(rowCount, bottom + expandOutlineBy);
+//     const r = Math.min(colCount, right + expandOutlineBy);
+
+//     const minChunkRow = Math.floor((t - 1) / CHUNK_SIZE);
+//     const maxChunkRow = Math.floor((b - 1) / CHUNK_SIZE);
+//     const minChunkCol = Math.floor((l - 1) / CHUNK_SIZE);
+//     const maxChunkCol = Math.floor((r - 1) / CHUNK_SIZE);
+
+//     let candidateIndices = [];
+//     for (let cR = minChunkRow; cR <= maxChunkRow; cR++) {
+//       for (let cC = minChunkCol; cC <= maxChunkCol; cC++) {
+//         let chunkKey = `${cR},${cC}`;
+//         if (chunkMap.has(chunkKey)) {
+//           candidateIndices.push(...chunkMap.get(chunkKey));
+//         }
+//       }
+//     }
+
+//     for (let candIdx of candidateIndices) {
+//       let candPt = filledPoints[candIdx];
+//       if (
+//         candPt.row >= t &&
+//         candPt.row <= b &&
+//         candPt.col >= l &&
+//         candPt.col <= r
+//       ) {
+//         let candRoot = uf.find(candIdx);
+//         if (candRoot !== root) {
+//           let newRoot = uf.union(root, candRoot);
+//           if (newRoot !== root) root = newRoot;
+//           if (!visitedInQueue.has(root)) {
+//             queue.push(root);
+//             visitedInQueue.add(root);
+//           }
+//         }
+//       }
+//     }
+//   }
+//   // console.timeEnd("4) Merging Bounding Boxes");
+
+//   // console.time("5) Grouping by Root");
+//   const groupByRoot = new Map();
+//   for (let i = 0; i < n; i++) {
+//     const r = uf.find(i);
+//     if (!groupByRoot.has(r)) {
+//       groupByRoot.set(r, []);
+//     }
+//     groupByRoot.get(r).push(i);
+//   }
+//   // console.timeEnd("5) Grouping by Root");
+
+//   // console.time("6) Constructing Containers");
+//   let containers = [];
+//   for (let [rootID, indices] of groupByRoot.entries()) {
+//     const c = new Container(
+//       uf.topRow[rootID],
+//       uf.leftColumn[rootID],
+//       uf.bottomRow[rootID],
+//       uf.rightColumn[rootID]
+//     );
+//     c.filledPoints = indices.map((idx) => ({
+//       row: filledPoints[idx].row,
+//       col: filledPoints[idx].col,
+//     }));
+//     containers.push(c);
+//   }
+//   // console.timeEnd("6) Constructing Containers");
+
+//   // console.time("7) Sorting Containers");
+//   containers.sort((a, b) => {
+//     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
+//     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
+//     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
+//     return a.rightColumn - b.rightColumn;
+//   });
+//   // console.timeEnd("7) Sorting Containers");
+
+//   console.timeEnd("Total getContainersJS Execution Time");
+//   return containers;
+// }
+
+// Helper function to check if two containers overlap
+function overlaps(a, b) {
+  return (
+    a.topRow <= b.bottomRow &&
+    a.bottomRow >= b.topRow &&
+    a.leftColumn <= b.rightColumn &&
+    a.rightColumn >= b.leftColumn
+  );
+}
+
+// Helper function to merge two overlapping containers
+function mergeContainers(a, b) {
+  return {
+    topRow: Math.min(a.topRow, b.topRow),
+    bottomRow: Math.max(a.bottomRow, b.bottomRow),
+    leftColumn: Math.min(a.leftColumn, b.leftColumn),
+    rightColumn: Math.max(a.rightColumn, b.rightColumn),
+    filledPoints: [...a.filledPoints, ...b.filledPoints],
+  };
 }
 
 function createContainerFromPoint(pt) {
