@@ -1,10 +1,10 @@
 // GridController.ts
 
 import { useCallback, useRef, useEffect } from "react";
-import { GridModel } from "../model/GridModel";
+import { Grid } from "../../structure/Grid";
 
 export interface UseGridControllerOptions {
-  grid: GridModel; // The model
+  grid: Grid; // The model
   zoom: number; // Current zoom factor
   setZoom: (z: number) => void;
   minZoom?: number; // Default 0.2

@@ -1,6 +1,6 @@
 // packages/textrux/src/parser/GridParser.ts
 
-import { PatternsManager } from "./PatternsManager";
+import { PatternsManager } from "../pattern/PatternManager";
 
 /**
  * Global cell data is in (window as any).cellsData
@@ -315,19 +315,3 @@ function applyBlockStyles(blockList: Block[], blockClusters: any[]): Record<stri
 }
 
 // helper
-function dedupe(arr: Point[]) {
-  const seen = new Set<string>();
-  const out: Point[] = [];
-  for (const p of arr) {
-    const k = p.row + "," + p.col;
-    if (!seen.has(k)) {
-      seen.add(k);
-      out.push(p);
-    }
-  }
-  return out;
-}
-function overlaps(a: Point[], b: Point[]): boolean {
-  const setB = new Set(b.map((p) => `${p.row},${p.col}`));
-  return a.some((p) => setB.has(`${p.row},${p.col}`));
-}

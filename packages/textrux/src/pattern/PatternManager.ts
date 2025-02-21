@@ -1,35 +1,3 @@
-// packages/textrux/src/parser/PatternsManager.ts
-
-interface CellPatternResult {
-  patternName: string;
-  data: any;
-}
-
-interface CellPatternDefinition {
-  name: string;
-  level: "cell";
-  parse: (cellValue: string, row: number, col: number) => any | null;
-  format?: (td: HTMLTableCellElement, parseResult: any) => void;
-}
-
-interface ClusterPatternDefinition {
-  name: string;
-  level: "contiguousCellCluster";
-  parse: (
-    clusterCells: { row: number; col: number }[],
-    block: any
-  ) => any | null;
-  format?: (
-    clusterCells: { row: number; col: number }[],
-    parseResult: any,
-    block: any
-  ) => void;
-}
-
-export type PatternDefinition =
-  | CellPatternDefinition
-  | ClusterPatternDefinition;
-
 export const PatternsManager = (function () {
   const patternDefinitions = {
     cell: [] as CellPatternDefinition[],

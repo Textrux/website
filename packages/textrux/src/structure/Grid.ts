@@ -11,7 +11,7 @@ export interface CellFormat {
  * The main grid model with formula support, undo/redo,
  * and optional per-cell formatting.
  */
-export class GridModel {
+export default class Grid {
   private data: string[][]; // Evaluated values
   private formulas: Record<string, string>; // e.g. { "R4C8": "=R9C4+R4C3" }
   private history: string[][][];

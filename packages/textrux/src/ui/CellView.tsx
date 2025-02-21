@@ -1,6 +1,6 @@
 // CellView.tsx
 import { useCallback, useEffect, useRef } from "react";
-import { CellFormat } from "../model/GridModel";
+import { CellFormat } from "../../strux/Grid";
 
 interface CellViewProps {
   row: number;

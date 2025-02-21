@@ -2,12 +2,12 @@
 // GridCells.tsx
 
 import { useEffect, useRef, useState } from "react";
-import { GridModel } from "../model/GridModel";
+import { Grid } from "../../strux/Grid";
 import { SelectionRange } from "./GridView";
 import { CellView } from "./CellView";
 
 interface GridCellsProps {
-  grid: GridModel;
+  grid: Grid;
   rowHeights: number[];
   colWidths: number[];
   selectionRange: SelectionRange;

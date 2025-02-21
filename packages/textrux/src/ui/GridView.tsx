@@ -8,8 +8,8 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { GridModel } from "../model/GridModel";
-import { useGridController } from "../controller/GridController";
+import { Grid } from "../../strux/Grid";
+import { useGridController } from "./controller/GridController";
 import { ColumnHeaders } from "./ColumnHeaders";
 import { RowHeaders } from "./RowHeaders";
 import { GridCells } from "./GridCells";
@@ -24,7 +24,7 @@ export interface SelectionRange {
 }
 
 export interface GridViewProps {
-  grid: GridModel;
+  grid: Grid;
   width?: number | string;
   height?: number | string;
   className?: string;

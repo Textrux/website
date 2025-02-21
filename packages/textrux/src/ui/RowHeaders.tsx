@@ -1,7 +1,7 @@
 // RowHeaders.tsx
 
 import { useEffect, useState } from "react";
-import { GridModel } from "../model/GridModel";
+import { Grid } from "../../strux/Grid";
 
 export function RowHeaders({
   grid,
@@ -11,7 +11,7 @@ export function RowHeaders({
   version,
   gridContainerRef,
 }: {
-  grid: GridModel;
+  grid: Grid;
   rowHeights: number[];
   colWidths: number[];
   fontSize: number;
