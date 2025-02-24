@@ -1,8 +1,8 @@
 ## Elevated Grids
 
-Imagine looking at a spreadsheet and zooming out on it and seeing cells merge together to form a higher level grid.
+Imagine looking at a spreadsheet and zooming out on it and seeing groups of cells merge together to form cells in a higher level grid.
 
-Perhaps you only want to treat certain groups of cells as part of this elevated grid so when you zoomed out, only these cells merged to form higher-level cells and other cells merged but showed no value and were grayed out. But perhaps you could click on one of these grayed out cells and included it in the elevated grid.
+Perhaps you only want to treat certain groups of cells as part of this elevated grid so when you zoomed out, only these cells merged to form higher-level cells and other cells are merged but showed no value and were grayed out. But perhaps you could click on one of these grayed out cells and included it in the elevated grid.
 
 Each group of cells would need to be resolved to a value in that elevated grid. There could be different types of resolvers, such as an evaluation resolver or an abstraction resolver. An evaluation resolver would treat individuals cells as operators and operands depending upon their value and their relative position. An abstraction resolver might display the abstracted value of all the lower level values.
 
