@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Wave Simulation Grid Demo</title>
+    <style>
+      /* Basic Resets and Layout */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        background: #f5f5f5;
+      }
+
+      /* Container for the entire grid and controls */
+      .container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+      }
+
+      /* Formula bar */
+      .formula-bar {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+      }
+      .formula-label {
+        margin-right: 10px;
+        font-weight: bold;
+      }
+      .formula-input {
+        flex: 1;
+        padding: 5px;
+        font-size: 14px;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+      }
+
+      /* Table container for scrolling if needed */
+      .table-container {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+      }
+
+      /* The canvas behind the table for drawing circles */
+      #waveCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none; /* So clicks go through to cells */
+        z-index: 10;
+      }
+
+      /* The spreadsheet table */
+      table {
+        border-collapse: collapse;
+        background: white;
+        position: relative;
+        z-index: 2; /* on top of the canvas */
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        background: #ddd;
+        text-align: center;
+        font-weight: bold;
+        border: 1px solid #ccc;
+      }
+      tbody th {
+        position: sticky;
+        left: 0;
+        background: #ddd;
+        text-align: center;
+        border: 1px solid #ccc;
+      }
+      td,
+      th {
+        width: 80px;
+        height: 30px;
+        border: 1px solid #ccc;
+        padding: 0;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 14px;
+        user-select: none;
+      }
+      td.selected {
+        outline: 2px solid blue;
+        outline-offset: -2px;
+      }
+
+      /* Time scrubber controls */
+      .time-controls {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+      }
+      .play-button {
+        margin-right: 10px;
+        padding: 5px 10px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .time-indicator {
+        font-weight: bold;
+        margin-left: 10px;
+        width: 60px;
+        text-align: center;
+      }
+
+      /* Responsive Tweaks: make cells narrower on smaller screens, etc. */
+      @media (max-width: 768px) {
+        td,
+        th {
+          width: 60px;
+          height: 25px;
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Formula Bar -->
+      <div class="formula-bar">
+        <span class="formula-label">Formula:</span>
+        <input
+          type="text"
+          class="formula-input"
+          id="formulaInput"
+          placeholder="Selected cell content..."
+        />
+      </div>
+
+      <!-- Table and Canvas -->
+      <div class="table-container" id="tableContainer">
+        <canvas id="waveCanvas"></canvas>
+        <table id="spreadsheet">
+          <thead>
+            <tr>
+              <th></th>
+              <!-- Empty corner cell -->
+              <!-- Column headers: C1, C2, ..., C25 -->
+              <!-- We'll generate them in JS -->
+            </tr>
+          </thead>
+          <tbody>
+            <!-- We'll generate rows in JS, each with a row header: R1, R2, ... R20 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Time Scrubber and Controls -->
+      <div class="time-controls">
+        <button class="play-button" id="playButton">Play</button>
+        <input
+          type="range"
+          id="timeScrubber"
+          min="0"
+          max="10"
+          step="0.01"
+          value="0"
+          style="flex: 1"
+        />
+        <div class="time-indicator" id="timeIndicator">0.00s</div>
+      </div>
+    </div>
+
+    <script>
+      /********************************************************
+       * 1) SETUP: Create the grid (25 cols x 20 rows),
+       *           track cell data, manage selection, etc.
+       ********************************************************/
+      const numRows = 20;
+      const numCols = 25;
+
+      const spreadsheet = document.getElementById("spreadsheet");
+      const thead = spreadsheet.querySelector("thead tr");
+      const tbody = spreadsheet.querySelector("tbody");
+
+      // Generate column headers: C1, C2, ... C25
+      for (let c = 1; c <= numCols; c++) {
+        const th = document.createElement("th");
+        th.textContent = `C${c}`;
+        thead.appendChild(th);
+      }
+
+      // Data structure to store cell contents (strings)
+      // We'll index it by row & col => cellData[r][c]
+      const cellData = [];
+      for (let r = 0; r < numRows; r++) {
+        cellData[r] = [];
+        // Create each row with row header + cells
+        const row = document.createElement("tr");
+        const rowHeader = document.createElement("th");
+        rowHeader.textContent = `R${r + 1}`;
+        row.appendChild(rowHeader);
+
+        for (let c = 0; c < numCols; c++) {
+          cellData[r][c] = ""; // initially empty
+
+          const td = document.createElement("td");
+          td.dataset.row = r;
+          td.dataset.col = c;
+          td.textContent = ""; // initially empty
+          row.appendChild(td);
+        }
+        tbody.appendChild(row);
+      }
+
+      // Keep track of which cell is currently selected
+      let selectedRow = null;
+      let selectedCol = null;
+
+      const formulaInput = document.getElementById("formulaInput");
+
+      // Handle clicks on cells
+      tbody.addEventListener("click", function (e) {
+        if (e.target && e.target.tagName === "TD") {
+          // Clear old selection highlight
+          clearSelectionHighlight();
+
+          selectedRow = parseInt(e.target.dataset.row);
+          selectedCol = parseInt(e.target.dataset.col);
+
+          // Highlight newly selected cell
+          e.target.classList.add("selected");
+
+          // Show content in formula bar
+          formulaInput.value = cellData[selectedRow][selectedCol] || "";
+        }
+      });
+
+      // Update cell content when formula bar changes (on enter or blur)
+      formulaInput.addEventListener("change", function () {
+        if (selectedRow !== null && selectedCol !== null) {
+          // Update data
+          cellData[selectedRow][selectedCol] = formulaInput.value;
+          // Update cell display
+          const cell = findCell(selectedRow, selectedCol);
+          if (cell) cell.textContent = formulaInput.value;
+        }
+      });
+
+      // Helper to find <td> by row, col
+      function findCell(r, c) {
+        return tbody.querySelector(`td[data-row='${r}'][data-col='${c}']`);
+      }
+
+      function clearSelectionHighlight() {
+        const selectedCells = tbody.querySelectorAll("td.selected");
+        selectedCells.forEach((td) => td.classList.remove("selected"));
+      }
+
+      /********************************************************
+       * 2) WAVE / ANIMATION LOGIC
+       *    We'll use a canvas behind the table to draw
+       *    expanding circles from cells that have text.
+       ********************************************************/
+      const canvas = document.getElementById("waveCanvas");
+      const tableContainer = document.getElementById("tableContainer");
+      const rect = tableContainer.getBoundingClientRect();
+
+      // Canvas resizing: keep it the same size as the scrolling container
+      function resizeCanvas() {
+        canvas.width = tableContainer.scrollWidth;
+        canvas.height = tableContainer.scrollHeight;
+      }
+      resizeCanvas();
+
+      // On window resize or container scroll, update the canvas
+      window.addEventListener("resize", resizeCanvas);
+      tableContainer.addEventListener("scroll", function () {
+        // We won't move the canvas; it should remain pinned in the container.
+        // We'll just rely on it being large enough to fill the container.
+      });
+
+      // We'll compute center positions of each cell for wave origins
+      // We do this once, but note that scrolling might affect the
+      // absolute positions on screen. We'll handle positions relative to
+      // the top-left of the tableContainer.
+      function getCellCenter(r, c) {
+        const cell = findCell(r, c);
+        if (!cell) return { x: 0, y: 0 };
+
+        // position relative to the container
+        const tableRect = spreadsheet.getBoundingClientRect();
+        const containerRect = tableContainer.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+
+        // offset from container top-left
+        const x =
+          cellRect.left -
+          containerRect.left +
+          cellRect.width / 2 +
+          tableContainer.scrollLeft;
+        const y =
+          cellRect.top -
+          containerRect.top +
+          cellRect.height / 2 +
+          tableContainer.scrollTop;
+
+        return { x, y };
+      }
+
+      // Animation states
+      let isPlaying = false;
+      let currentTime = 0; // in seconds
+      let maxTime = 10; // total range for demonstration
+      let waveSpeed = 100; // px per second (can tweak)
+
+      // We'll store the moment each cell was "hit" (by any wave) to manage highlight
+      // cellHitTime[r][c] = time in seconds, or null if not yet hit
+      // We'll recalc each frame if the user moves the scrubber
+      let cellHitTime = [];
+      function resetCellHitTimes() {
+        cellHitTime = [];
+        for (let r = 0; r < numRows; r++) {
+          cellHitTime[r] = [];
+          for (let c = 0; c < numCols; c++) {
+            cellHitTime[r][c] = null;
+          }
+        }
+      }
+      resetCellHitTimes();
+
+      // The main draw loop (called via requestAnimationFrame)
+      function drawWave() {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // The wave radius for the current time
+        // Actually, each cell that has text will broadcast a wave with radius = waveSpeed * currentTime
+        // We'll check each cell, if it has text, we draw the wave circle.
+        // Then we check if other cells are being hit by that wave now.
+
+        // Because we want to allow backward scrub, we re-check hits each frame.
+        // So we reset highlights each time before re-calculating.
+        for (let r = 0; r < numRows; r++) {
+          for (let c = 0; c < numCols; c++) {
+            // We'll check if the highlight period is valid at this time
+            const td = findCell(r, c);
+            td.style.backgroundColor = ""; // reset background; we'll reapply if needed
+          }
+        }
+        resetCellHitTimes(); // We'll compute from scratch below
+
+        // Collect centers for all text-containing cells
+        let broadcastingCells = [];
+        for (let r = 0; r < numRows; r++) {
+          for (let c = 0; c < numCols; c++) {
+            if (cellData[r][c].trim() !== "") {
+              broadcastingCells.push({ r, c, center: getCellCenter(r, c) });
+            }
+          }
+        }
+
+        // For each broadcasting cell, compute wave radius
+        broadcastingCells.forEach((broadcaster) => {
+          const radius = waveSpeed * currentTime;
+          // Draw circle
+          ctx.beginPath();
+          ctx.arc(
+            broadcaster.center.x,
+            broadcaster.center.y,
+            radius,
+            0,
+            2 * Math.PI
+          );
+          ctx.strokeStyle = "rgba(255, 0, 0, 0.4)";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        });
+
+        // Now figure out which cells are hit by which wave at time T
+        // We'll see if distance to broadcaster center <= wave radius
+        broadcastingCells.forEach((broadcaster) => {
+          const radius = waveSpeed * currentTime;
+          if (radius < 0) return; // if time is negative or something, skip
+          for (let r = 0; r < numRows; r++) {
+            for (let c = 0; c < numCols; c++) {
+              // If it's the same cell as the broadcaster, skip wave-hit logic
+              // (the problem states "whenever any cell with text in it is 'hit' by any other wave"
+              //  but not its *own* wave)
+              if (r === broadcaster.r && c === broadcaster.c) continue;
+
+              const center = getCellCenter(r, c);
+              const dx = center.x - broadcaster.center.x;
+              const dy = center.y - broadcaster.center.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              // if the wave is large enough to cover that distance
+              if (dist <= radius) {
+                // The wave from broadcaster hits cell (r, c) at time = dist / waveSpeed
+                const hitTime = dist / waveSpeed;
+                // We'll see if at the *current* time, that wave has already passed cell (r, c)
+                // If currentTime >= hitTime, it's been hit.
+                if (currentTime >= hitTime) {
+                  cellHitTime[r][c] = hitTime; // store the time it was hit
+                }
+              }
+            }
+          }
+        });
+
+        // Now apply highlight if currentTime is within 1 second after cellHitTime
+        for (let r = 0; r < numRows; r++) {
+          for (let c = 0; c < numCols; c++) {
+            const ht = cellHitTime[r][c];
+            if (ht !== null) {
+              // highlight from ht to ht+1
+              if (currentTime >= ht && currentTime < ht + 0.25) {
+                // highlight
+                const cell = findCell(r, c);
+                if (cellData[r][c].trim() !== "") {
+                  cell.style.backgroundColor = "yellow";
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // The main animation loop, only runs if isPlaying is true
+      let lastTimestamp = null;
+      function animate(timestamp) {
+        if (!isPlaying) {
+          // If we are not playing, we do a single draw to reflect any scrubber changes
+          drawWave();
+          return;
+        }
+        if (lastTimestamp === null) lastTimestamp = timestamp;
+        const delta = (timestamp - lastTimestamp) / 1000; // ms to s
+        lastTimestamp = timestamp;
+
+        // Update current time
+        currentTime += delta;
+        if (currentTime > maxTime) {
+          // Loop or just stop?
+          currentTime = maxTime;
+          togglePlay(false);
+        }
+
+        // Update the range input
+        timeScrubber.value = currentTime.toFixed(2);
+        timeIndicator.textContent = currentTime.toFixed(2) + "s";
+
+        // Draw wave
+        drawWave();
+
+        if (isPlaying) {
+          requestAnimationFrame(animate);
+        }
+      }
+
+      /********************************************************
+       * 3) TIME SCRUBBER/PLAY-BUTTON EVENTS
+       ********************************************************/
+      const timeScrubber = document.getElementById("timeScrubber");
+      const timeIndicator = document.getElementById("timeIndicator");
+      const playButton = document.getElementById("playButton");
+
+      function togglePlay(playState) {
+        isPlaying = playState;
+        if (isPlaying) {
+          playButton.textContent = "Stop";
+          lastTimestamp = null;
+          requestAnimationFrame(animate);
+        } else {
+          playButton.textContent = "Play";
+        }
+      }
+
+      playButton.addEventListener("click", () => {
+        if (!isPlaying) {
+          // Start
+          togglePlay(true);
+        } else {
+          // Stop
+          togglePlay(false);
+        }
+      });
+
+      timeScrubber.addEventListener("input", () => {
+        // When user drags the range, update current time and re-draw
+        currentTime = parseFloat(timeScrubber.value);
+        timeIndicator.textContent = currentTime.toFixed(2) + "s";
+        drawWave();
+      });
+
+      // Do an initial draw
+      drawWave();
+    </script>
+  </body>
+</html>
