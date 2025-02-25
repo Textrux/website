@@ -84,7 +84,7 @@ export function parseAndFormatGrid() {
   (window as any).styleMap = styleMap;
 }
 
-/** A BFS approach to group close filled cells. */
+/** A BFS approach to group close set cells. */
 function getContainersJS(
   filledPoints: { row: number; col: number; key?: string }[],
   outlineMargin: number,
@@ -269,7 +269,10 @@ function populateBlockClusters(blockList: Block[], blockJoins: any[]) {
 /**
  * For each block's canvas/border/frame, build up a styleMap of classes
  */
-function applyBlockStyles(blockList: Block[], blockClusters: any[]): Record<string, string[]> {
+function applyBlockStyles(
+  blockList: Block[],
+  blockClusters: any[]
+): Record<string, string[]> {
   // The final dictionary: "R{row}C{col}" => [ "canvas-cell", ... ]
   const styleMap: Record<string, string[]> = {};
 

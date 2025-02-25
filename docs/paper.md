@@ -2,15 +2,15 @@
 
 ## Abstract
 
-This paper introduces Binary Spatial Semantics (BSS), a novel framework for interpreting 2D grids where the spatial relationships between filled cells take precedence over their individual content. Unlike traditional approaches that focus on the data within each cell, BSS emphasizes the relative positioning of filled cells (analogous to spreadsheet cells) to derive meaning from their arrangement and structure, allowing for more sophisticated data representations. This method is particularly effective when applied to CSV files, where the filled versus unfilled cells create a spatial map that can encode complex structures such as API data layers, object hierarchies, or even the source code of entire programs, including their file systems, within a single file. While text inside the cells can contribute to the semantics, the primary layer of meaning is derived from the spatial layout, making BSS a powerful tool for interpreting 2D arrays in dynamic new ways. Key applications of BSS include visual programming interfaces, advanced data visualization, and novel paradigms for manipulating hierarchical and recursive data structures. This paper explores the foundational principles of Binary Spatial Semantics, provides practical examples of its use, and outlines its potential for future research in data representation, programming, and visualization.
+This paper introduces Binary Spatial Semantics (BSS), a novel framework for interpreting 2D grids where the spatial relationships between set cells take precedence over their individual content. Unlike traditional approaches that focus on the data within each cell, BSS emphasizes the relative positioning of set cells (analogous to spreadsheet cells) to derive meaning from their arrangement and structure, allowing for more sophisticated data representations. This method is particularly effective when applied to CSV files, where the filled versus unset cells create a spatial map that can encode complex structures such as API data layers, object hierarchies, or even the source code of entire programs, including their file systems, within a single file. While text inside the cells can contribute to the semantics, the primary layer of meaning is derived from the spatial layout, making BSS a powerful tool for interpreting 2D arrays in dynamic new ways. Key applications of BSS include visual programming interfaces, advanced data visualization, and novel paradigms for manipulating hierarchical and recursive data structures. This paper explores the foundational principles of Binary Spatial Semantics, provides practical examples of its use, and outlines its potential for future research in data representation, programming, and visualization.
 
 ## Introduction
 
-In traditional data structures, particularly those represented as 2D arrays, the emphasis is typically placed on the content of individual cells—whether numeric, textual, or binary data. While this approach serves many applications well, it overlooks the potential for spatial relationships within the data to convey more sophisticated meanings. Binary Spatial Semantics (BSS) introduces a paradigm shift by focusing on the positional relationships between cells, rather than their content, especially when they are represented as binary values for the filled vs non-filled cells.
+In traditional data structures, particularly those represented as 2D arrays, the emphasis is typically placed on the content of individual cells—whether numeric, textual, or binary data. While this approach serves many applications well, it overlooks the potential for spatial relationships within the data to convey more sophisticated meanings. Binary Spatial Semantics (BSS) introduces a paradigm shift by focusing on the positional relationships between cells, rather than their content, especially when they are represented as binary values for the filled vs non-set cells.
 
-The core concept of BSS is that the arrangement of ‘1’ bits in a 2D binary array can represent complex data structures, logical hierarchies, or even programmatic concepts. By interpreting the spatial positioning of filled cells relative to each other, BSS encodes meaning directly into the structure itself, creating a new level of abstraction in data representation. This stands in contrast to traditional approaches, where each cell’s data is treated as independent and significant only in terms of its content.
+The core concept of BSS is that the arrangement of ‘1’ bits in a 2D binary array can represent complex data structures, logical hierarchies, or even programmatic concepts. By interpreting the spatial positioning of set cells relative to each other, BSS encodes meaning directly into the structure itself, creating a new level of abstraction in data representation. This stands in contrast to traditional approaches, where each cell’s data is treated as independent and significant only in terms of its content.
 
-CSV files, commonly used for tabular data, provide an ideal medium for applying BSS. While CSVs are traditionally viewed as simple, flat representations of data, BSS reinterprets them as spatial maps of binary values. In this context, the filled cells (non-empty values) form the backbone of more complex, multi-layered structures. By leveraging the spatial arrangement of cells, CSV files can be transformed into constructs such as object schemas, file system hierarchies, or even the source code of entire programs—all encapsulated within a single file.
+CSV files, commonly used for tabular data, provide an ideal medium for applying BSS. While CSVs are traditionally viewed as simple, flat representations of data, BSS reinterprets them as spatial maps of binary values. In this context, the set cells (non-empty values) form the backbone of more complex, multi-layered structures. By leveraging the spatial arrangement of cells, CSV files can be transformed into constructs such as object schemas, file system hierarchies, or even the source code of entire programs—all encapsulated within a single file.
 
 The potential applications of Binary Spatial Semantics extend well beyond data visualization. By harnessing the spatial relationships inherent in binary structures, BSS enables the development of novel programming interfaces, such as 2D visual programming environments, where users interact with data across multiple levels of abstraction. These environments offer a unique way to manipulate data, where the position of each element in the grid contributes to its semantic meaning. BSS thus transforms 2D grids into spatial canvases where data, logic, and code converge, providing a more intuitive and flexible framework for managing complex systems.
 
@@ -69,23 +69,23 @@ Binary Spatial Semantics builds upon a rich history of concepts in tabular data 
 
 ## Methodology/Design
 
-Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D arrays of binary values by focusing on the spatial relationships between filled cells rather than the specific contents of the cells themselves. This section provides an in-depth explanation of BSS’s design principles, breaking down how blocks, clusters, and custom pattern definitions work, and discussing how users can leverage BSS to define complex structures like trees, tables, and recursive relationships within a grid.
+Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D arrays of binary values by focusing on the spatial relationships between set cells rather than the specific contents of the cells themselves. This section provides an in-depth explanation of BSS’s design principles, breaking down how blocks, clusters, and custom pattern definitions work, and discussing how users can leverage BSS to define complex structures like trees, tables, and recursive relationships within a grid.
 
 1.  Overview of the 2D Grid Structure
 
-    At the foundation of BSS is the 2D grid, represented as a binary array where cells can be either filled (represented by a 1) or unfilled (represented by a 0). In BSS, meaning is derived from the relative positioning of filled cells, which form the basis for more advanced data structures like blocks, trees, tables, and clusters.
+    At the foundation of BSS is the 2D grid, represented as a binary array where cells can be either filled (represented by a 1) or unfilled (represented by a 0). In BSS, meaning is derived from the relative positioning of set cells, which form the basis for more advanced data structures like blocks, trees, tables, and clusters.
 
-    In practice, CSV files—commonly used to store tabular data—become the medium for implementing this system. The grid of filled and unfilled cells, along with their arrangement, forms the canvas where users define and interpret meaning. This structure allows for rich data representations that can evolve as users interact with the grid.
+    In practice, CSV files—commonly used to store tabular data—become the medium for implementing this system. The grid of filled and unset cells, along with their arrangement, forms the canvas where users define and interpret meaning. This structure allows for rich data representations that can evolve as users interact with the grid.
 
 2.  Blocks, Cell Clusters, and Block Clusters
 
-    A key concept in BSS is the block, which consists of a canvas (filled cells), surrounded by a border and a frame. These components are always rectangular, but the filled cells within the canvas can form irregular shapes, like trees or tables. Importantly, the arrangement of the filled cells within the canvas (known as a cell cluster) defines the internal structure of the block.
+    A key concept in BSS is the block, which consists of a canvas (set cells), surrounded by a border and a frame. These components are always rectangular, but the set cells within the canvas can form irregular shapes, like trees or tables. Importantly, the arrangement of the set cells within the canvas (known as a cell cluster) defines the internal structure of the block.
 
-    - Canvas: Contains the filled cells that represent data or logic elements.
+    - Canvas: Contains the set cells that represent data or logic elements.
     - Border: A layer of empty cells around the canvas, visually separating the block from surrounding content.
     - Frame: Another layer of empty cells surrounding the border, enabling higher-order relationships with other blocks.
 
-    Blocks are dynamic; when a user fills a cell near an existing block (within two cells), the block expands to incorporate the new filled cell, maintaining its rectangular shape but adjusting the internal cell cluster(s). The arrangement of filled cells within the block’s canvas can give rise to various structures, such as trees, tables, or other entities. Multiple patterns may coexist on the same canvas—trees and tables can appear side by side or even intermix with one another, creating complex, multi-patterned structures within a single block. This dynamic allows for highly flexible representations of data, where different logical entities can be layered and combined within the same space.
+    Blocks are dynamic; when a user fills a cell near an existing block (within two cells), the block expands to incorporate the new set cell, maintaining its rectangular shape but adjusting the internal cell cluster(s). The arrangement of set cells within the block’s canvas can give rise to various structures, such as trees, tables, or other entities. Multiple patterns may coexist on the same canvas—trees and tables can appear side by side or even intermix with one another, creating complex, multi-patterned structures within a single block. This dynamic allows for highly flexible representations of data, where different logical entities can be layered and combined within the same space.
 
     While individual blocks are constrained to rectangular shapes, block clusters—formed by overlapping or neighboring blocks—can have irregular configurations. When blocks overlap or are placed near each other, each pair of blocks in that cluster may be linked or locked with each other, depending upon if only their frames overlap or if either frame overlaps the border of the other, creating higher-level relationships between blocks. These block clusters are not bound by the same constraints as individual blocks, allowing for more complex and organic arrangements.
 
@@ -95,14 +95,14 @@ Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D 
 
     Custom pattern definitions can be thought of as a way to define templates for cell clusters and block clusters:
 
-    - Cell Cluster Patterns: Templates that define the shapes or structures formed by the arrangement of filled cells within a block’s canvas. For instance, a table pattern might expect a rectangular group of filled cells, while a tree pattern would require parent-child relationships between cells (e.g., one row down, one column to the right for each child).
+    - Cell Cluster Patterns: Templates that define the shapes or structures formed by the arrangement of set cells within a block’s canvas. For instance, a table pattern might expect a rectangular group of set cells, while a tree pattern would require parent-child relationships between cells (e.g., one row down, one column to the right for each child).
     - Block Cluster Patterns: Templates that define how blocks relate to one another spatially, without the constraint of a canvas. These patterns could involve blocks being linked (frames overlapping) or locked (frames and borders overlapping), representing a hierarchical or associative relationship between data structures.
 
     These pattern definitions enable users to teach the parser to recognize complex combinations of structures. For example, a pattern might define that any block with “API Definition” in the top-left cell should be followed by a tree structure representing the object hierarchy, with a table to the right containing validation rules and another table to its right containing the data.
 
 4.  Recursive Structures and Higher-Order Grids
 
-    One of the most powerful features of BSS is its ability to support recursive structures. Users can define grids within grids by zooming into a single cell in a block to reveal a lower-level grid within that cell. This allows users to recursively nest structures within lower level grids. Alternatively, higher level virtual grids allow a grid full of blocks to be treated as a higher level grid where the contents of each filled cell is the block cluster found at that location in the original grid. These recursive structures, whether lower level physical grids or higher level virtual grids, could continue ad infinitum and even be replaced with pointers to a previously defined grid to allow a sort of multi-layered loop, often called a strange loop.
+    One of the most powerful features of BSS is its ability to support recursive structures. Users can define grids within grids by zooming into a single cell in a block to reveal a lower-level grid within that cell. This allows users to recursively nest structures within lower level grids. Alternatively, higher level virtual grids allow a grid full of blocks to be treated as a higher level grid where the contents of each set cell is the block cluster found at that location in the original grid. These recursive structures, whether lower level physical grids or higher level virtual grids, could continue ad infinitum and even be replaced with pointers to a previously defined grid to allow a sort of multi-layered loop, often called a strange loop.
 
     To manage recursive data structures:
 
@@ -134,7 +134,7 @@ Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D 
 
     The implementation of BSS requires a robust interface capable of parsing grids dynamically in real time. The parser must be able to:
 
-    1. Grid Parsing: Continuously analyze the 2D grid to detect filled cells, form blocks, and interpret clusters.
+    1. Grid Parsing: Continuously analyze the 2D grid to detect set cells, form blocks, and interpret clusters.
     2. Dynamic Formatting: Apply visual formatting to reflect the type of structure detected.
     3. Custom Pattern Detection: Identify user-defined cell and block cluster patterns to format and process data accordingly.
     4. Object Extraction: Convert identified patterns into data objects, such as JSON schemas or other programmatic representations.
@@ -142,15 +142,15 @@ Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D 
 
 8.  Basic Visualization and Interaction
 
-    To illustrate how Binary Spatial Semantics (BSS) operates at a foundational level, we will walk through a simple example using an 8x8 binary grid, demonstrating how filled cells form blocks, how blocks are manipulated, and how more complex structures like trees and tables emerge.
+    To illustrate how Binary Spatial Semantics (BSS) operates at a foundational level, we will walk through a simple example using an 8x8 binary grid, demonstrating how set cells form blocks, how blocks are manipulated, and how more complex structures like trees and tables emerge.
 
     1. Initial Block Formation
 
-       Consider an 8x8 grid where some cells are filled (represented by 1s) and others are unfilled (0s). The arrangement of these filled cells determines the formation of a block. As an example, a single filled cell will trigger the creation of a block with a canvas, border, and frame.
-       [Placeholder for Visual: An 8x8 binary grid with a single filled cell in the middle, showing the canvas, border, and frame formation.]
+       Consider an 8x8 grid where some cells are filled (represented by 1s) and others are unfilled (0s). The arrangement of these set cells determines the formation of a block. As an example, a single set cell will trigger the creation of a block with a canvas, border, and frame.
+       [Placeholder for Visual: An 8x8 binary grid with a single set cell in the middle, showing the canvas, border, and frame formation.]
        In this initial state, the block is defined as:
 
-       - Canvas: The filled cell.
+       - Canvas: The set cell.
        - Border: A layer of empty cells immediately surrounding the canvas.
        - Frame: An outer layer of empty cells surrounding the border.
 
@@ -166,9 +166,9 @@ Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D 
 
     3. Block Expansion
 
-       Next, we illustrate how blocks expand when additional cells are filled near them. If a user fills a cell within two cells of the canvas of the existing block, the block will automatically expand to encompass the new filled cell. This expansion includes adjustments to the canvas, border, and frame.
+       Next, we illustrate how blocks expand when additional cells are filled near them. If a user fills a cell within two cells of the canvas of the existing block, the block will automatically expand to encompass the new set cell. This expansion includes adjustments to the canvas, border, and frame.
 
-       > [Placeholder for Visual: The initial block expanding to include a neighboring filled cell, with the canvas, border, and frame adjusting to cover the newly filled cell.]
+       > [Placeholder for Visual: The initial block expanding to include a neighboring set cell, with the canvas, border, and frame adjusting to cover the newly set cell.]
 
        The expansion allows blocks to grow and evolve as users interact with the grid, ensuring that adjacent cells are logically grouped within a single block.
 
@@ -176,13 +176,13 @@ Binary Spatial Semantics (BSS) introduces a novel framework for interpreting 2D 
 
        To demonstrate more complex patterns, we now introduce two distinct structures commonly represented in BSS: trees and tables.
 
-       - Tree: A tree structure is formed when filled cells are arranged hierarchically. For example, a parent cell in the canvas has children that are positioned one row down and one column to the right.
+       - Tree: A tree structure is formed when set cells are arranged hierarchically. For example, a parent cell in the canvas has children that are positioned one row down and one column to the right.
 
-       > [Placeholder for Visual: A simple tree structure formed by filled cells within the canvas, showing parent-child relationships.]
+       > [Placeholder for Visual: A simple tree structure formed by set cells within the canvas, showing parent-child relationships.]
 
-       - Table: A table is formed when filled cells are arranged in rows and columns. The first row is treated as the header row, and subsequent rows are the data rows.
+       - Table: A table is formed when set cells are arranged in rows and columns. The first row is treated as the header row, and subsequent rows are the data rows.
 
-       > [Placeholder for Visual: A simple table structure formed by filled cells, showing header and data rows.]
+       > [Placeholder for Visual: A simple table structure formed by set cells, showing header and data rows.]
 
     5. Combining Tree and Table Structures
 
@@ -320,7 +320,7 @@ BSS’s grid-based structure also hints at unconventional computing paradigms, s
    }
 
    function parseBlock(row, col, grid) {
-     // Logic to detect neighboring filled cells and form a block
+     // Logic to detect neighboring set cells and form a block
    }
    ```
 

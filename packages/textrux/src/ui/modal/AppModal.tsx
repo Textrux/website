@@ -379,7 +379,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               <h3>Instructions</h3>
               <p>
                 Enter text in cells to build text structures. The structures are
-                built from the location of the filled cells on the grid.
+                built from the location of the set cells on the grid.
               </p>
               <p>
                 The primary structure is a "block" which is surrounded by a
@@ -387,7 +387,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               </p>
               <p>
                 The area inside the border of a block is called the "canvas".
-                The canvas has filled cells with a white background along with
+                The canvas has set cells with a white background along with
                 empty canvas cells with a light blue background. Nearby filled
                 cells on a canvas form a "cell cluster" and the empty cells in a
                 cell cluster have a darker blue background.
