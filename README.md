@@ -36,10 +36,6 @@ In the same way that you can "zoom in" on a cell with CSV inside to see the embe
 
 A single CSV file can represent everything in Textrux including multiple grids just like you would see tabs in a spreadsheet application.
 
-# **Primitives**
-
-Below are the primitives of textrux.
-
 # Structures
 
 The core structures are formed automatically based upon the placement of text in a grid (aka spreadsheet). Each cell is either considered set (has text) or free (doesn't have text). This binary arrangement allows a spatial parser to find pre-defined structures (and eventually custom defined structures) to form a higher level semantic (meaning) from these structures. This arrangement is called Binary Spatial Semantics which is the fundamental principle behind programming tenants (programming tenants are like programming languages except tenants give meaning to multi-dimensional structures whereas languages give meaning to symbols in a sequence).
