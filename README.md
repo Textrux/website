@@ -193,3 +193,5 @@ Cells with text that represents an operation can have operands placed down and t
 ## Interaction Resolver
 
 Users are used to interacting with spreadsheets and an interaction resolver allows you to program a grid to be treated as a user-editable spreadsheet in a controlled way. Forms can be completed by users with validation and coordination with the remote server thanks to the additional help of a context resolver.
+
+> **Contact**: textrux at gmail dot com.
