@@ -1713,7 +1713,7 @@ async function loadExample(example) {
     console.error("Invalid example input");
     return;
   }
-  const url = `./examples/${fileName}`;
+  const url = `../examples/${fileName}`;
   try {
     const resp = await fetch(url);
     if (!resp.ok) {
