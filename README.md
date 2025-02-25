@@ -1,12 +1,12 @@
 # Textrux
 
-[Textrux.com](/docs/images/https://www.textrux.com)
+[Textrux.com](https://www.textrux.com)
 
 Text Structures in simple CSV.
 
 CSV is now a fully expressive, rich medium for expressing complex ideas, programs, and data in a well known, universal format.
 
-[Textrux.com](/docs/images/https://www.textrux.com) is where you can see it in action. Enter text in the cells like you would do in any spreadsheet application, except you'll see that text come to life in structures that form based on where you enter that text.
+[Textrux.com](https://www.textrux.com) is where you can see it in action. Enter text in the cells like you would do in any spreadsheet application, except you'll see that text come to life in structures that form based on where you enter that text.
 
 ### Create a table
 
