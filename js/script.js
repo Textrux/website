@@ -802,6 +802,432 @@ function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
   return containers;
 }
 
+// Claude 3.7 attempt 1 - works almost but misses some edge cases
+// function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+//   console.time("Total getContainersJS Execution Time");
+
+//   // Initialize data structures
+//   let containers = [];
+//   let processedPoints = new Set(); // Track points we've already processed
+
+//   // Define a spatial index to quickly find nearby containers
+//   const spatialIndex = new Map(); // Maps row,col to potentially overlapping containers
+
+//   // Helper function to add a container to the spatial index
+//   function addToSpatialIndex(container) {
+//     // We'll index by the expanded container bounds to catch potential overlaps
+//     const expanded = container.expandOutlineBy(
+//       expandOutlineBy,
+//       rowCount,
+//       colCount
+//     );
+//     for (let r = expanded.topRow; r <= expanded.bottomRow; r++) {
+//       for (let c = expanded.leftColumn; c <= expanded.rightColumn; c++) {
+//         const key = `${r},${c}`;
+//         if (!spatialIndex.has(key)) {
+//           spatialIndex.set(key, new Set());
+//         }
+//         spatialIndex.get(key).add(container);
+//       }
+//     }
+//   }
+
+//   // Process filled points
+//   for (let cell of filledPoints) {
+//     const cellKey = `${cell.row},${cell.col}`;
+
+//     // Skip if we've already processed this point
+//     if (processedPoints.has(cellKey)) {
+//       continue;
+//     }
+
+//     // Create a container from this point
+//     let container = createContainerFromPoint(cell);
+//     let expandedContainer = container.expandOutlineBy(
+//       expandOutlineBy,
+//       rowCount,
+//       colCount
+//     );
+
+//     // Find overlapping points that haven't been processed yet
+//     const overlappingPoints = findOverlappingPoints(
+//       expandedContainer,
+//       filledPoints,
+//       processedPoints
+//     );
+
+//     // If we found overlapping points, merge them into our container
+//     if (overlappingPoints.length > 0) {
+//       // Mark these points as processed
+//       for (const pt of overlappingPoints) {
+//         processedPoints.add(`${pt.row},${pt.col}`);
+//       }
+
+//       // Expand the container bounds to include these points
+//       let minR = Math.min(
+//         container.topRow,
+//         ...overlappingPoints.map((p) => p.row)
+//       );
+//       let maxR = Math.max(
+//         container.bottomRow,
+//         ...overlappingPoints.map((p) => p.row)
+//       );
+//       let minC = Math.min(
+//         container.leftColumn,
+//         ...overlappingPoints.map((p) => p.col)
+//       );
+//       let maxC = Math.max(
+//         container.rightColumn,
+//         ...overlappingPoints.map((p) => p.col)
+//       );
+
+//       container.topRow = minR;
+//       container.bottomRow = maxR;
+//       container.leftColumn = minC;
+//       container.rightColumn = maxC;
+
+//       // Add overlapping points to this container
+//       container.filledPoints.push(...overlappingPoints);
+
+//       // Update expanded container after merging
+//       expandedContainer = container.expandOutlineBy(
+//         expandOutlineBy,
+//         rowCount,
+//         colCount
+//       );
+//     }
+
+//     // Mark the original point as processed
+//     processedPoints.add(cellKey);
+
+//     // Find potentially overlapping existing containers using the spatial index
+//     const overlappingContainers = new Set();
+
+//     // Check each cell in the expanded bounds for potential container overlap
+//     for (
+//       let r = expandedContainer.topRow;
+//       r <= expandedContainer.bottomRow;
+//       r++
+//     ) {
+//       for (
+//         let c = expandedContainer.leftColumn;
+//         c <= expandedContainer.rightColumn;
+//         c++
+//       ) {
+//         const key = `${r},${c}`;
+//         const containersAtCell = spatialIndex.get(key);
+
+//         if (containersAtCell) {
+//           for (const existingContainer of containersAtCell) {
+//             if (expandedContainer.overlaps(existingContainer)) {
+//               overlappingContainers.add(existingContainer);
+//             }
+//           }
+//         }
+//       }
+//     }
+
+//     // If we found overlapping containers, merge them with our current container
+//     if (overlappingContainers.size > 0) {
+//       // Remove the overlapping containers from the spatial index and containers list
+//       for (const existingContainer of overlappingContainers) {
+//         // Remove from spatial index (simplified - we'll rebuild it later)
+//         for (
+//           let r = existingContainer.topRow - expandOutlineBy;
+//           r <= existingContainer.bottomRow + expandOutlineBy;
+//           r++
+//         ) {
+//           for (
+//             let c = existingContainer.leftColumn - expandOutlineBy;
+//             c <= existingContainer.rightColumn + expandOutlineBy;
+//             c++
+//           ) {
+//             if (r >= 1 && r <= rowCount && c >= 1 && c <= colCount) {
+//               const key = `${r},${c}`;
+//               const cellContainers = spatialIndex.get(key);
+//               if (cellContainers) {
+//                 cellContainers.delete(existingContainer);
+//                 if (cellContainers.size === 0) {
+//                   spatialIndex.delete(key);
+//                 }
+//               }
+//             }
+//           }
+//         }
+
+//         // Remove from containers list
+//         containers = containers.filter((c) => c !== existingContainer);
+
+//         // Merge bounds
+//         container.topRow = Math.min(container.topRow, existingContainer.topRow);
+//         container.bottomRow = Math.max(
+//           container.bottomRow,
+//           existingContainer.bottomRow
+//         );
+//         container.leftColumn = Math.min(
+//           container.leftColumn,
+//           existingContainer.leftColumn
+//         );
+//         container.rightColumn = Math.max(
+//           container.rightColumn,
+//           existingContainer.rightColumn
+//         );
+
+//         // Merge filled points
+//         container.filledPoints.push(...existingContainer.filledPoints);
+//       }
+
+//       // Update expanded container after merging
+//       expandedContainer = container.expandOutlineBy(
+//         expandOutlineBy,
+//         rowCount,
+//         colCount
+//       );
+//     }
+
+//     // Add the final container to our containers list
+//     containers.push(container);
+
+//     // Add to spatial index
+//     addToSpatialIndex(container);
+//   }
+
+//   // Sort containers as in the original implementation
+//   containers.sort((a, b) => {
+//     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
+//     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
+//     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
+//     return a.rightColumn - b.rightColumn;
+//   });
+
+//   console.timeEnd("Total getContainersJS Execution Time");
+//   return containers;
+// }
+
+// Helper function to find overlapping points
+// function findOverlappingPoints(
+//   expandedContainer,
+//   filledPoints,
+//   processedPoints
+// ) {
+//   return filledPoints.filter((p) => {
+//     // Skip if already processed
+//     if (processedPoints.has(`${p.row},${p.col}`)) {
+//       return false;
+//     }
+
+//     // Check if this point overlaps with the expanded container
+//     const pointContainer = createContainerFromPoint(p);
+//     return expandedContainer.overlaps(pointContainer);
+//   });
+// }
+
+// Claude 3.7 Attempt 2 with Union Fid - doesn't work
+
+// function getContainersJS(filledPoints, expandOutlineBy, rowCount, colCount) {
+//   console.time("Total getContainersJS Execution Time");
+
+//   // 1. Create a UnionFind data structure
+//   class UnionFind {
+//     constructor(size) {
+//       // Initialize parent array - each element is its own parent initially
+//       this.parent = Array(size)
+//         .fill()
+//         .map((_, i) => i);
+//       // Initialize rank array for union by rank optimization
+//       this.rank = Array(size).fill(0);
+//       // We'll store the bounding box for each set
+//       this.bounds = Array(size)
+//         .fill()
+//         .map((_, i) => ({
+//           topRow: Infinity,
+//           bottomRow: -Infinity,
+//           leftColumn: Infinity,
+//           rightColumn: -Infinity,
+//         }));
+//       // Store filled points for each set
+//       this.filledPoints = Array(size)
+//         .fill()
+//         .map(() => []);
+//     }
+
+//     // Find with path compression
+//     find(x) {
+//       if (this.parent[x] !== x) {
+//         this.parent[x] = this.find(this.parent[x]);
+//       }
+//       return this.parent[x];
+//     }
+
+//     // Union by rank
+//     union(x, y) {
+//       const rootX = this.find(x);
+//       const rootY = this.find(y);
+
+//       if (rootX === rootY) return rootX; // Already in same set
+
+//       // Merge sets - smaller rank tree becomes subtree of larger rank tree
+//       if (this.rank[rootX] < this.rank[rootY]) {
+//         this.parent[rootX] = rootY;
+//         // Merge bounds from rootX into rootY
+//         this.mergeBounds(rootY, rootX);
+//         // Merge filled points
+//         this.filledPoints[rootY].push(...this.filledPoints[rootX]);
+//         return rootY;
+//       } else {
+//         this.parent[rootY] = rootX;
+//         // If ranks are equal, increment rank of rootX
+//         if (this.rank[rootX] === this.rank[rootY]) {
+//           this.rank[rootX]++;
+//         }
+//         // Merge bounds from rootY into rootX
+//         this.mergeBounds(rootX, rootY);
+//         // Merge filled points
+//         this.filledPoints[rootX].push(...this.filledPoints[rootY]);
+//         return rootX;
+//       }
+//     }
+
+//     // Merge bounds from source into target
+//     mergeBounds(target, source) {
+//       const targetBounds = this.bounds[target];
+//       const sourceBounds = this.bounds[source];
+
+//       targetBounds.topRow = Math.min(targetBounds.topRow, sourceBounds.topRow);
+//       targetBounds.bottomRow = Math.max(
+//         targetBounds.bottomRow,
+//         sourceBounds.bottomRow
+//       );
+//       targetBounds.leftColumn = Math.min(
+//         targetBounds.leftColumn,
+//         sourceBounds.leftColumn
+//       );
+//       targetBounds.rightColumn = Math.max(
+//         targetBounds.rightColumn,
+//         sourceBounds.rightColumn
+//       );
+//     }
+
+//     // Update bounds for a specific set
+//     updateBounds(setId, row, col) {
+//       const bounds = this.bounds[setId];
+//       bounds.topRow = Math.min(bounds.topRow, row);
+//       bounds.bottomRow = Math.max(bounds.bottomRow, row);
+//       bounds.leftColumn = Math.min(bounds.leftColumn, col);
+//       bounds.rightColumn = Math.max(bounds.rightColumn, col);
+//     }
+
+//     // Add a point to a set
+//     addPoint(setId, point) {
+//       this.filledPoints[setId].push(point);
+//       this.updateBounds(setId, point.row, point.col);
+//     }
+//   }
+
+//   // Create the Union-Find structure with one slot per filled point
+//   const uf = new UnionFind(filledPoints.length);
+
+//   // 2. Initialize each point in its own set
+//   for (let i = 0; i < filledPoints.length; i++) {
+//     const point = filledPoints[i];
+//     uf.addPoint(i, point);
+//   }
+
+//   // 3. Create expanded containers for each point to check overlaps
+//   const expandedContainers = filledPoints.map((point, idx) => {
+//     const container = createContainerFromPoint(point);
+//     return {
+//       index: idx,
+//       container: container.expandOutlineBy(expandOutlineBy, rowCount, colCount),
+//     };
+//   });
+
+//   // 4. Build spatial grid for more efficient overlap detection
+//   const spatialGrid = new Map();
+
+//   expandedContainers.forEach(({ index, container }) => {
+//     // Add container to cells it overlaps in the spatial grid
+//     for (let r = container.topRow; r <= container.bottomRow; r++) {
+//       for (let c = container.leftColumn; c <= container.rightColumn; c++) {
+//         const key = `${r},${c}`;
+//         if (!spatialGrid.has(key)) {
+//           spatialGrid.set(key, []);
+//         }
+//         spatialGrid.get(key).push(index);
+//       }
+//     }
+//   });
+
+//   // 5. Find overlapping expanded containers and merge sets
+//   const processedPairs = new Set();
+
+//   for (let i = 0; i < expandedContainers.length; i++) {
+//     const { index: idx1, container: cont1 } = expandedContainers[i];
+
+//     // Get potential overlapping containers using spatial grid
+//     const candidates = new Set();
+//     for (let r = cont1.topRow; r <= cont1.bottomRow; r++) {
+//       for (let c = cont1.leftColumn; c <= cont1.rightColumn; c++) {
+//         const key = `${r},${c}`;
+//         const cellContainers = spatialGrid.get(key) || [];
+//         for (const idx2 of cellContainers) {
+//           if (idx1 !== idx2) {
+//             candidates.add(idx2);
+//           }
+//         }
+//       }
+//     }
+
+//     // Check for actual overlap and union
+//     for (const idx2 of candidates) {
+//       const cont2 = expandedContainers[idx2].container;
+
+//       // Skip if we already processed this pair
+//       const pairKey = [Math.min(idx1, idx2), Math.max(idx1, idx2)].join(",");
+//       if (processedPairs.has(pairKey)) continue;
+//       processedPairs.add(pairKey);
+
+//       // Check if containers overlap
+//       if (cont1.overlaps(cont2)) {
+//         uf.union(idx1, idx2);
+//       }
+//     }
+//   }
+
+//   // 6. Collect the unique sets (containers)
+//   const rootSets = new Map();
+//   for (let i = 0; i < filledPoints.length; i++) {
+//     const root = uf.find(i);
+//     rootSets.set(root, true);
+//   }
+
+//   // 7. Create the final containers from the disjoint sets
+//   const containers = [];
+
+//   for (const root of rootSets.keys()) {
+//     const bounds = uf.bounds[root];
+//     const container = new Container(
+//       bounds.topRow,
+//       bounds.leftColumn,
+//       bounds.bottomRow,
+//       bounds.rightColumn
+//     );
+//     container.filledPoints = uf.filledPoints[root];
+//     containers.push(container);
+//   }
+
+//   // 8. Sort containers as in the original implementation
+//   containers.sort((a, b) => {
+//     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
+//     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
+//     if (a.bottomRow !== b.bottomRow) return a.bottomRow - b.bottomRow;
+//     return a.rightColumn - b.rightColumn;
+//   });
+
+//   console.timeEnd("Total getContainersJS Execution Time");
+//   return containers;
+// }
+
 // Grok 3 approach:
 // class UnionFind {
 //   constructor(size) {
