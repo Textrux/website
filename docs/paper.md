@@ -395,9 +395,9 @@ We'll look more at Wave Computing in the examples at the end of the page, but fo
 | Operator | Name      | Values          | Persistence  |
 | -------- | --------- | --------------- | ------------ |
 | `(`      | pulse     | 1 value         | 1 time       |
-| `((`     | broadcast | 1 value         | continuously |
+| `((`     | tone      | 1 value         | continuously |
 | `(((`    | packet    | multiple values | 1 time       |
-| `((((`   | stream    | multiple values | continuously |
+| `((((`   | broadcast | multiple values | continuously |
 
 The operators above would be used when messages needed to be sent to other functions.
 
@@ -408,9 +408,9 @@ The equivalent functions below would be used when those types of messages needed
 | Operator | Name      | Values          | Persistence  |
 | -------- | --------- | --------------- | ------------ |
 | `)`      | pulse     | 1 value         | 1 time       |
-| `))`     | broadcast | 1 value         | continuously |
+| `))`     | tone      | 1 value         | continuously |
 | `)))`    | packet    | multiple values | 1 time       |
-| `))))`   | stream    | multiple values | continuously |
+| `))))`   | broadcast | multiple values | continuously |
 
 When listening for these signals, should you process a signal and then listen for another one or stop after the first one. If you do listen for subsequent signals, do you do that forever or eventually stop listening? Each time you receive a new signal, do you have to wait for the previous instance to finish processing or do you just process all the instances in parallel?
 
@@ -528,8 +528,8 @@ These could be used like this:
 
 You might also want to consider time as a part of these predicates and, say, look back at the history of statuses on a channel and see if they match up to a certain pattern before continuing.
 
-For instance, you could retrieve the last 10 seconds on a channel and see if the status changes on that channel match the pattern -.-. In other words, in the last 10 seconds was there ever a point where a signal started, stopped, and then started again?
+For instance, you could retrieve the last 10 seconds on a channel and see if the status changes on that channel match the pattern /\/ In other words, in the last 10 seconds was there ever a point where a signal started, stopped, and then started again?
 
-There could even be a Wave Expression language that allowed you to find patterns in signal sequences much like Regular Expressions help you find patterns in signal sequences or Structural Expressions help you find patterns in structures. You could create a certain Wave Expression and then pass that to a function that checks for this pattern in a signal and returns true if it finds it, just like a Regular Expression works.
+There could even be a Wave Expression (WavEx) language that allowed you to find patterns in signal sequences much like Regular Expressions (RegEx) help you find patterns in character sequences or Structural Expressions (StrEx) help you find patterns in structures. You could create a certain Wave Expression and then pass that to a function that checks for this pattern in a signal and returns true if it finds it, just like a Regular Expression works.
 
 Wave computing could also think of each node as being "charged" and allowing it to lose energy over time, either reducing it's available output power gradually (analog) or waiting until the power output has reached a certain threshold and then it would not be able to broadcast at all (digital). The node could then be "charged up" by hearing certain inputs. As it heard more and more of those inputs, its energy would increase and it could start gradually (analog) or after a threshold (digital) start outputting a signal again.
