@@ -1,12 +1,10 @@
-// RowHeaders.tsx
-
 import { useEffect, useState } from "react";
-import { Grid } from "../../strux/Grid";
+import { Grid } from "../structure/Grid";
 
 export function RowHeaders({
   grid,
   rowHeights,
-  colWidths, // not used here, but in param for consistency
+  colWidths,
   fontSize,
   version,
   gridContainerRef,
@@ -64,7 +62,7 @@ export function RowHeaders({
           length: visibleRows.endRow - visibleRows.startRow + 1,
         }).map((_, i) => {
           const r = visibleRows.startRow + i;
-          const topPx = sumUpTo(rowHeights, r - 1); // dynamic
+          const topPx = sumUpTo(rowHeights, r - 1);
           const h = rowHeights[r - 1];
           const label = `R${r}`;
           const labelElement = (

@@ -1,5 +1,3 @@
-// GridController.ts
-
 import { useCallback, useRef, useEffect } from "react";
 import { Grid } from "../../structure/Grid";
 
@@ -9,8 +7,8 @@ export interface UseGridControllerOptions {
   setZoom: (z: number) => void;
   minZoom?: number; // Default 0.2
   maxZoom?: number; // Default 10
-  colPx: number; // base col width * zoom
-  rowPx: number; // base row height * zoom
+  colPx: number; // base col width
+  rowPx: number; // base row height
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -47,7 +45,7 @@ export function useGridController(options: UseGridControllerOptions) {
     scrollTop: 0,
   });
 
-  // --(A) Desktop Ctrl+wheel => custom zoom, not browser page zoom --
+  // (A) Desktop Ctrl+wheel => zoom
   useEffect(() => {
     const container = gridContainerRef.current;
     if (!container) return;
@@ -55,7 +53,6 @@ export function useGridController(options: UseGridControllerOptions) {
     function handleWheel(e: WheelEvent) {
       if (e.ctrlKey) {
         e.preventDefault();
-
         let newZoom = zoom * (e.deltaY < 0 ? 1.1 : 0.9);
         if (newZoom < minZoom) newZoom = minZoom;
         if (newZoom > maxZoom) newZoom = maxZoom;
@@ -63,14 +60,13 @@ export function useGridController(options: UseGridControllerOptions) {
       }
     }
 
-    // Add the wheel listener with {passive: false} so e.preventDefault() works.
     container.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       container.removeEventListener("wheel", handleWheel);
     };
   }, [zoom, setZoom, minZoom, maxZoom, gridContainerRef]);
 
-  // --(B) Touch pinch to zoom --
+  // (B) Touch pinch
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (e.touches.length === 2) {
@@ -116,7 +112,7 @@ export function useGridController(options: UseGridControllerOptions) {
     }
   }, []);
 
-  // --(C) Middle-click drag/pan --
+  // (C) Middle-click drag/pan
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 1) {
@@ -172,7 +168,6 @@ export function useGridController(options: UseGridControllerOptions) {
   }, [onMouseMoveDoc, onMouseUpDoc]);
 
   return {
-    // We still export these so the GridView can attach them to its container:
     onTouchStart,
     onTouchMove,
     onTouchEnd,
@@ -180,7 +175,6 @@ export function useGridController(options: UseGridControllerOptions) {
   };
 }
 
-/** Utility for pinch distance */
 function getTouchesDistance(t1: React.Touch, t2: React.Touch): number {
   const dx = t1.clientX - t2.clientX;
   const dy = t1.clientY - t2.clientY;

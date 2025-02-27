@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // GridView.tsx
-import "./project.css";
+import "./css/project.css";
 
 import React, {
   useState,
@@ -8,13 +9,16 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { Grid } from "../../strux/Grid";
+import { Grid } from "../structure/Grid";
 import { useGridController } from "./controller/GridController";
 import { ColumnHeaders } from "./ColumnHeaders";
 import { RowHeaders } from "./RowHeaders";
 import { GridCells } from "./GridCells";
 import { FormulaBar } from "./FormulaBar";
-import { AppModal } from "../../modal/AppModal";
+import { AppModal } from "./modal/AppModal";
+
+// 1) Import the parser:
+import { parseAndFormatGrid } from "../parser/GridParser";
 
 export interface SelectionRange {
   startRow: number;
@@ -34,10 +38,6 @@ export interface GridViewProps {
   baseFontSize?: number;
 }
 
-/**
- * This component uses the Grid model, manages selection vs editing,
- * virtualization, dynamic row/col sizing, pinch/zoom, etc.
- */
 export function GridView({
   grid,
   width = "100%",
@@ -98,7 +98,16 @@ export function GridView({
 
   // Force re-render after data changes
   const [version, setVersion] = useState(0);
-  const forceRefresh = () => setVersion((v) => v + 1);
+  const forceRefresh = useCallback(() => setVersion((v) => v + 1), []);
+
+  // 2) We store the styleMap from parseAndFormatGrid:
+  const [styleMap, setStyleMap] = useState<Record<string, string[]>>({});
+
+  // On first mount or if the grid object changes, parse once:
+  useEffect(() => {
+    const newMap = parseAndFormatGrid(grid);
+    setStyleMap(newMap);
+  }, [grid]);
 
   // Editing cell
   const [editingCell, setEditingCell] = useState<{
@@ -109,8 +118,7 @@ export function GridView({
   // The partial text typed so far (shared with formula bar & cell)
   const [editingValue, setEditingValue] = useState("");
 
-  // Whether the user is focusing the cell text area or the formula bar
-  // 'cell' => cell text area, 'formula' => formula bar, null => not editing
+  // Whether user is focusing the cell text area or the formula bar
   const [focusTarget, setFocusTarget] = useState<"cell" | "formula" | null>(
     null
   );
@@ -151,21 +159,25 @@ export function GridView({
     [fontSize, baseColWidth, baseRowHeight, zoom]
   );
 
-  // Commit the cell edit
   const commitEdit = useCallback(
     (r: number, c: number, newValue: string, opts?: { escape?: boolean }) => {
       if (opts?.escape) {
         // revert => do nothing
       } else {
-        grid.setCell(r, c, newValue);
+        grid.setCellRaw(r, c, newValue);
         measureAndExpand(r, c, newValue);
       }
       setEditingCell(null);
       setEditingValue("");
       setFocusTarget(null);
+
+      // 3) Re-parse the grid after changes:
+      const newMap = parseAndFormatGrid(grid);
+      setStyleMap(newMap);
+
       forceRefresh();
     },
-    [grid, measureAndExpand]
+    [grid, measureAndExpand, forceRefresh]
   );
 
   // Mousedown => selection or commit old cell
@@ -203,8 +215,7 @@ export function GridView({
         setActiveCol(col);
       }
 
-      // IMPORTANT FIX: If not already editing, focus the container
-      // so subsequent keys are captured by handleContainerKeyDown.
+      // Focus the container for subsequent key events
       if (!editingCell) {
         gridContainerRef.current?.focus();
       }
@@ -326,7 +337,7 @@ export function GridView({
       if (e.key === "Enter") {
         e.preventDefault();
         let r = activeRow;
-        let c = activeCol;
+        const c = activeCol;
         if (r < grid.rows) r++;
         setActiveRow(r);
         setActiveCol(c);
@@ -338,7 +349,7 @@ export function GridView({
       // 3) Tab => move right or left if shift
       if (e.key === "Tab") {
         e.preventDefault();
-        let r = activeRow;
+        const r = activeRow;
         let c = activeCol;
         if (e.shiftKey) {
           if (c > 1) c--;
@@ -365,9 +376,13 @@ export function GridView({
             cc <= selectionRange.endCol;
             cc++
           ) {
-            grid.setCell(rr, cc, "");
+            grid.setCellRaw(rr, cc, "");
           }
         }
+        // Re-parse after multiple clears:
+        const newMap = parseAndFormatGrid(grid);
+        setStyleMap(newMap);
+
         forceRefresh();
         return;
       }
@@ -387,7 +402,6 @@ export function GridView({
         // Normal character => start editing with that char
         if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
           e.preventDefault();
-          // Start with the typed char
           setEditingValue(e.key);
           setEditingCell({ row: activeRow, col: activeCol });
           setFocusTarget("cell");
@@ -402,12 +416,12 @@ export function GridView({
       activeCol,
       grid,
       selectionRange,
+      anchorRef,
       forceRefresh,
     ]
   );
 
-  // Called by the cell text area when user hits Enter/Tab/arrow
-  // (expanded directions to include "up" as well)
+  // Called by the cell text area when user hits Enter/Tab/arrow (including up)
   const handleKeyboardNav = useCallback(
     (r: number, c: number, direction: "up" | "down" | "left" | "right") => {
       let nr = r;
@@ -457,14 +471,7 @@ export function GridView({
       setEditingValue(newVal);
       measureAndExpand(activeRow, activeCol, newVal);
     },
-    [
-      isEditingActiveCell,
-      activeRow,
-      activeCol,
-      setEditingCell,
-      setEditingValue,
-      measureAndExpand,
-    ]
+    [isEditingActiveCell, activeRow, activeCol, measureAndExpand]
   );
 
   // Keydown in formula bar => commit or escape
@@ -518,7 +525,7 @@ export function GridView({
       // Fill in
       for (let r = 0; r < arr.length; r++) {
         for (let c = 0; c < arr[r].length; c++) {
-          let val = arr[r][c];
+          const val = arr[r][c];
           if (val.trim()) {
             (window as any).cellsData[`R${r + 1}C${c + 1}`] = val;
           }
@@ -560,7 +567,7 @@ export function GridView({
           className="absolute top-0 left-0 bg-gray-200 border-b border-r border-gray-600 flex items-center justify-center z-10"
           style={{ width: 50, height: 30 }}
         >
-          ■
+          #
         </div>
 
         {/* Column headers */}
@@ -593,7 +600,7 @@ export function GridView({
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
           onKeyDown={handleContainerKeyDown}
-          tabIndex={0} // so it can receive key events if clicked
+          tabIndex={0}
         >
           <div
             className="relative"
@@ -615,16 +622,18 @@ export function GridView({
               onCellMouseDown={handleCellMouseDown}
               onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
-              onCommitEdit={(r, c, val, opts) => commitEdit(r, c, val, opts)}
+              onCommitEdit={commitEdit}
               onKeyboardNav={handleKeyboardNav}
               measureAndExpand={measureAndExpand}
               sharedEditingValue={editingValue}
               setSharedEditingValue={setEditingValue}
-              // focusTarget={focusTarget}
+              // 4) Pass styleMap to the grid cells
+              styleMap={styleMap}
             />
           </div>
         </div>
       </div>
+
       <AppModal isOpen={isModalOpen} onClose={closeModal} />
     </div>
   );

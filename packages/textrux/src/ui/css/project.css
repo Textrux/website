@@ -13,13 +13,49 @@
 
 .canvas-cell {
   background-color: white !important;
+  color: black !important;
+  font-weight: bold;
+  text-align: center;
 }
+
+.empty-cell-cluster {
+  background-color: lightblue !important;
+}
+
 .border-cell {
   background-color: lightyellow !important;
 }
+
 .frame-cell {
   background-color: yellow !important;
 }
+
+.underscore-cell {
+  text-align: center !important;
+  color: #ccc !important;
+  background-color: #555 !important;
+}
+
+.normal-cell {
+  text-align: left !important;
+  color: #000 !important;
+  background-color: #fff !important;
+}
+
+.cluster-empty-cell {
+  background-color: #bbf !important;
+}
+
+.canvas-empty-cell {
+  background-color: #eef !important;
+}
+
+.locked-cell {
+  background-color: red !important;
+  color: white !important;
+}
+
 .linked-cell {
   background-color: orange !important;
+  color: white !important;
 }

@@ -1,7 +1,13 @@
-import { Point } from "../structure";
-import Container from "../structure/Container";
+// A simple interface for anything with row/col:
+export interface Point {
+  row: number;
+  col: number;
+}
 
 export default class GridHelper {
+  /**
+   * Return a ring of points (row,col) around a rectangle, expanded by N.
+   */
   static getOutlineCells(
     top: number,
     bottom: number,
@@ -18,10 +24,19 @@ export default class GridHelper {
       outline.push({ row: r, col: left - expandBy });
       outline.push({ row: r, col: right + expandBy });
     }
-    return Array.from(new Set(outline.map(JSON.stringify)), JSON.parse);
+    // deduplicate by string key
+    return Array.from(new Set(outline.map((p) => `${p.row},${p.col}`))).map(
+      (str) => {
+        const [r, c] = str.split(",");
+        return { row: +r, col: +c };
+      }
+    );
   }
 
-  static deduplicatePoints(arr: Point[]): Point[] {
+  /**
+   * Deduplicate an array of Point (row/col) or any object that has row/col.
+   */
+  static deduplicatePoints<T extends Point>(arr: T[]): T[] {
     const used = new Set<string>();
     return arr.filter((p) => {
       const key = `${p.row},${p.col}`;
@@ -33,19 +48,9 @@ export default class GridHelper {
     });
   }
 
-  static dedupe(arr: Point[]) {
-    const seen = new Set<string>();
-    const out: Point[] = [];
-    for (const p of arr) {
-      const k = p.row + "," + p.col;
-      if (!seen.has(k)) {
-        seen.add(k);
-        out.push(p);
-      }
-    }
-    return out;
-  }
-
+  /**
+   * Quick overlaps check: does any row,col in `a` also appear in `b`?
+   */
   static overlaps(a: Point[], b: Point[]): boolean {
     const setB = new Set(b.map((p) => `${p.row},${p.col}`));
     return a.some((p) => setB.has(`${p.row},${p.col}`));

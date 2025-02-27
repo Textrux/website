@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// ColumnHeaders.tsx
 
 import { useEffect, useState } from "react";
-import { Grid } from "../../strux/Grid";
+import { Grid } from "../structure/Grid";
 
 export function ColumnHeaders({
   grid,

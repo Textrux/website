@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { GridConfig } from "../util/GridConfig";
-import { fromCSV, toCSV } from "../util/CSV";
-import { fromTSV, toTSV } from "../util/TSV";
+import { GridConfig } from "../../util/GridConfig";
+import { fromCSV, toCSV } from "../../util/CSV";
+import { fromTSV, toTSV } from "../../util/TSV";
 
 // This is just like your old examples array
 const examples = [
@@ -14,8 +14,7 @@ const examples = [
   {
     name: "JSON",
     file: "Json.csv",
-    description:
-      "A simple example of how JSON-style data can be represented as a text structure.",
+    description: "A simple example of how JSON-style data can be represented.",
   },
   {
     name: "JSON Schema",
@@ -32,7 +31,7 @@ const examples = [
     name: "JSON Schema with Data Transposed",
     file: "JsonSchemaWithDataTransposed.csv",
     description:
-      "A text structure with a JSON-style schema and multiple tuples of data oriented vertically (and arguably more naturally) instead of horizontally. ",
+      "A text structure with a JSON-style schema and multiple tuples of data oriented vertically.",
   },
   {
     name: "LISP",
@@ -54,7 +53,7 @@ const examples = [
     name: "Recursive Grid Cells",
     file: "RecursiveGridCells.csv",
     description:
-      "A cell can contain another grid. Select a grid cell (a cell that starts with a comma) and hit <code>F3</code> to enter it. Continue down as many levels as you want adding content at each level. To go back up a level press <code>Esc</code>.",
+      "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper.",
   },
 ];
 
@@ -69,7 +68,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
   >("Settings");
   const [delimiter, setDelimiter] = useState<"tab" | ",">(() => {
     const stored = localStorage.getItem("savedDelimiter") as "tab" | ",";
-    return stored || GridConfig.defaultDelimiter; // from GridConfig
+    return stored || GridConfig.defaultDelimiter;
   });
 
   // If the modal is closed, reset tab to Settings by default
@@ -99,7 +98,6 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
   const [selectedExample, setSelectedExample] = useState(examples[0]);
 
   async function loadExample(example: (typeof examples)[number]) {
-    // Load from e.g. /packages/textrux/examples/... or wherever you host them
     const fileName = example.file;
     try {
       const resp = await fetch(`./packages/textrux/examples/${fileName}`);
@@ -119,9 +117,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
         for (let c = 0; c < data[r].length; c++) {
           const val = data[r][c];
           if (val && val.trim() !== "") {
-            const rowIndex = r + 1;
-            const colIndex = c + 1;
-            (window as any).cellsData[`R${rowIndex}C${colIndex}`] = val;
+            (window as any).cellsData[`R${r + 1}C${c + 1}`] = val;
           }
         }
       }
@@ -137,8 +133,9 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
   }
 
   function clearGrid() {
-    if (!window.confirm("Are you sure you want to clear the entire grid?"))
+    if (!window.confirm("Are you sure you want to clear the entire grid?")) {
       return;
+    }
     (window as any).cellsData = {};
     localStorage.removeItem("savedGridData");
     (window as any).parseAndFormatGrid?.();
@@ -146,7 +143,6 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
   }
 
   function saveGridToFile() {
-    // Same logic as your old “saveGridToFile” function
     const cellsData = (window as any).cellsData || {};
     let maxRow = 1,
       maxCol = 1;
@@ -212,13 +208,8 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
       const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
       const data = delim === "\t" ? fromTSV(text) : fromCSV(text);
 
-      // Clear
       (window as any).cellsData = {};
 
-      // Expand grid if needed (in real code, you'd call addRows / addCols if needed)
-      // For simplicity, let's assume the existing grid is large enough.
-
-      // Populate
       for (let r = 0; r < data.length; r++) {
         for (let c = 0; c < data[r].length; c++) {
           const val = data[r][c];
@@ -383,48 +374,18 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               </p>
               <p>
                 The primary structure is a "block" which is surrounded by a
-                light yellow "border" and and bright yellow "frame".
+                light yellow "border" and a bright yellow "frame". The area
+                inside the border of a block is called the "canvas".
               </p>
               <p>
-                The area inside the border of a block is called the "canvas".
-                The canvas has set cells with a white background along with
-                empty canvas cells with a light blue background. Nearby filled
-                cells on a canvas form a "cell cluster" and the empty cells in a
-                cell cluster have a darker blue background.
+                When blocks overlap in certain ways (frames overlap frames, or
+                frames overlap borders), they become linked or locked and form
+                block clusters.
               </p>
               <p>
-                When two blocks are placed close enough to each other their
-                borders and frames may overlap. If only the frames overlap, the
-                background color of those cells is orange. If a frame overlaps
-                with a border, the background color of those cells is red.
-                Blocks that share only orange cells are considered "linked"
-                while blocks that also share red cells are considered "locked".
-                These overlapping blocks form "block clusters".{" "}
-              </p>
-              <p>
-                Select a cell in a block's canvas and then hit{" "}
-                <code>Ctrl+ArrowKey</code> to move the cell in that direction
-                (but stop before merging with any blocks in its path).
-              </p>
-              <p>
-                Select a cell in a block's canvas and then hit{" "}
-                <code>Ctrl+Alt+ArrowKey</code> to move the cell in that
-                direction and merge with any blocks in its path.
-              </p>
-              <p>
-                Select a cell in a block's canvas and then hit{" "}
-                <code>Alt+ArrowKey</code> to select another block in that
-                direction.
-              </p>
-              <p>
-                To view the grid without any formatting press{" "}
-                <code>Ctrl+Shift+Tilde</code>.
-              </p>
-              <p>
-                To create a grid within a cell, select a cell and press{" "}
-                <code>F3</code>. Make changes and press <code>Esc</code> to
-                return to the outer grid. Can create any number of grid cells at
-                any number of levels (still a little buggy).
+                You can pinch-zoom on touch devices, or <code>Ctrl+wheel</code>{" "}
+                on desktop to zoom in/out. Middle-click (or scroll-wheel click)
+                to pan around.
               </p>
             </div>
           )}
@@ -433,18 +394,19 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
             <div>
               <h3>About</h3>
               <p>
-                <p>
-                  Textrux (short for Text Structures ... Text Strux ... Textrux)
-                  is a content-driven-formatting grid that finds structures
-                  using the placement of the text on the grid.
-                </p>
-                <p>
-                  The Github repository for this site can be found{" "}
-                  <a href="https://github.com/Textrux/website" target="_blank">
-                    here
-                  </a>
-                  .
-                </p>
+                Textrux (Text Structures) is a content-driven-formatting grid
+                that detects structures based on placement of text on the grid.
+              </p>
+              <p>
+                See{" "}
+                <a
+                  href="https://github.com/Textrux/website"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Textrux on GitHub
+                </a>{" "}
+                for more details.
               </p>
             </div>
           )}

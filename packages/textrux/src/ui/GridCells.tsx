@@ -1,8 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-// GridCells.tsx
-
-import { useEffect, useRef, useState } from "react";
-import { Grid } from "../../strux/Grid";
+import { JSX, useEffect, useRef, useState } from "react";
+import { Grid } from "../structure/Grid";
 import { SelectionRange } from "./GridView";
 import { CellView } from "./CellView";
 
@@ -29,18 +27,17 @@ interface GridCellsProps {
   onKeyboardNav: (
     r: number,
     c: number,
-    direction: "down" | "right" | "left"
+    direction: "down" | "right" | "left" | "up"
   ) => void;
 
-  // NEW: For real-time dynamic sizing + partial edit:
   measureAndExpand: (r: number, c: number, text: string) => void;
   sharedEditingValue: string;
   setSharedEditingValue: (txt: string) => void;
+
+  // 1) Accept the styleMap from GridView
+  styleMap: Record<string, string[]>;
 }
 
-/**
- * The main grid cells area, with virtualization plus variable row/col sizes.
- */
 export function GridCells({
   grid,
   rowHeights,
@@ -56,11 +53,10 @@ export function GridCells({
   onCellDoubleClick,
   onCommitEdit,
   onKeyboardNav,
-
-  // NEW props:
   measureAndExpand,
   sharedEditingValue,
   setSharedEditingValue,
+  styleMap,
 }: GridCellsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -79,11 +75,8 @@ export function GridCells({
       const clientWidth = gridContainer?.clientWidth ?? 0;
       const clientHeight = gridContainer?.clientHeight ?? 0;
 
-      // find visible row range
       const startRow = findFirstRowInView(scrollTop, rowHeights);
       const endRow = findLastRowInView(scrollTop + clientHeight, rowHeights);
-
-      // find visible col range
       const startCol = findFirstColInView(scrollLeft, colWidths);
       const endCol = findLastColInView(scrollLeft + clientWidth, colWidths);
 
@@ -106,7 +99,6 @@ export function GridCells({
     };
   }, [version, grid.rows, grid.cols, rowHeights, colWidths]);
 
-  // Build the visible cells
   const cells: JSX.Element[] = [];
 
   for (let r = visibleRows.startRow; r <= visibleRows.endRow; r++) {
@@ -132,6 +124,10 @@ export function GridCells({
       const isEditing =
         editingCell && editingCell.row === r && editingCell.col === c;
 
+      // 2) Get the array of classes from styleMap:
+      const cellKey = `R${r}C${c}`;
+      const styleClasses = styleMap[cellKey] || [];
+
       cells.push(
         <CellView
           key={`${r}-${c}`}
@@ -153,10 +149,11 @@ export function GridCells({
           onDoubleClick={onCellDoubleClick}
           onCommitEdit={onCommitEdit}
           onKeyboardNav={onKeyboardNav}
-          // Pass the new props so the cell can do real-time expansion & partial edit
           measureAndExpand={measureAndExpand}
           sharedEditingValue={sharedEditingValue}
           setSharedEditingValue={setSharedEditingValue}
+          // 3) Pass these classes to CellView
+          styleClasses={styleClasses}
         />
       );
     }
@@ -169,7 +166,6 @@ export function GridCells({
   );
 }
 
-/** sumUpTo(arr, n) => sum of arr[0..n-1]. */
 function sumUpTo(arr: number[], n: number) {
   let s = 0;
   for (let i = 0; i < n; i++) {
@@ -178,7 +174,6 @@ function sumUpTo(arr: number[], n: number) {
   return s;
 }
 
-/** find the first row in view given a scrollTop and rowHeights. */
 function findFirstRowInView(scrollTop: number, rowHeights: number[]): number {
   let cum = 0;
   for (let r = 0; r < rowHeights.length; r++) {
@@ -203,7 +198,6 @@ function findLastRowInView(bottomPx: number, rowHeights: number[]): number {
   return lastR;
 }
 
-/** find the first col in view given scrollLeft + colWidths. */
 function findFirstColInView(scrollLeft: number, colWidths: number[]): number {
   let cum = 0;
   for (let c = 0; c < colWidths.length; c++) {

@@ -1,11 +1,10 @@
-// CellView.tsx
 import { useCallback, useEffect, useRef } from "react";
-import { CellFormat } from "../../strux/Grid";
+import { CellFormat } from "../structure/CellFormat";
 
 interface CellViewProps {
   row: number;
   col: number;
-  value: string; // the final stored value from the model
+  value: string;
   formula: string | null;
   format: CellFormat;
   isActive: boolean;
@@ -17,7 +16,6 @@ interface CellViewProps {
   height: number;
   fontSize: number;
 
-  // The parent's callbacks:
   onCellMouseDown: (r: number, c: number, e: React.MouseEvent) => void;
   onClick: (r: number, c: number, e: React.MouseEvent) => void;
   onDoubleClick: (r: number, c: number) => void;
@@ -33,13 +31,13 @@ interface CellViewProps {
     direction: "up" | "down" | "left" | "right"
   ) => void;
 
-  // For real-time partial editing + dynamic sizing
   measureAndExpand: (r: number, c: number, text: string) => void;
   sharedEditingValue: string;
   setSharedEditingValue: (txt: string) => void;
+  focusTarget?: "cell" | "formula" | null;
 
-  // Whether we should autoFocus the cell text area or not
-  focusTarget: "cell" | "formula" | null;
+  // 1) The additional classes from styleMap
+  styleClasses: string[];
 }
 
 export function CellView({
@@ -65,10 +63,10 @@ export function CellView({
   sharedEditingValue,
   setSharedEditingValue,
   focusTarget,
+  styleClasses,
 }: CellViewProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Once we enter editing, if our parent's shared value is empty, fill with formula or current value
   useEffect(() => {
     if (isEditing && sharedEditingValue === "") {
       setSharedEditingValue(formula ?? value);
@@ -85,11 +83,9 @@ export function CellView({
     col,
   ]);
 
-  // If editing and focusTarget === 'cell', focus the textarea so subsequent chars go here
   useEffect(() => {
     if (isEditing && focusTarget === "cell" && textareaRef.current) {
       textareaRef.current.focus();
-      // Optionally place cursor at end:
       const len = textareaRef.current.value.length;
       textareaRef.current.setSelectionRange(len, len);
     }
@@ -98,8 +94,6 @@ export function CellView({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 0) {
-        // Removing e.preventDefault() so normal focus/click behavior can happen:
-        // e.preventDefault();
         onCellMouseDown(row, col, e);
       }
     },
@@ -117,7 +111,6 @@ export function CellView({
     onDoubleClick(row, col);
   }, [row, col, onDoubleClick]);
 
-  // If user types in the textarea
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newVal = e.target.value;
@@ -127,7 +120,6 @@ export function CellView({
     [row, col, setSharedEditingValue, measureAndExpand]
   );
 
-  // Commit
   const commitAndClose = useCallback(
     (newVal: string, opts?: { escape?: boolean }) => {
       onCommitEdit(row, col, newVal, opts);
@@ -135,16 +127,12 @@ export function CellView({
     [row, col, onCommitEdit]
   );
 
-  // If user blurs away from the textarea => commit partial
   const handleBlur = useCallback(() => {
-    // Only commit if focusTarget === 'cell'. If user switched to formula bar,
-    // we don't want to auto-commit the partial (the formula bar is continuing).
     if (focusTarget === "cell") {
       commitAndClose(sharedEditingValue);
     }
   }, [commitAndClose, sharedEditingValue, focusTarget]);
 
-  // Keydown => alt+enter => newline, or arrow keys => commit & navigate
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter") {
@@ -180,9 +168,7 @@ export function CellView({
         } else {
           onKeyboardNav(row, col, "right");
         }
-      }
-      // If user wants arrow keys to exit editing and move selection:
-      else if (
+      } else if (
         e.key === "ArrowDown" ||
         e.key === "ArrowUp" ||
         e.key === "ArrowLeft" ||
@@ -208,7 +194,7 @@ export function CellView({
     ]
   );
 
-  // Some styling
+  // Basic styling from the old logic
   const borderColor = isActive ? "border-blue-500" : "border-gray-200";
   const bgColor = inSelection ? "bg-yellow-100" : "bg-white";
   const styleFormat: React.CSSProperties = {
@@ -217,15 +203,26 @@ export function CellView({
     fontWeight: format.fontWeight,
   };
 
-  // Limit how big the editor can expand
+  // 2) Merge in the classes from styleClasses:
+  const combinedClasses = [
+    "absolute",
+    "box-border",
+    bgColor,
+    borderColor,
+    "overflow-hidden",
+    "text-ellipsis",
+    isActive ? "outline-2 outline-blue-500" : "",
+    ...styleClasses,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const maxEditorWidth = 6 * width;
   const maxEditorHeight = 6 * height;
 
   return (
     <div
-      className={`absolute box-border ${bgColor} ${
-        isActive ? "outline-2 outline-blue-500" : ""
-      } border ${borderColor} overflow-hidden text-ellipsis`}
+      className={combinedClasses}
       style={{
         top,
         left,
@@ -233,6 +230,7 @@ export function CellView({
         height,
         fontSize,
         ...styleFormat,
+        border: "1px solid", // keep a border to show cell boundaries
       }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}
@@ -252,7 +250,6 @@ export function CellView({
             maxHeight: maxEditorHeight,
             overflow: "auto",
           }}
-          // Only autofocus if we're actually editing in the cell
           autoFocus={focusTarget === "cell"}
         />
       ) : (

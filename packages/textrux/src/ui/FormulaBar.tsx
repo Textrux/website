@@ -1,5 +1,5 @@
 import React from "react";
-import GearIcon from "../../img/gear-icon.png";
+import GearIcon from "./img/gear-icon.png";
 
 interface FormulaBarProps {
   address: string; // e.g. "R1C1"

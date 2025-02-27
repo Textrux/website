@@ -1,4 +1,8 @@
 export { Grid as GridModel } from "./structure/Grid";
-export { GridView } from "./components/view/GridView";
-export type { CellFormat } from "./structure/Grid";
-export type { SelectionRange } from "./components/view/GridView";
+export { GridView } from "./ui/GridView";
+
+// Fix: we actually export CellFormat from its own file:
+export { CellFormat } from "./structure/CellFormat";
+
+// Fix: reference correct path for GridView's SelectionRange
+export type { SelectionRange } from "./ui/GridView";

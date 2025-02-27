@@ -15,10 +15,10 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": false, // loosen up all strict checks
-    "noUnusedLocals": false, // let you ignore unused vars
-    "noUnusedParameters": false, // let you ignore unused parameters
-    "skipLibCheck": true, // ignore .d.ts issues in node_modules
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": false,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
 
