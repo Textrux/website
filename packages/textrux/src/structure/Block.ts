@@ -1,12 +1,12 @@
+// packages/textrux/src/structure/Block.ts
+
 import Container from "./Container";
-import Cell from "./Cell";
 
 /**
- * A Block is basically a structured object that includes:
+ * A Block is a structured object that includes:
  * - bounding rows/cols
- * - a set of “canvasCells” (the actual data cells)
- * - borderCells and frameCells (one and two rings around the bounding box)
- * - any cell clusters within the canvas (often just one, but sometimes multiple).
+ * - a set of “canvasPoints” (the actual data cells)
+ * - borderPoints and framePoints
  */
 export default class Block {
   topRow: number;
@@ -14,17 +14,14 @@ export default class Block {
   leftCol: number;
   rightCol: number;
 
-  // The actual "filled" cells from the grid that lie inside this block's bounding box:
-  canvasCells: Cell[];
+  /** The points that are the “filled” portion of the block. */
+  canvasPoints: Array<{ row: number; col: number }>;
 
-  // Additional “empty” or “cluster” details:
-  emptyCanvasCells: Cell[];
-  emptyClusterCells: Cell[];
-  cellClusters: Cell[][];
+  /** The border ring around the bounding box. */
+  borderPoints: Array<{ row: number; col: number }>;
 
-  // For the border/frame, we store row/col (no need for full Cell objects):
-  borderCells: Array<{ row: number; col: number }>;
-  frameCells: Array<{ row: number; col: number }>;
+  /** The second ring (frame) around the bounding box. */
+  framePoints: Array<{ row: number; col: number }>;
 
   constructor(container: Container) {
     this.topRow = container.topRow;
@@ -32,15 +29,8 @@ export default class Block {
     this.leftCol = container.leftColumn;
     this.rightCol = container.rightColumn;
 
-    // The container’s filled cells become our default “canvas” cells:
-    this.canvasCells = [...container.filledCells];
-
-    // Potentially used later if you want to find empties or subdivide:
-    this.emptyCanvasCells = [];
-    this.emptyClusterCells = [];
-    this.cellClusters = [];
-
-    this.borderCells = [];
-    this.frameCells = [];
+    this.canvasPoints = []; // assigned later
+    this.borderPoints = [];
+    this.framePoints = [];
   }
 }

@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { JSX, useEffect, useRef, useState } from "react";
+// packages/textrux/src/ui/GridCells.tsx
+import { useEffect, useRef, useState, JSX } from "react";
 import { Grid } from "../structure/Grid";
 import { SelectionRange } from "./GridView";
 import { CellView } from "./CellView";
@@ -34,7 +35,7 @@ interface GridCellsProps {
   sharedEditingValue: string;
   setSharedEditingValue: (txt: string) => void;
 
-  // 1) Accept the styleMap from GridView
+  // 1) The style map from parseAndFormatGrid
   styleMap: Record<string, string[]>;
 }
 
@@ -138,7 +139,7 @@ export function GridCells({
           format={format}
           isActive={isActive}
           inSelection={inSelection}
-          isEditing={isEditing ?? false}
+          isEditing={!!isEditing}
           top={topPx}
           left={leftPx}
           width={colWidth}
@@ -152,7 +153,6 @@ export function GridCells({
           measureAndExpand={measureAndExpand}
           sharedEditingValue={sharedEditingValue}
           setSharedEditingValue={setSharedEditingValue}
-          // 3) Pass these classes to CellView
           styleClasses={styleClasses}
         />
       );

@@ -36,37 +36,40 @@ interface CellViewProps {
   setSharedEditingValue: (txt: string) => void;
   focusTarget?: "cell" | "formula" | null;
 
-  // 1) The additional classes from styleMap
+  // classes from styleMap
   styleClasses: string[];
 }
 
-export function CellView({
-  row,
-  col,
-  value,
-  formula,
-  format,
-  isActive,
-  inSelection,
-  isEditing,
-  top,
-  left,
-  width,
-  height,
-  fontSize,
-  onCellMouseDown,
-  onClick,
-  onDoubleClick,
-  onCommitEdit,
-  onKeyboardNav,
-  measureAndExpand,
-  sharedEditingValue,
-  setSharedEditingValue,
-  focusTarget,
-  styleClasses,
-}: CellViewProps) {
+export function CellView(props: CellViewProps) {
+  const {
+    row,
+    col,
+    value,
+    formula,
+    format,
+    isActive,
+    inSelection,
+    isEditing,
+    top,
+    left,
+    width,
+    height,
+    fontSize,
+    onCellMouseDown,
+    onClick,
+    onDoubleClick,
+    onCommitEdit,
+    onKeyboardNav,
+    measureAndExpand,
+    sharedEditingValue,
+    setSharedEditingValue,
+    focusTarget,
+    styleClasses,
+  } = props;
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // If editing newly begins, initialize the sharedEditingValue:
   useEffect(() => {
     if (isEditing && sharedEditingValue === "") {
       setSharedEditingValue(formula ?? value);
@@ -83,6 +86,7 @@ export function CellView({
     col,
   ]);
 
+  // Focus if we’re the editing cell
   useEffect(() => {
     if (isEditing && focusTarget === "cell" && textareaRef.current) {
       textareaRef.current.focus();
@@ -151,14 +155,13 @@ export function CellView({
             target.selectionStart = target.selectionEnd = start + 1;
           });
         } else {
-          // normal Enter => commit & move down
+          // normal Enter => commit
           e.preventDefault();
           commitAndClose(sharedEditingValue);
           onKeyboardNav(row, col, "down");
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
-        // revert => old value
         commitAndClose(value, { escape: true });
       } else if (e.key === "Tab") {
         e.preventDefault();
@@ -194,16 +197,15 @@ export function CellView({
     ]
   );
 
-  // Basic styling from the old logic
   const borderColor = isActive ? "border-blue-500" : "border-gray-200";
   const bgColor = inSelection ? "bg-yellow-100" : "bg-white";
+
   const styleFormat: React.CSSProperties = {
     backgroundColor: format.backgroundColor,
     color: format.color,
     fontWeight: format.fontWeight,
   };
 
-  // 2) Merge in the classes from styleClasses:
   const combinedClasses = [
     "absolute",
     "box-border",
@@ -230,7 +232,7 @@ export function CellView({
         height,
         fontSize,
         ...styleFormat,
-        border: ".5px solid #D2D2D2", // keep a border to show cell boundaries
+        border: ".5px solid #D2D2D2",
       }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}

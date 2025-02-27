@@ -1,39 +1,31 @@
 import GridHelper from "../util/GridHelper";
 import Block from "./Block";
-import Cell from "./Cell";
 
 /**
  * A BlockJoin represents the "link" or "lock" overlap between two Blocks.
- * For instance, if blockA.frameCells overlap blockB.frameCells => linked,
- * if blockA.borderCells overlap blockB.frameCells => locked, etc.
  */
 export default class BlockJoin {
   blocks: [Block, Block];
   type: "linked" | "locked";
-  linkedCells: Cell[];
-  lockedCells: Cell[];
-  allJoinedCells: Cell[];
+
+  /** The points of overlap that produce the “linked” region. */
+  linkedPoints: Array<{ row: number; col: number }>;
+
+  /** The points of overlap that produce the “locked” region. */
+  lockedPoints: Array<{ row: number; col: number }>;
 
   constructor(
     blockA: Block,
     blockB: Block,
-    linkedCells: Cell[],
-    lockedCells: Cell[]
+    linkedPoints: Array<{ row: number; col: number }>,
+    lockedPoints: Array<{ row: number; col: number }>
   ) {
     this.blocks = [blockA, blockB];
-    this.linkedCells = linkedCells;
-    this.lockedCells = lockedCells;
-    this.allJoinedCells = [...lockedCells, ...linkedCells];
-
-    // If there's at least one locked cell => type = "locked", else "linked"
-    this.type = lockedCells.length > 0 ? "locked" : "linked";
+    this.linkedPoints = linkedPoints;
+    this.lockedPoints = lockedPoints;
+    this.type = lockedPoints.length > 0 ? "locked" : "linked";
   }
 
-  /**
-   * Example “populateBlockJoins” is incomplete.
-   * The snippet originally returned an incompatible object with {b1, b2, link, lock}.
-   * Below is a *placeholder* approach:
-   */
   static populateBlockJoins(blockList: Block[]): BlockJoin[] {
     const result: BlockJoin[] = [];
 
@@ -42,31 +34,30 @@ export default class BlockJoin {
         const b1 = blockList[i];
         const b2 = blockList[j];
 
-        const framesOverlap = GridHelper.overlaps(b1.frameCells, b2.frameCells);
+        const framesOverlap = GridHelper.overlaps(
+          b1.framePoints,
+          b2.framePoints
+        );
         const borderFrameOverlap = GridHelper.overlaps(
-          b1.borderCells,
-          b2.frameCells
+          b1.borderPoints,
+          b2.framePoints
         );
 
-        if (!framesOverlap && !borderFrameOverlap) {
-          // No join at all
-          continue;
-        }
+        if (!framesOverlap && !borderFrameOverlap) continue;
 
-        // For real usage, you'd figure out exactly which cells are overlapping:
-        const linkedCells: Cell[] = []; // find actual overlapping frame vs frame
-        const lockedCells: Cell[] = []; // find border vs frame overlap
-        // (We'll just fill them if the boolean is set.)
+        // Real logic would gather exactly which points overlap.
+        // For now, an empty example:
+        const linked: Array<{ row: number; col: number }> = [];
+        const locked: Array<{ row: number; col: number }> = [];
+
         if (framesOverlap) {
-          // But we do not have the actual grid cells for those frame points,
-          // so this is left as a placeholder.
+          // gather actual intersection of b1.framePoints & b2.framePoints
         }
         if (borderFrameOverlap) {
-          // likewise placeholder
+          // gather intersection of b1.borderPoints & b2.framePoints => locked
         }
 
-        // If either type of overlap is true, we create a join:
-        const join = new BlockJoin(b1, b2, linkedCells, lockedCells);
+        const join = new BlockJoin(b1, b2, linked, locked);
         result.push(join);
       }
     }

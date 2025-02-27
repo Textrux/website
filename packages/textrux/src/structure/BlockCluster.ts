@@ -1,54 +1,51 @@
 import Block from "./Block";
 import BlockJoin from "./BlockJoin";
-import Cell from "./Cell";
 import GridHelper from "../util/GridHelper";
 
+/**
+ * A BlockCluster is a group of Blocks that are connected (via their BlockJoins).
+ * It stores:
+ *   - the individual blocks in the cluster
+ *   - the joins among them
+ *   - a simple bounding rectangle around all their canvas points
+ *   - any “linked” or “locked” overlap points gathered from joins
+ */
 export default class BlockCluster {
-  /**
-   * The array of blocks in this cluster.
-   */
+  /** The blocks in this cluster. */
   blocks: Block[];
 
-  /**
-   * The joins (links/locks) among those blocks.
-   */
+  /** The joins (links/locks) among those blocks. */
   blockJoins: BlockJoin[];
 
   /**
-   * A simple bounding rectangle (top, left, bottom, right)
-   * for all the blocks’ canvas cells.
+   * A simple bounding rectangle around all the blocks' canvas points:
+   *   top, left, bottom, right
    */
   clusterCanvas: { top: number; left: number; bottom: number; right: number };
 
-  /**
-   * The set of all “linked” cells in this cluster (orange).
-   */
-  linkedCells: Cell[];
+  /** All “linked” points (row,col) in this cluster. */
+  linkedPoints: Array<{ row: number; col: number }>;
 
-  /**
-   * The set of all “locked” cells in this cluster (red).
-   */
-  lockedCells: Cell[];
+  /** All “locked” points (row,col) in this cluster. */
+  lockedPoints: Array<{ row: number; col: number }>;
 
   constructor(
     blocks: Block[],
     blockJoins: BlockJoin[],
     clusterCanvas: { top: number; left: number; bottom: number; right: number },
-    linkedCells: Cell[],
-    lockedCells: Cell[]
+    linkedPoints: Array<{ row: number; col: number }>,
+    lockedPoints: Array<{ row: number; col: number }>
   ) {
     this.blocks = blocks;
     this.blockJoins = blockJoins;
     this.clusterCanvas = clusterCanvas;
-    this.linkedCells = linkedCells;
-    this.lockedCells = lockedCells;
+    this.linkedPoints = linkedPoints;
+    this.lockedPoints = lockedPoints;
   }
 
   /**
-   * Use the old gatherCluster approach:
-   *  - Traverse “neighbor” blocks via their BlockJoins.
-   *  - Aggregate all blocks and joins in each connected group.
-   *  - Compute bounding box + linkedCells + lockedCells.
+   * Static method to traverse all blocks, connect them via their BlockJoins,
+   * and produce one BlockCluster per connected group.
    */
   static populateBlockClusters(
     blockList: Block[],
@@ -57,7 +54,6 @@ export default class BlockCluster {
     const used = new Set<Block>();
     const blockClusters: BlockCluster[] = [];
 
-    // Helper to recursively gather connected blocks + joins
     function gatherCluster(
       currentBlock: Block,
       clusterBlocks: Block[],
@@ -72,7 +68,7 @@ export default class BlockCluster {
         jn.blocks.includes(currentBlock)
       );
       for (const join of relevantJoins) {
-        // If we haven't recorded this join in clusterJoins, add it
+        // If we haven’t recorded this join in clusterJoins, add it
         if (!clusterJoins.includes(join)) {
           clusterJoins.push(join);
         }
@@ -86,24 +82,22 @@ export default class BlockCluster {
     }
 
     for (const block of blockList) {
-      if (used.has(block)) {
-        continue;
-      }
+      if (used.has(block)) continue;
 
       const clusterBlocks: Block[] = [];
       const clusterJoins: BlockJoin[] = [];
       gatherCluster(block, clusterBlocks, clusterJoins);
 
-      // Collect all canvas cells for bounding box
-      const allCanvas = clusterBlocks.flatMap((b) => b.canvasCells);
+      // Collect all canvas points for bounding box
+      const allCanvas = clusterBlocks.flatMap((b) => b.canvasPoints);
       const minR = Math.min(...allCanvas.map((pt) => pt.row));
       const maxR = Math.max(...allCanvas.map((pt) => pt.row));
       const minC = Math.min(...allCanvas.map((pt) => pt.col));
       const maxC = Math.max(...allCanvas.map((pt) => pt.col));
 
-      // Collect and deduplicate all linked/locked cells
-      const linkedAll = clusterJoins.flatMap((jn) => jn.linkedCells);
-      const lockedAll = clusterJoins.flatMap((jn) => jn.lockedCells);
+      // Collect and deduplicate all linked/locked points
+      const linkedAll = clusterJoins.flatMap((jn) => jn.linkedPoints);
+      const lockedAll = clusterJoins.flatMap((jn) => jn.lockedPoints);
       const mergedLinked = GridHelper.deduplicatePoints(linkedAll);
       const mergedLocked = GridHelper.deduplicatePoints(lockedAll);
 
@@ -117,7 +111,7 @@ export default class BlockCluster {
       );
       blockClusters.push(cluster);
 
-      // Mark these blocks as used so we don't reprocess them
+      // Mark these blocks as used so we don’t reprocess them
       clusterBlocks.forEach((b) => used.add(b));
     }
 
