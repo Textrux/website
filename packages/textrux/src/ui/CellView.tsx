@@ -230,7 +230,7 @@ export function CellView({
         height,
         fontSize,
         ...styleFormat,
-        border: "1px solid", // keep a border to show cell boundaries
+        border: ".5px solid #D2D2D2", // keep a border to show cell boundaries
       }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}

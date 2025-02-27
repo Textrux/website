@@ -57,7 +57,7 @@ function getContainers(
   rowCount: number,
   colCount: number
 ): Container[] {
-  console.time("Total getContainersJS Execution Time");
+  // console.time("Total getContainersJS Execution Time");
 
   let containers: Container[] = [];
   const overlappedCells: Cell[] = [];
@@ -175,7 +175,7 @@ function getContainers(
     return a.rightColumn - b.rightColumn;
   });
 
-  console.timeEnd("Total getContainersJS Execution Time");
+  // console.timeEnd("Total getContainersJS Execution Time");
   return containers;
 }
 
