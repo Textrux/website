@@ -11,7 +11,13 @@ export default class Container {
   rightColumn: number;
   filledCells: Cell[];
 
-  constructor(top: number, left: number, bottom: number, right: number) {
+  constructor(
+    top: number,
+    left: number,
+    bottom: number,
+    right: number,
+    filledCells?: Cell[]
+  ) {
     this.topRow = top;
     this.leftColumn = left;
     this.bottomRow = bottom;

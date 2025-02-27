@@ -1,14 +1,44 @@
-// src/App.tsx
+// File: src/App.tsx
+
 import React from "react";
-import { GridModel, GridView } from "textrux";
+import { GridModel, GridView, fromCSV, fromTSV } from "textrux";
 
 function App() {
-  // Create the model once
+  // Create the model once, and also try to load from localStorage if available:
   const model = React.useMemo(() => {
-    const m = new GridModel(1000, 1000);
-    // Example formula cell
-    // m.setCell(4, 8, "=R9C4+R4C3");
-    // m.setCellFormat(4, 8, { backgroundColor: "lightgreen" });
+    // Start with a new grid.
+    const m = new GridModel(50, 50);
+
+    // 1) Check localStorage
+    const saved = localStorage.getItem("savedGridData");
+    if (saved) {
+      // 2) Decide delimiter (tab vs comma)
+      const delim = saved.includes("\t") ? "\t" : ",";
+      const arr = delim === "\t" ? fromTSV(saved) : fromCSV(saved);
+
+      // 3) Ensure grid has enough rows/cols
+      const maxRows = arr.length;
+      let maxCols = 0;
+      for (const rowArr of arr) {
+        if (rowArr.length > maxCols) {
+          maxCols = rowArr.length;
+        }
+      }
+      if (maxRows > m.rows) m.resizeRows(maxRows);
+      if (maxCols > m.cols) m.resizeCols(maxCols);
+
+      // 4) Fill the grid
+      for (let r = 0; r < arr.length; r++) {
+        for (let c = 0; c < arr[r].length; c++) {
+          const val = arr[r][c];
+          // You can skip leading/trailing whitespace if desired:
+          if (val.trim() !== "") {
+            m.setCellRaw(r + 1, c + 1, val);
+          }
+        }
+      }
+    }
+
     return m;
   }, []);
 

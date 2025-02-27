@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { GridConfig } from "../../util/GridConfig";
-import { fromCSV, toCSV } from "../../util/CSV";
-import { fromTSV, toTSV } from "../../util/TSV";
+import { useEffect, useState } from "react";
 
 // This is just like your old examples array
 const examples = [
   {
     name: "Block Basics",
     file: "BlockBasics.csv",
-    description:
-      "A simple intro into the basic text structure called the block.",
+    description: "A simple intro into the basic text structure called the block.",
   },
   {
     name: "JSON",
@@ -24,8 +20,7 @@ const examples = [
   {
     name: "JSON Schema with Data",
     file: "JsonSchemaWithData.csv",
-    description:
-      "A text structure with a JSON-style schema and multiple tuples of data",
+    description: "A text structure with a JSON-style schema and multiple tuples of data",
   },
   {
     name: "JSON Schema with Data Transposed",
@@ -53,7 +48,7 @@ const examples = [
     name: "Recursive Grid Cells",
     file: "RecursiveGridCells.csv",
     description:
-      "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper.",
+      "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper. Then press Escape to return up.",
   },
 ];
 
@@ -62,14 +57,34 @@ interface AppModalProps {
   onClose: () => void;
 }
 
-export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
+/**
+ * Props from the parent (GridView) so we can access and mutate the grid.
+ */
+export interface AppModalExtraProps {
+  currentDelimiter: "tab" | ",";
+  setCurrentDelimiter: (delim: "tab" | ",") => void;
+  clearGrid: () => void;
+  saveGridToFile: () => void;
+  loadGridFromFile: (file: File) => void;
+  loadExample: (ex: { name: string; file: string; description: string }) => void;
+}
+
+type CombinedProps = AppModalProps & AppModalExtraProps;
+
+export const AppModal: React.FC<CombinedProps> = ({
+  isOpen,
+  onClose,
+  currentDelimiter,
+  setCurrentDelimiter,
+  clearGrid,
+  saveGridToFile,
+  loadGridFromFile,
+  loadExample,
+}) => {
   const [activeTab, setActiveTab] = useState<
     "Settings" | "Examples" | "Instructions" | "About"
   >("Settings");
-  const [delimiter, setDelimiter] = useState<"tab" | ",">(() => {
-    const stored = localStorage.getItem("savedDelimiter") as "tab" | ",";
-    return stored || GridConfig.defaultDelimiter;
-  });
+  const [selectedExample, setSelectedExample] = useState(examples[0]);
 
   // If the modal is closed, reset tab to Settings by default
   useEffect(() => {
@@ -77,11 +92,6 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
       setActiveTab("Settings");
     }
   }, [isOpen]);
-
-  // Update localStorage whenever delimiter changes
-  useEffect(() => {
-    localStorage.setItem("savedDelimiter", delimiter);
-  }, [delimiter]);
 
   function handleTabClick(
     tab: "Settings" | "Examples" | "Instructions" | "About"
@@ -95,135 +105,9 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
     }
   }
 
-  const [selectedExample, setSelectedExample] = useState(examples[0]);
-
-  async function loadExample(example: (typeof examples)[number]) {
-    const fileName = example.file;
-    try {
-      const resp = await fetch(`./packages/textrux/examples/${fileName}`);
-      if (!resp.ok) {
-        alert("Failed to load example: " + fileName);
-        return;
-      }
-      const text = await resp.text();
-      const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
-      let data: string[][] = delim === "\t" ? fromTSV(text) : fromCSV(text);
-
-      // Wipe current grid
-      (window as any).cellsData = {};
-
-      // Put data in cellsData
-      for (let r = 0; r < data.length; r++) {
-        for (let c = 0; c < data[r].length; c++) {
-          const val = data[r][c];
-          if (val && val.trim() !== "") {
-            (window as any).cellsData[`R${r + 1}C${c + 1}`] = val;
-          }
-        }
-      }
-
-      // Re-parse & format
-      (window as any).parseAndFormatGrid?.();
-
-      onClose();
-    } catch (err: any) {
-      console.error(err);
-      alert("Error loading example: " + err);
-    }
-  }
-
-  function clearGrid() {
-    if (!window.confirm("Are you sure you want to clear the entire grid?")) {
-      return;
-    }
-    (window as any).cellsData = {};
-    localStorage.removeItem("savedGridData");
-    (window as any).parseAndFormatGrid?.();
+  function onLoadExampleClick() {
+    loadExample(selectedExample);
     onClose();
-  }
-
-  function saveGridToFile() {
-    const cellsData = (window as any).cellsData || {};
-    let maxRow = 1,
-      maxCol = 1;
-    for (let key in cellsData) {
-      const m = key.match(/R(\d+)C(\d+)/);
-      if (!m) continue;
-      const rr = parseInt(m[1], 10);
-      const cc = parseInt(m[2], 10);
-      if (rr > maxRow) maxRow = rr;
-      if (cc > maxCol) maxCol = cc;
-    }
-    const arr2D: string[][] = [];
-    for (let r = 0; r < maxRow; r++) {
-      arr2D[r] = new Array(maxCol).fill("");
-    }
-    for (let key in cellsData) {
-      const m = key.match(/R(\d+)C(\d+)/);
-      if (!m) continue;
-      const rr = parseInt(m[1], 10) - 1;
-      const cc = parseInt(m[2], 10) - 1;
-      arr2D[rr][cc] = cellsData[key];
-    }
-
-    const text = delimiter === "tab" ? toTSV(arr2D) : toCSV(arr2D);
-
-    const now = new Date();
-    const defaultName = `grid_${now.getFullYear()}${String(
-      now.getMonth() + 1
-    ).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(
-      now.getHours()
-    ).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(
-      now.getSeconds()
-    ).padStart(2, "0")}`;
-    let fileName = window.prompt(
-      "Enter file name (without extension)",
-      defaultName
-    );
-    if (fileName == null) {
-      return;
-    }
-    if (!fileName) {
-      fileName = defaultName;
-    }
-    fileName += delimiter === "tab" ? ".tsv" : ".csv";
-
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function loadGridFromFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-      const text = ev.target?.result as string;
-      const delim = text.indexOf("\t") >= 0 ? "\t" : ",";
-      const data = delim === "\t" ? fromTSV(text) : fromCSV(text);
-
-      (window as any).cellsData = {};
-
-      for (let r = 0; r < data.length; r++) {
-        for (let c = 0; c < data[r].length; c++) {
-          const val = data[r][c];
-          if (val.trim()) {
-            (window as any).cellsData[`R${r + 1}C${c + 1}`] = val;
-          }
-        }
-      }
-
-      (window as any).parseAndFormatGrid?.();
-      onClose();
-    };
-    reader.readAsText(file);
-    e.target.value = "";
   }
 
   if (!isOpen) return null;
@@ -275,8 +159,10 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               </label>
               <select
                 id="delimiterSelect"
-                value={delimiter}
-                onChange={(e) => setDelimiter(e.target.value as "tab" | ",")}
+                value={currentDelimiter}
+                onChange={(e) =>
+                  setCurrentDelimiter(e.target.value as "tab" | ",")
+                }
                 className="ml-2"
               >
                 <option value="tab">TSV</option>
@@ -289,7 +175,14 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               <button
                 id="clearGridButton"
                 className="mt-2 px-3 py-1 border bg-gray-100"
-                onClick={clearGrid}
+                onClick={() => {
+                  if (
+                    window.confirm("Are you sure you want to clear the entire grid?")
+                  ) {
+                    clearGrid();
+                    onClose();
+                  }
+                }}
               >
                 Clear Grid
               </button>
@@ -313,7 +206,14 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
                 id="loadGridFileInput"
                 accept=".csv,.tsv"
                 className="hidden"
-                onChange={loadGridFromFile}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    loadGridFromFile(file);
+                    onClose();
+                  }
+                  (e.target as HTMLInputElement).value = "";
+                }}
               />
 
               <button
@@ -336,7 +236,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
                 size={10}
                 className="w-full mb-2"
                 onChange={(e) => {
-                  const ex = examples.find((ex) => ex.name === e.target.value);
+                  const ex = examples.find((x) => x.name === e.target.value);
                   if (ex) setSelectedExample(ex);
                 }}
                 value={selectedExample.name}
@@ -358,7 +258,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               <button
                 id="loadExampleButton"
                 className="px-3 py-1 border bg-gray-100"
-                onClick={() => loadExample(selectedExample)}
+                onClick={onLoadExampleClick}
               >
                 Load
               </button>
@@ -370,22 +270,50 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               <h3>Instructions</h3>
               <p>
                 Enter text in cells to build text structures. The structures are
-                built from the location of the set cells on the grid.
+                built from the placement of text in the grid.
               </p>
               <p>
-                The primary structure is a "block" which is surrounded by a
-                light yellow "border" and a bright yellow "frame". The area
-                inside the border of a block is called the "canvas".
+                The primary structure is a "block," which is outlined by a light
+                yellow border and a bright yellow frame. The inside area is the
+                canvas (white for filled cells, lightblue for empty).
               </p>
               <p>
-                When blocks overlap in certain ways (frames overlap frames, or
-                frames overlap borders), they become linked or locked and form
-                block clusters.
+                Blocks can overlap. Overlapping frames => linked (orange).
+                Overlapping frame + border => locked (red). These form clusters.
               </p>
               <p>
-                You can pinch-zoom on touch devices, or <code>Ctrl+wheel</code>{" "}
-                on desktop to zoom in/out. Middle-click (or scroll-wheel click)
+                <strong>Pinch-zoom</strong> on mobile or <code>Ctrl+wheel</code>{" "}
+                on desktop to zoom.
+              </p>
+              <p>
+                <strong>Middle-click</strong> (scroll-wheel click) or <strong>touch-drag</strong>{" "}
                 to pan around.
+              </p>
+              <p>
+                <strong>Cut/Copy/Paste:</strong> Select cells, press Ctrl+C or
+                Ctrl+X, then select a target cell and press Ctrl+V. If you
+                copied one cell but paste over many, the single cell is repeated
+                to all.
+              </p>
+              <p>
+                <strong>Move entire block:</strong> Select a cell within its
+                canvas, then press <code>Ctrl+ArrowKey</code> to move it until
+                just before it collides. <code>Ctrl+Alt+ArrowKey</code> merges
+                with blocks in the way.
+              </p>
+              <p>
+                <strong>Alt+ArrowKey</strong> jumps to the nearest block in that
+                direction, based on a weighting algorithm.
+              </p>
+              <p>
+                <strong>Ctrl+Shift+~</strong> toggles all structural
+                formatting on/off. Type in any cell or re-parse to override if
+                needed.
+              </p>
+              <p>
+                <strong>Nested cells:</strong> If a cell starts with "," it can
+                contain another entire grid. Select it and press F3 to enter,
+                then press Escape to return up. This is extremely experimental.
               </p>
             </div>
           )}
@@ -395,7 +323,7 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
               <h3>About</h3>
               <p>
                 Textrux (Text Structures) is a content-driven-formatting grid
-                that detects structures based on placement of text on the grid.
+                for discovering structure from text placement.
               </p>
               <p>
                 See{" "}
@@ -404,9 +332,9 @@ export const AppModal: React.FC<AppModalProps> = ({ isOpen, onClose }) => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Textrux on GitHub
+                  the Textrux GitHub repository
                 </a>{" "}
-                for more details.
+                for details.
               </p>
             </div>
           )}
