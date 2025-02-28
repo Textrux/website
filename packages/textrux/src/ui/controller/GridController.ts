@@ -14,6 +14,7 @@ export interface UseGridControllerOptions {
 
 /**
  * A custom hook that sets up event handlers for pinch zoom, middle-click drag, etc.
+ * Now also includes a "long press to select" approach on mobile.
  */
 export function useGridController(options: UseGridControllerOptions) {
   const {
@@ -32,8 +33,6 @@ export function useGridController(options: UseGridControllerOptions) {
     active: false,
     startDist: 1,
     startZoom: 1,
-    fracX: 0.5,
-    fracY: 0.5,
   });
 
   // Refs for middle-click
@@ -44,6 +43,11 @@ export function useGridController(options: UseGridControllerOptions) {
     scrollLeft: 0,
     scrollTop: 0,
   });
+
+  // Refs for long-press selection
+  const isSelectingViaLongPressRef = useRef(false);
+  const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null);
+  const longPressTimeoutRef = useRef<number | undefined>(undefined);
 
   // (A) Desktop Ctrl+wheel => zoom
   useEffect(() => {
@@ -77,23 +81,33 @@ export function useGridController(options: UseGridControllerOptions) {
           e.touches[1]
         );
         pinchInfoRef.current.startZoom = zoom;
-
+      } else if (e.touches.length === 1) {
+        // Possibly start a long-press timer to select
         const container = gridContainerRef.current;
-        if (container) {
-          const oldW = grid.cols * colPx;
-          const oldH = grid.rows * rowPx;
-          pinchInfoRef.current.fracX = container.scrollLeft / oldW;
-          pinchInfoRef.current.fracY = container.scrollTop / oldH;
-        }
+        if (!container) return;
+        // We'll figure out which row/col the user tapped:
+        const rect = container.getBoundingClientRect();
+        const t = e.touches[0];
+        const x = t.clientX - rect.left + container.scrollLeft;
+        const y = t.clientY - rect.top + container.scrollTop;
+        const r = Math.floor(y / (rowPx * zoom)) + 1;
+        const c = Math.floor(x / (colPx * zoom)) + 1;
+        selectionAnchorRef.current = { row: r, col: c };
+
+        // Start the timer
+        window.clearTimeout(longPressTimeoutRef.current);
+        longPressTimeoutRef.current = window.setTimeout(() => {
+          // long press => we do not want to pan, we want to select
+          isSelectingViaLongPressRef.current = true;
+        }, 500); // 500ms or so
       }
     },
-    [zoom, grid, colPx, rowPx, gridContainerRef]
+    [zoom, gridContainerRef, colPx, rowPx]
   );
 
   const onTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!pinchInfoRef.current.active) return;
-      if (e.touches.length === 2) {
+      if (pinchInfoRef.current.active && e.touches.length === 2) {
         e.preventDefault();
         const newDist = getTouchesDistance(e.touches[0], e.touches[1]);
         const ratio = newDist / pinchInfoRef.current.startDist;
@@ -101,15 +115,21 @@ export function useGridController(options: UseGridControllerOptions) {
         if (newZoom < minZoom) newZoom = minZoom;
         if (newZoom > maxZoom) newZoom = maxZoom;
         setZoom(newZoom);
+      } else {
+        // If the user moves while the long-press hasn't triggered, cancel it:
+        window.clearTimeout(longPressTimeoutRef.current);
       }
     },
     [setZoom, minZoom, maxZoom]
   );
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    // End pinch
     if (pinchInfoRef.current.active && e.touches.length < 2) {
       pinchInfoRef.current.active = false;
     }
+    // Cancel long press if it wasn't triggered yet
+    window.clearTimeout(longPressTimeoutRef.current);
   }, []);
 
   // (C) Middle-click drag/pan
@@ -172,6 +192,9 @@ export function useGridController(options: UseGridControllerOptions) {
     onTouchMove,
     onTouchEnd,
     onMouseDown,
+    // Additional Refs we expose so that GridView can read them:
+    isSelectingViaLongPressRef,
+    selectionAnchorRef,
   };
 }
 

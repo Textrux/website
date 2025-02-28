@@ -26,6 +26,32 @@ export default class BlockJoin {
     this.type = lockedPoints.length > 0 ? "locked" : "linked";
   }
 
+  /**
+   * Utility to find the intersection (row,col) points between two arrays.
+   */
+  static intersectPoints(
+    a: Array<{ row: number; col: number }>,
+    b: Array<{ row: number; col: number }>
+  ): Array<{ row: number; col: number }> {
+    const setB = new Set(b.map((pt) => `${pt.row},${pt.col}`));
+    return a.filter((pt) => setB.has(`${pt.row},${pt.col}`));
+  }
+
+  static deduplicatePoints(
+    points: Array<{ row: number; col: number }>
+  ): Array<{ row: number; col: number }> {
+    const set = new Set<string>();
+    const out: Array<{ row: number; col: number }> = [];
+    for (const p of points) {
+      const k = `${p.row},${p.col}`;
+      if (!set.has(k)) {
+        set.add(k);
+        out.push(p);
+      }
+    }
+    return out;
+  }
+
   static populateBlockJoins(blockList: Block[]): BlockJoin[] {
     const result: BlockJoin[] = [];
 
@@ -34,29 +60,29 @@ export default class BlockJoin {
         const b1 = blockList[i];
         const b2 = blockList[j];
 
+        // First do a quick check if there's ANY overlap
         const framesOverlap = GridHelper.overlaps(
           b1.framePoints,
           b2.framePoints
         );
-        const borderFrameOverlap = GridHelper.overlaps(
-          b1.borderPoints,
-          b2.framePoints
-        );
+        const borderFrameOverlap =
+          GridHelper.overlaps(b1.borderPoints, b2.framePoints) ||
+          GridHelper.overlaps(b1.framePoints, b2.borderPoints);
 
-        if (!framesOverlap && !borderFrameOverlap) continue;
-
-        // Real logic would gather exactly which points overlap.
-        // For now, an empty example:
-        const linked: Array<{ row: number; col: number }> = [];
-        const locked: Array<{ row: number; col: number }> = [];
-
-        if (framesOverlap) {
-          // gather actual intersection of b1.framePoints & b2.framePoints
-        }
-        if (borderFrameOverlap) {
-          // gather intersection of b1.borderPoints & b2.framePoints => locked
+        if (!framesOverlap && !borderFrameOverlap) {
+          continue;
         }
 
+        // Now compute *which* cells actually overlap:
+        const ff = BlockJoin.intersectPoints(b1.framePoints, b2.framePoints);
+        const bfAB = BlockJoin.intersectPoints(b1.borderPoints, b2.framePoints);
+        const bfBA = BlockJoin.intersectPoints(b1.framePoints, b2.borderPoints);
+
+        const linked = ff;
+        const locked = BlockJoin.deduplicatePoints([...bfAB, ...bfBA]);
+
+        // whichever approach you prefer
+        // e.g. if locked.length > 0 => "locked"; else => "linked".
         const join = new BlockJoin(b1, b2, linked, locked);
         result.push(join);
       }

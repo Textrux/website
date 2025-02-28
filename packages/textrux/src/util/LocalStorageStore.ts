@@ -36,26 +36,20 @@ export function saveGridToLocalStorage(
   grid: Grid,
   storageKey = LOCAL_STORAGE_KEY
 ) {
-  const data: StoredGridData = {
-    rows: 0,
-    cols: 0,
-    cells: [],
-  };
+  // console.time("saveGridToLocalStorage");
 
-  // Find only the filled cells, track max row/col used:
-  for (let r = 1; r <= grid.rows; r++) {
-    for (let c = 1; c <= grid.cols; c++) {
-      const raw = grid.getCellRaw(r, c);
-      if (raw.trim().length > 0) {
-        data.cells.push({ row: r, col: c, value: raw });
-        if (r > data.rows) data.rows = r;
-        if (c > data.cols) data.cols = c;
-      }
-    }
+  const data: StoredGridData = { rows: 0, cols: 0, cells: [] };
+  const filledCells = grid.getFilledCells();
+
+  for (const { row, col, value } of filledCells) {
+    data.cells.push({ row, col, value });
+
+    if (row > data.rows) data.rows = row;
+    if (col > data.cols) data.cols = col;
   }
 
-  // Store JSON
   localStorage.setItem(storageKey, JSON.stringify(data));
+  // console.timeEnd("saveGridToLocalStorage");
 }
 
 /**
@@ -66,6 +60,7 @@ export function loadGridFromLocalStorage(
   grid: Grid,
   storageKey = LOCAL_STORAGE_KEY
 ) {
+  // console.time("loadGridFromLocalStorage");
   const raw = localStorage.getItem(storageKey);
   if (!raw) return; // nothing saved
 
@@ -94,6 +89,7 @@ export function loadGridFromLocalStorage(
     for (const cell of cells) {
       grid.setCellRaw(cell.row, cell.col, cell.value);
     }
+    // console.timeEnd("loadGridFromLocalStorage");
   } catch (err) {
     console.error("Failed to parse grid data from localStorage:", err);
   }

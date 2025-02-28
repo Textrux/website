@@ -194,4 +194,21 @@ export class Grid {
     if (newColCount < 1) return;
     this.cols = newColCount;
   }
+
+  // In Grid.ts
+  public getFilledCells(): Array<{ row: number; col: number; value: string }> {
+    const filled: Array<{ row: number; col: number; value: string }> = [];
+    for (const key of Object.keys(this.contentsMap)) {
+      // key looks like "R10C5"
+      const match = key.match(/^R(\d+)C(\d+)$/);
+      if (!match) continue;
+
+      const row = parseInt(match[1], 10);
+      const col = parseInt(match[2], 10);
+      const value = this.contentsMap[key];
+
+      filled.push({ row, col, value });
+    }
+    return filled;
+  }
 }

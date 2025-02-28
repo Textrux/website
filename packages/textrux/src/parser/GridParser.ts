@@ -1,6 +1,10 @@
+// packages/textrux/src/parser/GridParser.ts
+
 import { Grid } from "../structure/Grid";
 import Block from "../structure/Block";
 import Container from "../structure/Container";
+import BlockJoin from "../structure/BlockJoin";
+import BlockCluster from "../structure/BlockCluster";
 
 /** Key = "R{row}C{col}" => array of class names */
 interface StyleMap {
@@ -8,54 +12,143 @@ interface StyleMap {
 }
 
 /**
- * Scan the grid for non-empty cells => create containers => finalize blocks => produce a style map.
- * Now we only iterate over grid’s contentsMap.
+ * Scan the grid for non-empty cells => create containers => finalize blocks =>
+ * produce a style map. Then also compute BlockJoins => BlockClusters and add
+ * locked/linked formatting. Finally, identify “empty cluster” cells as well as
+ * “canvas-empty” cells.
+ *
+ * Returned styleMap can then be used by the UI layer to add classes to each cell.
  */
-export function parseAndFormatGrid(grid: Grid): Record<string, string[]> {
+export function parseAndFormatGrid(grid: Grid): {
+  styleMap: Record<string, string[]>;
+  blockList: Block[];
+} {
+  // console.time("parseAndFormatGrid");
   const styleMap: StyleMap = {};
 
-  // (1) Collect all non-empty (filled) cell positions:
+  // 1) Collect all non-empty (filled) cell positions:
   const filledPoints: Array<{ row: number; col: number }> = [];
-  // We rely on the fact that `grid.getCellRaw(...)` can be tested for non-empty
-  // or we can parse the keys from grid’s internal structure. For simplicity:
-  const allKeys = Object.keys((grid as any).contentsMap); // TS hack; or add a getter
-  for (const key of allKeys) {
-    // e.g. key = "R10C5"
-    const raw = (grid as any).contentsMap[key];
-    if (raw.trim() !== "") {
-      const match = key.match(/^R(\d+)C(\d+)$/);
-      if (match) {
-        const r = parseInt(match[1], 10);
-        const c = parseInt(match[2], 10);
+  const contentsKeys = Object.keys((grid as any).contentsMap);
+  for (const key of contentsKeys) {
+    const val = (grid as any).contentsMap[key];
+    if (val && val.trim() !== "") {
+      const m = key.match(/^R(\d+)C(\d+)$/);
+      if (m) {
+        const r = parseInt(m[1], 10);
+        const c = parseInt(m[2], 10);
         filledPoints.push({ row: r, col: c });
       }
     }
   }
 
-  // (2) Build containers from these points:
+  // 2) Build “containers” of filled cells with an outline expand=2 => Blocks
   const containers = getContainers(filledPoints, 2, grid.rows, grid.cols);
+  const blockList: Block[] = containers.map(finalizeBlock);
 
-  // (3) Convert each Container -> Block -> styleMap
-  const blocks = containers.map(finalizeBlock);
-  for (const b of blocks) {
-    // canvas
+  // 3) Also compute sub-lumps (“cell clusters”) inside each block
+  //    (these lumps are the contiguous lumps of the block’s “canvasPoints” with expand=1).
+  for (const blk of blockList) {
+    // get sub-containers with expand=1 from all the block’s canvasPoints
+    const subContainers = getContainers(
+      blk.canvasPoints,
+      1,
+      grid.rows,
+      grid.cols
+    );
+    // each sub-container => array of filled points
+    const cellClusters = subContainers.map((ctr) => ctr.filledPoints);
+    // we can store them on the block if needed:
+    (blk as any).cellClusters = cellClusters;
+
+    // For each sub-lump bounding box => find “cluster‐empty” cells
+    // optional, if you want the same highlight as the old code:
+    const clusterEmptyCells: Array<{ row: number; col: number }> = [];
+    for (const cluster of cellClusters) {
+      const rr = cluster.map((p) => p.row);
+      const cc = cluster.map((p) => p.col);
+      const minR = Math.min(...rr);
+      const maxR = Math.max(...rr);
+      const minC = Math.min(...cc);
+      const maxC = Math.max(...cc);
+
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          // If not actually in the cluster (i.e., not a filled cell) AND not empty in the entire sheet
+          const isFilled = cluster.some((pt) => pt.row === r && pt.col === c);
+          const cellKey = `R${r}C${c}`;
+          const entireSheetVal = (grid as any).contentsMap[cellKey] ?? "";
+          if (!isFilled && !entireSheetVal.trim()) {
+            clusterEmptyCells.push({ row: r, col: c });
+          }
+        }
+      }
+    }
+
+    // Then also for the block’s bounding rectangle => we can highlight
+    // “canvas‐empty” cells (the block’s bounding box minus the filled cluster).
+    const blockEmptyCells: Array<{ row: number; col: number }> = [];
+    const fillSet = new Set(
+      blk.canvasPoints.map((pt) => `${pt.row},${pt.col}`)
+    );
+    for (let r = blk.topRow; r <= blk.bottomRow; r++) {
+      for (let c = blk.leftCol; c <= blk.rightCol; c++) {
+        const k = `${r},${c}`;
+        if (!fillSet.has(k)) {
+          // not a filled cell
+          blockEmptyCells.push({ row: r, col: c });
+        }
+      }
+    }
+
+    // Apply “cluster-empty-cell” and “canvas-empty-cell” to styleMap
+    for (const pt of clusterEmptyCells) {
+      addClass(styleMap, pt.row, pt.col, "cluster-empty-cell");
+    }
+    for (const pt of blockEmptyCells) {
+      // Only add "canvas-empty-cell" if not already cluster-empty
+      const k = `R${pt.row}C${pt.col}`;
+      if (!styleMap[k]?.includes("cluster-empty-cell")) {
+        addClass(styleMap, pt.row, pt.col, "canvas-empty-cell");
+      }
+    }
+  }
+
+  // 4) Now populate all blockJoins => blockClusters
+  const allJoins = BlockJoin.populateBlockJoins(blockList);
+  const blockClusters = BlockCluster.populateBlockClusters(blockList, allJoins);
+
+  // 5) Mark locked/linked cells from the blockClusters
+  for (const bc of blockClusters) {
+    for (const pt of bc.linkedPoints) {
+      addClass(styleMap, pt.row, pt.col, "linked-cell");
+    }
+    for (const pt of bc.lockedPoints) {
+      addClass(styleMap, pt.row, pt.col, "locked-cell");
+    }
+  }
+
+  // 6) Finally, apply “canvas‐cell”, “border‐cell”, “frame‐cell” for each block
+  //    (we already do the .canvasPoints in finalizeBlock).
+  for (const b of blockList) {
     for (const pt of b.canvasPoints) {
       addClass(styleMap, pt.row, pt.col, "canvas-cell");
     }
-    // border
     for (const pt of b.borderPoints) {
       addClass(styleMap, pt.row, pt.col, "border-cell");
     }
-    // frame
     for (const pt of b.framePoints) {
       addClass(styleMap, pt.row, pt.col, "frame-cell");
     }
   }
 
-  return styleMap;
+  // console.timeEnd("parseAndFormatGrid");
+  return { styleMap, blockList };
 }
 
-// This is the same “container detection” logic but with row/col pairs:
+/**
+ * Convert an array of filledPoints => one or more Container bounding boxes,
+ * expanded by `expandOutlineBy`.
+ */
 function getContainers(
   filledPoints: Array<{ row: number; col: number }>,
   expandOutlineBy: number,
@@ -63,111 +156,109 @@ function getContainers(
   colCount: number
 ): Container[] {
   const containers: Container[] = [];
-  const overlappedPoints: Array<{ row: number; col: number }> = [];
-  const remaining = [...filledPoints];
+  const usedPoints: Array<{ row: number; col: number }> = [];
+  const allRemaining = [...filledPoints];
 
   for (const cell of filledPoints) {
-    const alreadyOverlapped = overlappedPoints.some(
-      (p) => p.row === cell.row && p.col === cell.col
-    );
-    if (alreadyOverlapped) continue;
+    // if we already used it in some container, skip
+    if (usedPoints.some((p) => p.row === cell.row && p.col === cell.col)) {
+      continue;
+    }
 
-    // Start a container with just this one point:
     const tempContainer = new Container(cell.row, cell.col, cell.row, cell.col);
     tempContainer.filledPoints.push(cell);
 
-    const allOverlapping: Array<{ row: number; col: number }> = [];
-    let newOverlaps: Array<{ row: number; col: number }>;
-
-    // Expand until no new overlaps
+    // BFS/merge approach:
+    const newlyOverlapped: Array<{ row: number; col: number }> = [];
     do {
       const expanded = tempContainer.expandOutlineBy(
         expandOutlineBy,
         rowCount,
         colCount
       );
-      newOverlaps = remaining.filter((pt) => {
-        // if we already used that point
-        if (pt === cell) return false;
-        if (allOverlapping.some((x) => x.row === pt.row && x.col === pt.col)) {
-          return false;
-        }
-        const singleC = new Container(pt.row, pt.col, pt.row, pt.col);
-        return expanded.overlaps(singleC);
-      });
-      if (newOverlaps.length > 0) {
-        overlappedPoints.push(...newOverlaps);
+      newlyOverlapped.length = 0; // reset
 
-        // Adjust bounding box:
+      // gather any points that overlap that bounding box
+      for (const pt of allRemaining) {
+        if (
+          !usedPoints.includes(pt) &&
+          !tempContainer.filledPoints.includes(pt)
+        ) {
+          const single = new Container(pt.row, pt.col, pt.row, pt.col);
+          if (expanded.overlaps(single)) {
+            newlyOverlapped.push(pt);
+          }
+        }
+      }
+
+      if (newlyOverlapped.length > 0) {
+        usedPoints.push(...newlyOverlapped);
+
+        // unify bounding box
         const minR = Math.min(
           tempContainer.topRow,
-          ...newOverlaps.map((p) => p.row)
+          ...newlyOverlapped.map((p) => p.row)
         );
         const maxR = Math.max(
           tempContainer.bottomRow,
-          ...newOverlaps.map((p) => p.row)
+          ...newlyOverlapped.map((p) => p.row)
         );
         const minC = Math.min(
           tempContainer.leftColumn,
-          ...newOverlaps.map((p) => p.col)
+          ...newlyOverlapped.map((p) => p.col)
         );
         const maxC = Math.max(
           tempContainer.rightColumn,
-          ...newOverlaps.map((p) => p.col)
+          ...newlyOverlapped.map((p) => p.col)
         );
+
         tempContainer.topRow = minR;
         tempContainer.bottomRow = maxR;
         tempContainer.leftColumn = minC;
         tempContainer.rightColumn = maxC;
 
-        tempContainer.filledPoints.push(...newOverlaps);
-        allOverlapping.push(...newOverlaps);
+        tempContainer.filledPoints.push(...newlyOverlapped);
       }
-    } while (newOverlaps.length > 0);
+    } while (newlyOverlapped.length > 0);
 
-    // Merge with existing containers that overlap:
-    let mergedSomething: boolean;
-    do {
-      mergedSomething = false;
+    // Now also check if we overlap existing containers
+    let merged = true;
+    while (merged) {
+      merged = false;
       const expanded = tempContainer.expandOutlineBy(
         expandOutlineBy,
         rowCount,
         colCount
       );
-      const overlappedExisting = containers.filter((cc) =>
-        cc.overlaps(expanded)
-      );
-      if (overlappedExisting.length > 0) {
-        mergedSomething = true;
-        for (const oc of overlappedExisting) {
-          // remove oc from containers
-          const idx = containers.indexOf(oc);
-          if (idx !== -1) containers.splice(idx, 1);
 
-          // expand our container to include oc
-          tempContainer.topRow = Math.min(tempContainer.topRow, oc.topRow);
+      for (let i = containers.length - 1; i >= 0; i--) {
+        const c = containers[i];
+        if (expanded.overlaps(c)) {
+          // remove from containers, unify bounding box & points
+          containers.splice(i, 1);
+          tempContainer.topRow = Math.min(tempContainer.topRow, c.topRow);
           tempContainer.bottomRow = Math.max(
             tempContainer.bottomRow,
-            oc.bottomRow
+            c.bottomRow
           );
           tempContainer.leftColumn = Math.min(
             tempContainer.leftColumn,
-            oc.leftColumn
+            c.leftColumn
           );
           tempContainer.rightColumn = Math.max(
             tempContainer.rightColumn,
-            oc.rightColumn
+            c.rightColumn
           );
-
-          tempContainer.filledPoints.push(...oc.filledPoints);
+          tempContainer.filledPoints.push(...c.filledPoints);
+          merged = true;
         }
       }
-    } while (mergedSomething);
+    }
 
     containers.push(tempContainer);
   }
 
-  // sort for consistency
+  // sort for consistent order
   containers.sort((a, b) => {
     if (a.topRow !== b.topRow) return a.topRow - b.topRow;
     if (a.leftColumn !== b.leftColumn) return a.leftColumn - b.leftColumn;
@@ -178,10 +269,13 @@ function getContainers(
   return containers;
 }
 
+/**
+ * Convert a Container => a Block object (canvas, border, frame).
+ */
 function finalizeBlock(cont: Container): Block {
   const b = new Block(cont);
 
-  // The container's filledPoints => block’s canvas
+  // The container's filledPoints => block's canvasPoints
   b.canvasPoints = [...cont.filledPoints];
 
   // Build border ring => 1 cell around
@@ -221,6 +315,7 @@ function finalizeBlock(cont: Container): Block {
   return b;
 }
 
+/** Deduplicate row,col points. */
 function dedupePoints(
   arr: Array<{ row: number; col: number }>
 ): Array<{ row: number; col: number }> {
@@ -236,6 +331,7 @@ function dedupePoints(
   return out;
 }
 
+/** Add a classname to styleMap if not already present. */
 function addClass(
   styleMap: StyleMap,
   row: number,

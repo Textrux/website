@@ -1,52 +1,53 @@
 import { useEffect, useState } from "react";
 
-// This is just like your old examples array
+// UPDATED: Notice the file paths now use "/examples/" as the prefix:
 const examples = [
   {
     name: "Block Basics",
-    file: "BlockBasics.csv",
+    file: "/examples/BlockBasics.csv", // changed
     description: "A simple intro into the basic text structure called the block.",
   },
   {
     name: "JSON",
-    file: "Json.csv",
+    file: "/examples/Json.csv", // changed
     description: "A simple example of how JSON-style data can be represented.",
   },
   {
     name: "JSON Schema",
-    file: "JsonSchema.csv",
+    file: "/examples/JsonSchema.csv", // changed
     description: "Include the schema and rules for JSON-style data.",
   },
   {
     name: "JSON Schema with Data",
-    file: "JsonSchemaWithData.csv",
-    description: "A text structure with a JSON-style schema and multiple tuples of data",
+    file: "/examples/JsonSchemaWithData.csv", // changed
+    description:
+      "A text structure with a JSON-style schema and multiple tuples of data",
   },
   {
     name: "JSON Schema with Data Transposed",
-    file: "JsonSchemaWithDataTransposed.csv",
+    file: "/examples/JsonSchemaWithDataTransposed.csv", // changed
     description:
       "A text structure with a JSON-style schema and multiple tuples of data oriented vertically.",
   },
   {
     name: "LISP",
-    file: "LISP.csv",
+    file: "/examples/LISP.csv", // changed
     description: "Define and call a simple LISP-style function.",
   },
   {
     name: "LISP Recursive",
-    file: "LISPRecursive.csv",
+    file: "/examples/LISPRecursive.csv", // changed
     description: "Define and call a recursive LISP-style function.",
   },
   {
     name: "State Machine Traffic Light",
-    file: "StateMachineTrafficLight.csv",
+    file: "/examples/StateMachineTrafficLight.csv", // changed
     description:
       "Defining a simple state machine for a traffic light with a pedestrian crossing.",
   },
   {
     name: "Recursive Grid Cells",
-    file: "RecursiveGridCells.csv",
+    file: "/examples/RecursiveGridCells.csv", // changed
     description:
       "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper. Then press Escape to return up.",
   },
@@ -105,7 +106,9 @@ export const AppModal: React.FC<CombinedProps> = ({
     }
   }
 
+  // <--- This is triggered by the "Load" button in the Examples tab
   function onLoadExampleClick() {
+    console.log("selected example", selectedExample);
     loadExample(selectedExample);
     onClose();
   }
@@ -177,7 +180,9 @@ export const AppModal: React.FC<CombinedProps> = ({
                 className="mt-2 px-3 py-1 border bg-gray-100"
                 onClick={() => {
                   if (
-                    window.confirm("Are you sure you want to clear the entire grid?")
+                    window.confirm(
+                      "Are you sure you want to clear the entire grid?"
+                    )
                   ) {
                     clearGrid();
                     onClose();
@@ -286,34 +291,29 @@ export const AppModal: React.FC<CombinedProps> = ({
                 on desktop to zoom.
               </p>
               <p>
-                <strong>Middle-click</strong> (scroll-wheel click) or <strong>touch-drag</strong>{" "}
-                to pan around.
+                <strong>Middle-click</strong> (scroll-wheel click) or{" "}
+                <strong>touch-drag</strong> to pan around.
               </p>
               <p>
                 <strong>Cut/Copy/Paste:</strong> Select cells, press Ctrl+C or
-                Ctrl+X, then select a target cell and press Ctrl+V. If you
-                copied one cell but paste over many, the single cell is repeated
-                to all.
+                Ctrl+X, then select a target cell and press Ctrl+V.
               </p>
               <p>
-                <strong>Move entire block:</strong> Select a cell within its
-                canvas, then press <code>Ctrl+ArrowKey</code> to move it until
-                just before it collides. <code>Ctrl+Alt+ArrowKey</code> merges
-                with blocks in the way.
+                <strong>Move entire block:</strong> Select a cell in its canvas,
+                then press <code>Ctrl+ArrowKey</code> to move it. Use
+                <code>Ctrl+Alt+ArrowKey</code> to merge with collisions.
               </p>
               <p>
                 <strong>Alt+ArrowKey</strong> jumps to the nearest block in that
-                direction, based on a weighting algorithm.
+                direction.
               </p>
               <p>
-                <strong>Ctrl+Shift+~</strong> toggles all structural
-                formatting on/off. Type in any cell or re-parse to override if
-                needed.
+                <strong>Ctrl+Shift+~</strong> toggles structural formatting.
               </p>
               <p>
                 <strong>Nested cells:</strong> If a cell starts with "," it can
-                contain another entire grid. Select it and press F3 to enter,
-                then press Escape to return up. This is extremely experimental.
+                contain a nested grid. Select and press F3 to enter, Escape to
+                go back.
               </p>
             </div>
           )}
@@ -322,8 +322,8 @@ export const AppModal: React.FC<CombinedProps> = ({
             <div>
               <h3>About</h3>
               <p>
-                Textrux (Text Structures) is a content-driven-formatting grid
-                for discovering structure from text placement.
+                Textrux (Text Structures) is a content-driven-formatting grid for
+                discovering structure from text placement.
               </p>
               <p>
                 See{" "}

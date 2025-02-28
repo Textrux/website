@@ -37,7 +37,7 @@ out
 dist
 
 # Hugo
-public
+# public
 
 # vuepress build output
 .vuepress/dist
@@ -49,7 +49,7 @@ dist
 # Gatsby files
 .cache/
 # Gatsby blog files
-public
+# public
 
 # Bower dependency directory
 bower_components
