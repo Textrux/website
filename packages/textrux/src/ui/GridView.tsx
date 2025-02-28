@@ -1072,37 +1072,45 @@ export function GridView({
     reader.onload = (evt) => {
       const content = evt.target?.result;
       if (typeof content !== "string") return;
+
+      // Decide CSV vs TSV by extension or presence of tabs
       const isTab = file.name.endsWith(".tsv") || content.indexOf("\t") >= 0;
       const arr = isTab ? fromTSV(content) : fromCSV(content);
 
-      let neededRows = arr.length;
+      // Determine how many rows/cols we actually need
+      const neededRows = arr.length;
       let neededCols = 0;
       for (const rowArr of arr) {
         if (rowArr.length > neededCols) {
           neededCols = rowArr.length;
         }
       }
+
+      // Resize the grid if needed
       if (neededRows > grid.rows) {
         grid.resizeRows(neededRows);
       }
       if (neededCols > grid.cols) {
         grid.resizeCols(neededCols);
       }
-      // Clear
-      for (let r = 1; r <= grid.rows; r++) {
-        for (let c = 1; c <= grid.cols; c++) {
-          grid.setCellRaw(r, c, "");
-        }
-      }
-      // Fill
+
+      // Clear the grid in one shot by wiping its sparse maps
+      // (faster than setting "" for every cell)
+      (grid as any).contentsMap = {};
+      (grid as any).formulas = {};
+      // If you'd like to clear custom formatting too:
+      // (grid as any).formatsMap = {};
+
+      // Fill only the cells that are non-empty
       for (let r = 0; r < arr.length; r++) {
         for (let c = 0; c < arr[r].length; c++) {
           const val = arr[r][c];
-          if (val.trim()) {
+          if (val.trim() !== "") {
             grid.setCellRaw(r + 1, c + 1, val);
           }
         }
       }
+
       forceRefresh();
     };
     reader.readAsText(file);
