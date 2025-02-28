@@ -219,6 +219,7 @@ export function CellView(props: CellViewProps) {
     .filter(Boolean)
     .join(" ");
 
+  // max growth in each direction
   const maxEditorWidth = 6 * width;
   const maxEditorHeight = 6 * height;
 
@@ -250,7 +251,10 @@ export function CellView(props: CellViewProps) {
             fontSize,
             maxWidth: maxEditorWidth,
             maxHeight: maxEditorHeight,
-            overflow: "auto",
+            // Force wrapping
+            overflowY: "scroll",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
           }}
           autoFocus={focusTarget === "cell"}
         />

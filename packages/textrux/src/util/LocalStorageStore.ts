@@ -11,7 +11,7 @@ import { Grid } from "../structure/Grid";
  *   {
  *     rows: number,  // the highest row actually used
  *     cols: number,  // the highest col actually used
- *     cells: Array<{ row, col, value }>
+ *     cells: Array<{ row, col, value }>,
  *   }
  */
 interface StoredGridData {
@@ -36,20 +36,16 @@ export function saveGridToLocalStorage(
   grid: Grid,
   storageKey = LOCAL_STORAGE_KEY
 ) {
-  // console.time("saveGridToLocalStorage");
-
   const data: StoredGridData = { rows: 0, cols: 0, cells: [] };
   const filledCells = grid.getFilledCells();
 
   for (const { row, col, value } of filledCells) {
     data.cells.push({ row, col, value });
-
     if (row > data.rows) data.rows = row;
     if (col > data.cols) data.cols = col;
   }
 
   localStorage.setItem(storageKey, JSON.stringify(data));
-  // console.timeEnd("saveGridToLocalStorage");
 }
 
 /**
@@ -60,7 +56,6 @@ export function loadGridFromLocalStorage(
   grid: Grid,
   storageKey = LOCAL_STORAGE_KEY
 ) {
-  // console.time("loadGridFromLocalStorage");
   const raw = localStorage.getItem(storageKey);
   if (!raw) return; // nothing saved
 
@@ -78,18 +73,17 @@ export function loadGridFromLocalStorage(
       grid.resizeCols(cols);
     }
 
-    // Clear all cells
-    for (let r = 1; r <= grid.rows; r++) {
-      for (let c = 1; c <= grid.cols; c++) {
-        grid.setCellRaw(r, c, "");
-      }
-    }
+    // Clear the grid in one shot by wiping internal sparse maps
+    // (This is much faster than looping over every cell.)
+    (grid as any).contentsMap = {};
+    (grid as any).formulas = {};
+    // Optionally also wipe formats, if you want a totally clean slate:
+    // (grid as any).formatsMap = {};
 
     // Restore data
     for (const cell of cells) {
       grid.setCellRaw(cell.row, cell.col, cell.value);
     }
-    // console.timeEnd("loadGridFromLocalStorage");
   } catch (err) {
     console.error("Failed to parse grid data from localStorage:", err);
   }

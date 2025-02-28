@@ -61,7 +61,7 @@ function isCellInBlockCanvas(b: Block, row: number, col: number): boolean {
     (pt) => pt.row === row && pt.col === col
   );
   const isFrame = b.framePoints.some((pt) => pt.row === row && pt.col === col);
-  // So "canvas" means neither border nor frame:
+
   return !isBorder && !isFrame;
 }
 
@@ -84,20 +84,17 @@ function scrollCellIntoView(
   const left = colWidths.slice(0, col - 1).reduce((a, b) => a + b, 0);
   const cellWidth = colWidths[col - 1] || 0;
 
-  // If the cell is above the visible region
+  // vertical
   if (top < container.scrollTop) {
     container.scrollTop = Math.max(0, top - 2);
-  }
-  // If the cell is below the visible region
-  else if (top + cellHeight > container.scrollTop + container.clientHeight) {
+  } else if (top + cellHeight > container.scrollTop + container.clientHeight) {
     container.scrollTop = top + cellHeight - container.clientHeight + 2;
   }
-  // If the cell is left of the visible region
+
+  // horizontal
   if (left < container.scrollLeft) {
     container.scrollLeft = Math.max(0, left - 2);
-  }
-  // If the cell is right of the visible region
-  else if (left + cellWidth > container.scrollLeft + container.clientWidth) {
+  } else if (left + cellWidth > container.scrollLeft + container.clientWidth) {
     container.scrollLeft = left + cellWidth - container.clientWidth + 2;
   }
 }
@@ -139,7 +136,7 @@ export function GridView({
   /** Container ref for scroll & zoom actions */
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
 
-  /** From the pinch/middle-click drag hook: */
+  /** Setup pinch/middle-click drag from custom hook */
   const {
     onTouchStart,
     onTouchMove,
@@ -158,15 +155,15 @@ export function GridView({
     gridContainerRef,
   });
 
-  /** Force a re-render whenever we do major changes */
+  /** Re-render version */
   const [version, setVersion] = useState(0);
   const forceRefresh = useCallback(() => setVersion((v) => v + 1), []);
 
-  /** The style map from parseAndFormatGrid */
+  /** Style map from parseAndFormatGrid */
   const [styleMap, setStyleMap] = useState<Record<string, string[]>>({});
   const [isFormattingDisabled, setFormattingDisabled] = useState(false);
 
-  /** Editing cell (row,col) + the text that’s being typed */
+  /** Editing cell + typed text */
   const [editingCell, setEditingCell] = useState<{
     row: number;
     col: number;
@@ -176,38 +173,43 @@ export function GridView({
     null
   );
 
-  /** Show/hide modal popup */
+  /** Modal for settings, CSV vs TSV, etc. */
   const [isModalOpen, setModalOpen] = useState(false);
-
-  /** Track CSV vs TSV in the modal */
   const [currentDelimiter, setCurrentDelimiter] = useState<"tab" | ",">(() => {
     const stored = localStorage.getItem("savedDelimiter");
     if (stored === "tab" || stored === ",") return stored;
     return GridConfig.defaultDelimiter;
   });
 
-  /** We store the blockList from parseAndFormat, so we can do block moves. */
+  /** For block movement logic */
   const blockListRef = useRef<Block[]>([]);
 
-  /** Also store a “clipboard” for cut/copy/paste of ranges. */
+  /** For cut/copy/paste logic */
   const [clipboardData, setClipboardData] = useState<string[][] | null>(null);
   const [isCutMode, setIsCutMode] = useState(false);
+  const [cutRange, setCutRange] = useState<SelectionRange | null>(null);
+  interface CutCell {
+    row: number;
+    col: number;
+    text: string;
+  }
+  const [cutCells, setCutCells] = useState<CutCell[] | null>(null);
 
-  /** On mount, optionally load from local storage. */
+  // Optionally load from localStorage once
   useEffect(() => {
     if (autoLoadLocalStorage) {
       loadGridFromLocalStorage(grid);
     }
   }, [autoLoadLocalStorage, grid]);
 
-  /** Whenever row/col count or zoom changes, reinitialize rowHeights/colWidths. */
+  // Re-init rowHeights/colWidths if row/col count changes or zoom changes
   useEffect(() => {
     setRowHeights(Array(grid.rows).fill(baseRowHeight * zoom));
     setColWidths(Array(grid.cols).fill(baseColWidth * zoom));
   }, [grid.rows, grid.cols, baseRowHeight, baseColWidth, zoom]);
 
   /**
-   * Re-parse the grid => styleMap => blockList => store to localStorage
+   * Re-parse => styleMap => blockList => store to localStorage
    */
   const reparse = useCallback(() => {
     if (!isFormattingDisabled) {
@@ -218,29 +220,25 @@ export function GridView({
       setStyleMap({});
       blockListRef.current = [];
     }
-    // auto-save
     saveGridToLocalStorage(grid);
   }, [grid, isFormattingDisabled]);
 
-  // Call parse each time version changes
+  // Run parse whenever version changes
   useEffect(() => {
     reparse();
   }, [version, reparse]);
 
-  /** Drag-select (desktop). Track in a ref, watch mousemove on doc. */
-  const dragSelectRef = useRef<{
-    active: boolean;
-    anchorRow: number;
-    anchorCol: number;
-  }>({ active: false, anchorRow: 1, anchorCol: 1 });
+  /** Drag-select logic for desktop (left click + drag) */
+  const dragSelectRef = useRef({
+    active: false,
+    anchorRow: 1,
+    anchorCol: 1,
+  });
 
-  /**
-   * handleCellMouseDown => begin selection on left-click
-   */
   const handleCellMouseDown = useCallback(
     (r: number, c: number, e: React.MouseEvent) => {
+      // if we’re editing a different cell, commit it first
       if (editingCell && (editingCell.row !== r || editingCell.col !== c)) {
-        // commit the old cell first
         const oldVal = editingValue;
         grid.setCellRaw(editingCell.row, editingCell.col, oldVal);
         setEditingCell(null);
@@ -265,6 +263,7 @@ export function GridView({
           });
           anchorRef.current = { row: r, col: c };
         } else if (anchorRef.current) {
+          // SHIFT+click
           const startR = anchorRef.current.row;
           const startC = anchorRef.current.col;
           setSelectionRange({
@@ -277,7 +276,7 @@ export function GridView({
           setActiveCol(c);
         }
 
-        // focus container for keyboard
+        // focus for keyboard
         if (!editingCell) {
           gridContainerRef.current?.focus();
         }
@@ -286,9 +285,6 @@ export function GridView({
     [editingCell, editingValue, grid, forceRefresh]
   );
 
-  /**
-   * handleCellDoubleClick => begin editing
-   */
   const handleCellDoubleClick = useCallback(
     (r: number, c: number) => {
       const raw = grid.getCellRaw(r, c);
@@ -300,48 +296,70 @@ export function GridView({
   );
 
   /**
-   * measureAndExpand => auto-resize row/col if typed multiline text is big
+   * measureAndExpand => measure wrapped text by placing it in
+   * an offscreen <textarea> or <div> with the same styles.
    */
   const measureAndExpand = useCallback(
     (r: number, c: number, text: string) => {
-      const lines = text.split("\n");
-      let maxLineWidth = 0;
-      const ctx = document.createElement("canvas").getContext("2d");
-      if (ctx) {
-        ctx.font = `${fontSize}px sans-serif`;
-        for (const ln of lines) {
-          const w = ctx.measureText(ln).width;
-          if (w > maxLineWidth) maxLineWidth = w;
-        }
-      }
-      let neededWidth = maxLineWidth + 10;
-      const lineHeight = fontSize * 1.2;
-      let neededHeight = lines.length * lineHeight + 4;
+      // OFFSCREEN MEASURE:
 
-      const maxColWidth = 4 * baseColWidth * zoom;
-      const maxRowHeight = 6 * baseRowHeight * zoom;
-      if (neededWidth > maxColWidth) neededWidth = maxColWidth;
-      if (neededHeight > maxRowHeight) neededHeight = maxRowHeight;
+      // 1) Create a hidden <textarea> (or <div>) with the same wrapping rules
+      const hidden = document.createElement("textarea");
+      hidden.style.position = "absolute";
+      hidden.style.visibility = "hidden";
+      hidden.style.zIndex = "-9999";
+      // mimic the same wrapping style as in CellView’s textarea:
+      hidden.style.whiteSpace = "pre-wrap";
+      hidden.style.overflow = "hidden";
+      hidden.style.wordBreak = "break-word";
+      hidden.style.fontSize = fontSize + "px";
+      hidden.style.lineHeight = "1.2";
+      // set an initial width to the current col width
+      const currentWidth = colWidths[c - 1] || baseColWidth * zoom;
+      hidden.style.width = currentWidth + "px";
 
+      hidden.value = text;
+      document.body.appendChild(hidden);
+
+      // 2) Read .scrollWidth / .scrollHeight
+      const neededWidth = hidden.scrollWidth + 2; // +2 for a little padding
+      const neededHeight = hidden.scrollHeight + 2;
+
+      // remove from DOM
+      document.body.removeChild(hidden);
+
+      // 3) Clamp to some max sizes
+      const maxColW = 4 * baseColWidth * zoom; // or 6x, your call
+      const maxRowH = 6 * baseRowHeight * zoom;
+
+      const finalWidth = Math.min(neededWidth, maxColW);
+      const finalHeight = Math.min(neededHeight, maxRowH);
+
+      // 4) Expand rowHeights / colWidths if the needed is bigger
       setColWidths((old) => {
         const copy = [...old];
-        if (c >= 1 && c <= copy.length && neededWidth > copy[c - 1]) {
-          copy[c - 1] = neededWidth;
+        if (c >= 1 && c <= copy.length && finalWidth > copy[c - 1]) {
+          copy[c - 1] = finalWidth;
         }
         return copy;
       });
       setRowHeights((old) => {
         const copy = [...old];
-        if (r >= 1 && r <= copy.length && neededHeight > copy[r - 1]) {
-          copy[r - 1] = neededHeight;
+        if (r >= 1 && r <= copy.length && finalHeight > copy[r - 1]) {
+          copy[r - 1] = finalHeight;
         }
         return copy;
       });
     },
-    [fontSize, baseColWidth, baseRowHeight, zoom]
+    [
+      baseColWidth,
+      baseRowHeight,
+      zoom,
+      fontSize,
+      colWidths, // used to get current column width
+    ]
   );
 
-  /** commitEdit => store newValue to grid unless opts?.escape. */
   const commitEdit = useCallback(
     (r: number, c: number, newValue: string, opts?: { escape?: boolean }) => {
       if (!opts?.escape) {
@@ -360,7 +378,7 @@ export function GridView({
     [grid, measureAndExpand, forceRefresh, isFormattingDisabled]
   );
 
-  /** Listen to doc mousemove/up for drag select. */
+  // Document-level mouse up/move for drag selection
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dragSelectRef.current.active) return;
@@ -372,12 +390,12 @@ export function GridView({
       const x = e.clientX - rect.left + container.scrollLeft;
       const y = e.clientY - rect.top + container.scrollTop;
 
-      // find row/col
+      // find row/col by scanning rowHeights/colWidths
       let hoveredRow = findRowByY(y, rowHeights);
       let hoveredCol = findColByX(x, colWidths);
 
-      let aR = dragSelectRef.current.anchorRow;
-      let aC = dragSelectRef.current.anchorCol;
+      const aR = dragSelectRef.current.anchorRow;
+      const aC = dragSelectRef.current.anchorCol;
       setSelectionRange({
         startRow: Math.min(aR, hoveredRow),
         endRow: Math.max(aR, hoveredRow),
@@ -400,7 +418,7 @@ export function GridView({
     };
   }, [rowHeights, colWidths]);
 
-  /** Similarly handle long-press drag on mobile from the useGridController ref. */
+  // Touch-based long-press logic
   useEffect(() => {
     function handleTouchMoveDoc(e: TouchEvent) {
       if (!isSelectingViaLongPressRef.current) return;
@@ -409,7 +427,6 @@ export function GridView({
 
       const container = gridContainerRef.current;
       if (!container) return;
-
       const rect = container.getBoundingClientRect();
       const t = e.touches[0];
       const x = t.clientX - rect.left + container.scrollLeft;
@@ -430,7 +447,7 @@ export function GridView({
       setActiveRow(hoveredRow);
       setActiveCol(hoveredCol);
     }
-    function handleTouchEndDoc(_e: TouchEvent) {
+    function handleTouchEndDoc() {
       isSelectingViaLongPressRef.current = false;
     }
     document.addEventListener("touchmove", handleTouchMoveDoc, {
@@ -445,13 +462,11 @@ export function GridView({
     };
   }, [rowHeights, colWidths, isSelectingViaLongPressRef, selectionAnchorRef]);
 
-  /**
-   * arrowNav => move active cell up/down/left/right by 1
-   */
+  // Arrow navigation
   const arrowNav = useCallback(
     (key: string) => {
-      let dR = 0;
-      let dC = 0;
+      let dR = 0,
+        dC = 0;
       if (key === "ArrowUp") dR = -1;
       if (key === "ArrowDown") dR = 1;
       if (key === "ArrowLeft") dC = -1;
@@ -468,7 +483,6 @@ export function GridView({
         endCol: newC,
       });
       anchorRef.current = { row: newR, col: newC };
-      // auto-scroll:
       scrollCellIntoView(
         newR,
         newC,
@@ -480,9 +494,7 @@ export function GridView({
     [activeRow, activeCol, grid.rows, grid.cols, rowHeights, colWidths]
   );
 
-  /**
-   * extendSelection => SHIFT+arrow expands from anchorRef
-   */
+  // SHIFT+arrow extends selection
   const extendSelection = useCallback(
     (key: string) => {
       if (!anchorRef.current) {
@@ -506,7 +518,6 @@ export function GridView({
 
       setActiveRow(newR);
       setActiveCol(newC);
-
       setSelectionRange({
         startRow: Math.min(start.row, newR),
         endRow: Math.max(start.row, newR),
@@ -524,15 +535,13 @@ export function GridView({
     [activeRow, activeCol, grid.rows, grid.cols, rowHeights, colWidths]
   );
 
-  /**
-   * moveBlock => Ctrl+Arrow or Ctrl+Alt+Arrow
-   */
+  // Ctrl+Arrow => move block
   const moveBlock = useCallback(
     (arrowKey: string, allowMerge: boolean) => {
       const blocks = blockListRef.current;
       if (!blocks.length) return;
 
-      // find block that "contains" (activeRow, activeCol)
+      // find block that contains our active cell
       const targetBlock = blocks.find((b) =>
         isCellInBlockCanvas(b, activeRow, activeCol)
       );
@@ -553,11 +562,7 @@ export function GridView({
         case "ArrowRight":
           dC = 1;
           break;
-        default:
-          return;
       }
-
-      // check boundaries
       const newTop = targetBlock.topRow + dR;
       const newBot = targetBlock.bottomRow + dR;
       const newLeft = targetBlock.leftCol + dC;
@@ -571,24 +576,39 @@ export function GridView({
         return;
       }
 
-      // collision check if !allowMerge
+      // check collisions if not allowMerge
       if (!allowMerge) {
+        const framePad = 1; // how many rows/cols the frame extends beyond the block
+
+        const newTop = targetBlock.topRow - framePad + dR;
+        const newBot = targetBlock.bottomRow + framePad + dR;
+        const newLeft = targetBlock.leftCol - framePad + dC;
+        const newRight = targetBlock.rightCol + framePad + dC;
+
+        // Now check all other blocks with their frame space too:
         for (const b of blocks) {
           if (b === targetBlock) continue;
-          // Quick bounding box overlap
+
+          const bTop = b.topRow - framePad;
+          const bBot = b.bottomRow + framePad;
+          const bLeft = b.leftCol - framePad;
+          const bRight = b.rightCol + framePad;
+
+          // If these rectangles overlap, return without moving (prevents “merge”):
           const noOverlap =
-            newRight < b.leftCol ||
-            newLeft > b.rightCol ||
-            newBot < b.topRow ||
-            newTop > b.bottomRow;
+            newRight < bLeft ||
+            newLeft > bRight ||
+            newBot < bTop ||
+            newTop > bBot;
           if (!noOverlap) {
-            return; // skip movement
+            return; // Skip the move entirely
           }
         }
+
+        // If we get here, there’s no collision => proceed with the move
       }
 
-      // do the move
-      // gather old cell text => re-insert at new coords
+      // gather old cell data
       const oldCells = targetBlock.canvasPoints;
       const buffer: Array<{ row: number; col: number; text: string }> = [];
       for (let pt of oldCells) {
@@ -596,15 +616,13 @@ export function GridView({
         buffer.push({ row: pt.row, col: pt.col, text: txt });
         grid.setCellRaw(pt.row, pt.col, "");
       }
-      // shift the block bounding box
       targetBlock.topRow += dR;
       targetBlock.bottomRow += dR;
       targetBlock.leftCol += dC;
       targetBlock.rightCol += dC;
       for (let i = 0; i < oldCells.length; i++) {
-        const pt = oldCells[i];
-        pt.row += dR;
-        pt.col += dC;
+        oldCells[i].row += dR;
+        oldCells[i].col += dC;
       }
       // re-insert
       for (let item of buffer) {
@@ -615,7 +633,7 @@ export function GridView({
 
       forceRefresh();
 
-      // shift active cell too
+      // shift active cell
       const newActiveR = activeRow + dR;
       const newActiveC = activeCol + dC;
       setActiveRow(newActiveR);
@@ -634,18 +652,15 @@ export function GridView({
         gridContainerRef.current
       );
     },
-    [activeRow, activeCol, grid, forceRefresh, rowHeights, colWidths]
+    [activeRow, activeCol, rowHeights, colWidths, grid, forceRefresh]
   );
 
-  /**
-   * selectNearestBlock => Alt+Arrow
-   */
+  // Alt+Arrow => jump to nearest block
   const selectNearestBlock = useCallback(
     (arrowKey: string) => {
       const blocks = blockListRef.current;
       if (!blocks.length) return;
 
-      // find which block we’re in (or treat single cell as a bounding box)
       let curBlock = blocks.find((b) =>
         isCellInBlockCanvas(b, activeRow, activeCol)
       );
@@ -664,8 +679,8 @@ export function GridView({
       const refCenterR = (top + bot) / 2;
       const refCenterC = (left + right) / 2;
 
-      // filter by direction
-      let candidates = blocks.filter((b) => {
+      // find blocks in that arrow direction
+      const candidates = blocks.filter((b) => {
         if (b === curBlock) return false;
         switch (arrowKey) {
           case "ArrowUp":
@@ -676,13 +691,11 @@ export function GridView({
             return b.rightCol < left;
           case "ArrowRight":
             return b.leftCol > right;
-          default:
-            return false;
         }
+        return false;
       });
       if (!candidates.length) return;
 
-      // pick whichever is nearest
       let nearest: Block | null = null;
       let minDist = Infinity;
       for (let b of candidates) {
@@ -719,9 +732,6 @@ export function GridView({
     [activeRow, activeCol, rowHeights, colWidths]
   );
 
-  /**
-   * clearSelectedCells => for Delete
-   */
   const clearSelectedCells = useCallback(() => {
     const { startRow, endRow, startCol, endCol } = selectionRange;
     for (let r = startRow; r <= endRow; r++) {
@@ -732,27 +742,18 @@ export function GridView({
     forceRefresh();
   }, [selectionRange, grid, forceRefresh]);
 
-  /**
-   * maybeEnterNested => F3
-   */
   const maybeEnterNested = useCallback(() => {
     const raw = grid.getCellRaw(activeRow, activeCol).trim();
     if (!raw.startsWith(",")) return;
-    // minimal approach as in your sample
     // ...
-    // do your nested logic
+    // do nested logic
   }, [activeRow, activeCol, grid]);
 
-  /**
-   * maybeExitNested => Esc
-   */
   const maybeExitNested = useCallback(() => {
     // ...
-    // If your cell starts with ^ or you stored a parent CSV in localStorage
   }, [activeRow, activeCol, grid]);
 
-  /** ---------- COPY/CUT/PASTE ---------- */
-
+  /** Copy/Cut/Paste */
   const copySelection = useCallback(() => {
     const { startRow, endRow, startCol, endCol } = selectionRange;
     const rows = endRow - startRow + 1;
@@ -772,8 +773,31 @@ export function GridView({
 
   const cutSelection = useCallback(() => {
     copySelection();
+    const { startRow, endRow, startCol, endCol } = selectionRange;
+    const cutArr: CutCell[] = [];
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        const txt = grid.getCellRaw(r, c);
+        if (txt.trim() !== "") {
+          cutArr.push({ row: r, col: c, text: txt });
+        }
+      }
+    }
+    setCutCells(cutArr);
     setIsCutMode(true);
-  }, [copySelection]);
+    forceRefresh();
+  }, [selectionRange, grid, copySelection, forceRefresh]);
+
+  function isInRegion(
+    row: number,
+    col: number,
+    startR: number,
+    endR: number,
+    startC: number,
+    endC: number
+  ) {
+    return row >= startR && row <= endR && col >= startC && col <= endC;
+  }
 
   const pasteSelection = useCallback(() => {
     if (!clipboardData) return;
@@ -781,29 +805,33 @@ export function GridView({
     const selRows = endRow - startRow + 1;
     const selCols = endCol - startCol + 1;
 
-    // If we have a 1x1 selection in the spreadsheet but multi-size in clipboard => paste the entire block starting there
+    // If single selected cell, paste entire block
     if (selRows === 1 && selCols === 1) {
       for (let r = 0; r < clipboardData.length; r++) {
         for (let c = 0; c < clipboardData[r].length; c++) {
           const rr = startRow + r;
           const cc = startCol + c;
-          // if needed, resize grid
           if (rr > grid.rows) grid.resizeRows(rr);
           if (cc > grid.cols) grid.resizeCols(cc);
           grid.setCellRaw(rr, cc, clipboardData[r][c]);
         }
       }
-      if (isCutMode) {
-        // Clear old cells from the "cut" region if you want to emulate "move"
-        // ...
+      if (isCutMode && cutCells) {
+        for (const cell of cutCells) {
+          if (
+            !isInRegion(cell.row, cell.col, startRow, endRow, startCol, endCol)
+          ) {
+            grid.setCellRaw(cell.row, cell.col, "");
+          }
+        }
+        setCutCells(null);
         setIsCutMode(false);
       }
     } else {
-      // multi→multi
+      // else fill the selection region
       const dataRows = clipboardData.length;
-      const dataCols = Math.max(...clipboardData.map((arr) => arr.length));
-
-      // If 1x1 data => fill entire selection with that
+      const dataCols = Math.max(...clipboardData.map((a) => a.length));
+      // If 1x1 data => fill entire selection
       if (dataRows === 1 && dataCols === 1) {
         const val = clipboardData[0][0];
         for (let r = startRow; r <= endRow; r++) {
@@ -811,12 +839,17 @@ export function GridView({
             grid.setCellRaw(r, c, val);
           }
         }
-        if (isCutMode) {
-          // Possibly remove the old cut region
+        if (isCutMode && cutRange) {
+          for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
+            for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
+              grid.setCellRaw(r, c, "");
+            }
+          }
+          setCutRange(null);
           setIsCutMode(false);
         }
       } else {
-        // If user’s selection is same size or bigger, we can do row by row:
+        // partial fill
         for (let r = 0; r < Math.min(dataRows, selRows); r++) {
           for (let c = 0; c < Math.min(dataCols, selCols); c++) {
             const rr = startRow + r;
@@ -824,22 +857,58 @@ export function GridView({
             grid.setCellRaw(rr, cc, clipboardData[r][c]);
           }
         }
-        // If isCutMode => remove old cells or not
-        setIsCutMode(false);
+        if (isCutMode && cutRange) {
+          for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
+            for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
+              grid.setCellRaw(r, c, "");
+            }
+          }
+          setCutRange(null);
+          setIsCutMode(false);
+        }
       }
     }
     forceRefresh();
-  }, [clipboardData, selectionRange, grid, isCutMode, forceRefresh]);
+  }, [
+    clipboardData,
+    selectionRange,
+    grid,
+    isCutMode,
+    cutCells,
+    cutRange,
+    forceRefresh,
+  ]);
 
-  /** main keydown for selection, block moves, cut/copy/paste, etc. */
+  // Main keydown
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (editingCell) return; // skip if we’re actively editing
+      if (editingCell) {
+        // If already editing, siphon typed chars into editingValue:
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+          e.preventDefault();
+          setEditingValue((prev) => {
+            const newVal = prev + e.key;
+            measureAndExpand(activeRow, activeCol, newVal);
+            return newVal;
+          });
+        }
+        return;
+      }
+
+      // Not editing yet
+      if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+        // first typed char => start editing
+        e.preventDefault();
+        setEditingCell({ row: activeRow, col: activeCol });
+        setEditingValue(e.key);
+        setFocusTarget("cell");
+        measureAndExpand(activeRow, activeCol, e.key);
+      }
 
       if (e.key.startsWith("Arrow")) {
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          // ctrl + arrow => move block
+          // move block
           const allowMerge = e.altKey;
           moveBlock(e.key, allowMerge);
         } else if (e.altKey) {
@@ -862,7 +931,7 @@ export function GridView({
         e.preventDefault();
         maybeExitNested();
       }
-      // Cut/copy/paste
+      // Copy/Cut/Paste
       else if ((e.key === "c" || e.key === "C") && e.ctrlKey) {
         e.preventDefault();
         copySelection();
@@ -879,16 +948,20 @@ export function GridView({
         setFormattingDisabled((prev) => !prev);
         forceRefresh();
       }
-      // If user typed a normal character => start editing
+      // Another fallback for normal typed char
       else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
         e.preventDefault();
         setEditingCell({ row: activeRow, col: activeCol });
         setFocusTarget("cell");
         setEditingValue(e.key);
+        measureAndExpand(activeRow, activeCol, e.key);
       }
     },
     [
       editingCell,
+      activeRow,
+      activeCol,
+      measureAndExpand,
       arrowNav,
       extendSelection,
       moveBlock,
@@ -899,16 +972,12 @@ export function GridView({
       copySelection,
       cutSelection,
       pasteSelection,
-      activeRow,
-      activeCol,
       setFormattingDisabled,
       forceRefresh,
     ]
   );
 
-  /**
-   * Formula bar logic
-   */
+  // Formula bar logic
   const isEditingActiveCell =
     editingCell &&
     editingCell.row === activeRow &&
@@ -940,10 +1009,10 @@ export function GridView({
         commitEdit(editingCell.row, editingCell.col, cellRaw, { escape: true });
       }
     },
-    [editingCell, commitEdit, editingValue, cellRaw]
+    [editingCell, editingValue, cellRaw, commitEdit]
   );
 
-  /** total grid dimension */
+  // total grid dimension
   const totalGridWidth = useMemo(
     () => colWidths.reduce((a, b) => a + b, 0),
     [colWidths]
@@ -1104,7 +1173,7 @@ export function GridView({
         address={addressText}
         formulaText={formulaText}
         onFormulaChange={onFormulaChange}
-        onFormulaKeyDown={onFormulaKeyDown}
+        onFormulaKeyDown={(e) => onFormulaKeyDown(e)}
         onFocus={() => {
           setFocusTarget("formula");
           if (!editingCell) {
@@ -1114,7 +1183,7 @@ export function GridView({
         onGearClick={() => setModalOpen(true)}
       />
 
-      {/* Main area: row/col headers + scrollable cells */}
+      {/* Main area */}
       <div className="absolute left-0 right-0 bottom-0" style={{ top: "3rem" }}>
         {/* top-left corner cell */}
         <div
@@ -1195,26 +1264,28 @@ export function GridView({
   );
 }
 
-/** Helper to find which row is at `y` offset. */
+/** Helper: find row index by a given Y offset */
 function findRowByY(y: number, rowHeights: number[]): number {
   let cum = 0;
   for (let r = 0; r < rowHeights.length; r++) {
-    if (y < cum + rowHeights[r]) {
+    const h = rowHeights[r];
+    if (y < cum + h) {
       return r + 1;
     }
-    cum += rowHeights[r];
+    cum += h;
   }
   return rowHeights.length;
 }
 
-/** Helper to find which col is at `x` offset. */
+/** Helper: find col index by a given X offset */
 function findColByX(x: number, colWidths: number[]): number {
   let cum = 0;
   for (let c = 0; c < colWidths.length; c++) {
-    if (x < cum + colWidths[c]) {
+    const w = colWidths[c];
+    if (x < cum + w) {
       return c + 1;
     }
-    cum += colWidths[c];
+    cum += w;
   }
   return colWidths.length;
 }

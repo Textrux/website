@@ -14,7 +14,7 @@ function App() {
 
   return (
     <div className="w-screen h-screen">
-      <GridView grid={model} />
+      <GridView grid={model} autoLoadLocalStorage={true} />
     </div>
   );
 }
