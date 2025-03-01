@@ -187,6 +187,12 @@ export function GridView({
     return GridConfig.defaultDelimiter;
   });
 
+  // Function to update state and persist to localStorage
+  const updateDelimiter = (delim: "tab" | ",") => {
+    setCurrentDelimiter(delim);
+    localStorage.setItem("savedDelimiter", delim);
+  };
+
   /** For block movement logic */
   const blockListRef = useRef<Block[]>([]);
 
@@ -741,54 +747,70 @@ export function GridView({
       const blocks = blockListRef.current;
       if (!blocks.length) return;
 
+      // Find the current block, or treat the active cell as a 1x1 block.
       const curBlock = blocks.find((b) =>
         isCellInBlockCanvas(b, activeRow, activeCol)
       );
-      let top: number, bot: number, left: number, right: number;
-      if (curBlock) {
-        top = curBlock.topRow;
-        bot = curBlock.bottomRow;
-        left = curBlock.leftCol;
-        right = curBlock.rightCol;
-      } else {
-        top = activeRow;
-        bot = activeRow;
-        left = activeCol;
-        right = activeCol;
-      }
-      const refCenterR = (top + bot) / 2;
-      const refCenterC = (left + right) / 2;
 
-      // find blocks in that arrow direction
+      const referenceBlock = curBlock || {
+        topRow: activeRow,
+        bottomRow: activeRow,
+        leftCol: activeCol,
+        rightCol: activeCol,
+      };
+
+      const refCenterR = (referenceBlock.topRow + referenceBlock.bottomRow) / 2;
+      const refCenterC = (referenceBlock.leftCol + referenceBlock.rightCol) / 2;
+
+      // Filter candidate blocks based on movement direction.
       const candidates = blocks.filter((b) => {
         if (b === curBlock) return false;
         switch (arrowKey) {
-          case "ArrowUp":
-            return b.bottomRow < top;
-          case "ArrowDown":
-            return b.topRow > bot;
-          case "ArrowLeft":
-            return b.rightCol < left;
           case "ArrowRight":
-            return b.leftCol > right;
+            return b.leftCol > referenceBlock.rightCol;
+          case "ArrowLeft":
+            return b.rightCol < referenceBlock.leftCol;
+          case "ArrowDown":
+            return b.topRow > referenceBlock.bottomRow;
+          case "ArrowUp":
+            return b.bottomRow < referenceBlock.topRow;
+          default:
+            return false;
         }
-        return false;
       });
+
       if (!candidates.length) return;
 
+      // Apply directional bias to penalize misalignment.
+      const directionalBias = 3;
       let nearest: Block | null = null;
       let minDist = Infinity;
+
       for (const b of candidates) {
         const cR = (b.topRow + b.bottomRow) / 2;
         const cC = (b.leftCol + b.rightCol) / 2;
+
+        // Adjust weight to prioritize the movement direction.
+        let weightRow = 1,
+          weightCol = 1;
+        if (arrowKey === "ArrowRight" || arrowKey === "ArrowLeft") {
+          weightRow = directionalBias; // Penalize row misalignment for horizontal movement.
+        } else if (arrowKey === "ArrowUp" || arrowKey === "ArrowDown") {
+          weightCol = directionalBias; // Penalize column misalignment for vertical movement.
+        }
+
         const dRow = cR - refCenterR;
         const dCol = cC - refCenterC;
-        const dist = Math.sqrt(dRow * dRow + dCol * dCol);
+        const dist = Math.sqrt(
+          (dRow * weightRow) ** 2 + (dCol * weightCol) ** 2
+        );
+
         if (dist < minDist) {
           minDist = dist;
           nearest = b;
         }
       }
+
       if (!nearest) return;
 
       const midRow = Math.floor((nearest.topRow + nearest.bottomRow) / 2);
@@ -1494,7 +1516,7 @@ export function GridView({
         isOpen={isModalOpen}
         onClose={closeModal}
         currentDelimiter={currentDelimiter}
-        setCurrentDelimiter={setCurrentDelimiter}
+        setCurrentDelimiter={updateDelimiter}
         clearGrid={clearGrid}
         saveGridToFile={saveGridToFile}
         loadGridFromFile={loadGridFromFile}
