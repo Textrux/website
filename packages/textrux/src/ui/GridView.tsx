@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import "./css/project.css";
 
 import React, {
@@ -25,6 +26,13 @@ import {
   saveGridToLocalStorage,
   loadGridFromLocalStorage,
 } from "../util/LocalStorageStore";
+import {
+  arrayToGrid,
+  embedCurrentCsvInWrapper,
+  getDepthFromWrapper,
+  replaceMarkerInWrapper,
+  sheetToCsv,
+} from "../util/NestedHelper";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -463,8 +471,8 @@ export function GridView({
       const y = e.clientY - rect.top + container.scrollTop;
 
       // find row/col by scanning rowHeights/colWidths
-      let hoveredRow = findRowByY(y, rowHeights);
-      let hoveredCol = findColByX(x, colWidths);
+      const hoveredRow = findRowByY(y, rowHeights);
+      const hoveredCol = findColByX(x, colWidths);
 
       const aR = dragSelectRef.current.anchorRow;
       const aC = dragSelectRef.current.anchorCol;
@@ -544,8 +552,8 @@ export function GridView({
       if (key === "ArrowLeft") dC = -1;
       if (key === "ArrowRight") dC = 1;
 
-      let newR = Math.max(1, Math.min(grid.rows, activeRow + dR));
-      let newC = Math.max(1, Math.min(grid.cols, activeCol + dC));
+      const newR = Math.max(1, Math.min(grid.rows, activeRow + dR));
+      const newC = Math.max(1, Math.min(grid.cols, activeCol + dC));
       setActiveRow(newR);
       setActiveCol(newC);
       setSelectionRange({
@@ -572,7 +580,7 @@ export function GridView({
       if (!anchorRef.current) {
         anchorRef.current = { row: activeRow, col: activeCol };
       }
-      let start = anchorRef.current;
+      const start = anchorRef.current;
 
       let dR = 0,
         dC = 0;
@@ -683,7 +691,7 @@ export function GridView({
       // gather old cell data
       const oldCells = targetBlock.canvasPoints;
       const buffer: Array<{ row: number; col: number; text: string }> = [];
-      for (let pt of oldCells) {
+      for (const pt of oldCells) {
         const txt = grid.getCellRaw(pt.row, pt.col);
         buffer.push({ row: pt.row, col: pt.col, text: txt });
         grid.setCellRaw(pt.row, pt.col, "");
@@ -697,7 +705,7 @@ export function GridView({
         oldCells[i].col += dC;
       }
       // re-insert
-      for (let item of buffer) {
+      for (const item of buffer) {
         const newR = item.row + dR;
         const newC = item.col + dC;
         grid.setCellRaw(newR, newC, item.text);
@@ -733,7 +741,7 @@ export function GridView({
       const blocks = blockListRef.current;
       if (!blocks.length) return;
 
-      let curBlock = blocks.find((b) =>
+      const curBlock = blocks.find((b) =>
         isCellInBlockCanvas(b, activeRow, activeCol)
       );
       let top: number, bot: number, left: number, right: number;
@@ -770,7 +778,7 @@ export function GridView({
 
       let nearest: Block | null = null;
       let minDist = Infinity;
-      for (let b of candidates) {
+      for (const b of candidates) {
         const cR = (b.topRow + b.bottomRow) / 2;
         const cC = (b.leftCol + b.rightCol) / 2;
         const dRow = cR - refCenterR;
@@ -815,19 +823,139 @@ export function GridView({
   }, [selectionRange, grid, forceRefresh]);
 
   const maybeEnterNested = useCallback(() => {
-    const raw = grid.getCellRaw(activeRow, activeCol).trim();
-    if (!raw.startsWith(",")) return;
-    // ...
-    // do nested logic
-  }, [activeRow, activeCol, grid]);
+    // 1) Get the raw text in the currently active cell
+    let raw = grid.getCellRaw(activeRow, activeCol).trim();
+
+    // 2) If it's empty, turn it into a comma cell
+    if (!raw) {
+      raw = ",";
+      grid.setCellRaw(activeRow, activeCol, raw);
+    }
+
+    // 3) Only proceed if it starts with a comma (indicating a nested cell)
+    if (!raw.startsWith(",")) {
+      return;
+    }
+
+    // 4) Determine current depth from R1C1 (top-left cell)
+    const topLeft = grid.getCellRaw(1, 1);
+    let currentDepth = 0;
+    if (topLeft.startsWith("^")) {
+      currentDepth = getDepthFromWrapper(topLeft);
+    }
+
+    // 5) Insert a marker at the active cell for deeper nesting
+    const newDepth = currentDepth + 1;
+    const markerCell = `<<)${newDepth}(>>`;
+    grid.setCellRaw(activeRow, activeCol, markerCell);
+
+    // 6) Convert the entire current sheet to CSV (excluding the active cell)
+    const parentCsv = sheetToCsv(grid, false);
+
+    console.log("parentCsv", parentCsv);
+
+    // 7) Wipe the entire grid to start fresh
+    (grid as any).contentsMap = {};
+    (grid as any).formulas = {};
+
+    // 8) Parse the child CSV (just "," for an empty grid) and fill the grid
+    const childCsv = raw;
+    const childArr = fromCSV(childCsv);
+    arrayToGrid(grid, childArr);
+
+    // 9) Update R1C1 to store the parent CSV correctly
+    let newWrapper: string;
+    if (currentDepth === 0) {
+      // First-time nesting: store as `^` + CSV
+      newWrapper = `^${parentCsv}`;
+    } else {
+      // Deeper nesting: correctly replace the marker
+      newWrapper = replaceMarkerInWrapper(topLeft, currentDepth, parentCsv);
+    }
+
+    console.log("Updated Wrapper:", newWrapper);
+    grid.setCellRaw(1, 1, newWrapper);
+
+    // 10) Force a refresh of the UI
+    forceRefresh();
+
+    // 11) Move selection to R1C2
+    setActiveRow(1);
+    setActiveCol(2);
+    setSelectionRange({
+      startRow: 1,
+      endRow: 1,
+      startCol: 2,
+      endCol: 2,
+    });
+  }, [
+    grid,
+    activeRow,
+    activeCol,
+    forceRefresh,
+    setActiveRow,
+    setActiveCol,
+    setSelectionRange,
+  ]);
 
   const maybeExitNested = useCallback(() => {
-    // ...
-  }, [activeRow, activeCol, grid]);
+    // 1) Check R1C1. If it doesn't start with '^', there's no parent to return to.
+    const topLeft = grid.getCellRaw(1, 1);
+    if (!topLeft.startsWith("^")) {
+      return; // Not nested
+    }
+
+    // 2) Figure out the current depth
+    const currentDepth = getDepthFromWrapper(topLeft);
+    if (currentDepth < 1) {
+      return; // Malformed or no deeper nesting
+    }
+
+    // 3) Convert the entire *current* sheet to CSV, skipping R1C1 if it starts with '^':
+    //    This is the "child CSV" that we want to embed back into the parent.
+    const childCsv = sheetToCsv(grid, true);
+
+    // 4) Now we wipe the entire sheet and go "up" to the parent CSV that was stored in R1C1
+    //    which might look like `^<<)2(...some big CSV...)`.
+    //    For simplicity, let's just remove the leading '^' and parse the rest:
+    const parentWrapper = topLeft.substring(1); // remove the '^'
+
+    // 5) (Optional) If you want to replace the `<<)N(` marker in that parentWrapper with childCsv, do so:
+    //    e.g. embedCurrentCsvInWrapper(...) or replaceMarkerInWrapper(...) from the old logic:
+    //    (In the simplest approach, we might not bother, or we do partial. Up to you!)
+    const updatedParent = embedCurrentCsvInWrapper(
+      parentWrapper,
+      currentDepth,
+      childCsv
+    );
+
+    // 6) Wipe the grid
+    (grid as any).contentsMap = {};
+    (grid as any).formulas = {};
+
+    // 7) Parse the parent text (which no longer has '^') and fill the grid
+    const parentArr = fromCSV(updatedParent);
+    arrayToGrid(grid, parentArr);
+
+    // 8) Force a refresh
+    forceRefresh();
+
+    // Maybe move selection back to something like R1C2
+    setActiveRow(1);
+    setActiveCol(2);
+    setSelectionRange({
+      startRow: 1,
+      endRow: 1,
+      startCol: 2,
+      endCol: 2,
+    });
+  }, [grid, forceRefresh, setActiveRow, setActiveCol, setSelectionRange]);
 
   /** Copy/Cut/Paste */
   const copySelection = useCallback(() => {
     const { startRow, endRow, startCol, endCol } = selectionRange;
+
+    // Build a 2D array of the selected cells
     const rows = endRow - startRow + 1;
     const cols = endCol - startCol + 1;
     const out: string[][] = [];
@@ -839,14 +967,59 @@ export function GridView({
         out[r][c] = grid.getCellRaw(rr, cc) || "";
       }
     }
+
+    // Store internally (so we can paste back *inside* the grid)
     setClipboardData(out);
     setIsCutMode(false);
-  }, [selectionRange, grid]);
+
+    // Also copy to the actual system clipboard as CSV or TSV,
+    // so the user can paste outside the app (e.g. Notepad).
+    let textToCopy = "";
+    if (currentDelimiter === "tab") {
+      textToCopy = toTSV(out);
+    } else {
+      textToCopy = toCSV(out);
+    }
+
+    // Attempt modern async clipboard API
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(textToCopy)
+        .catch((err) => console.error("Failed to write to clipboard", err));
+    } else {
+      // Fallback: create a hidden <textarea> and use document.execCommand('copy')
+      const textarea = document.createElement("textarea");
+      textarea.value = textToCopy;
+      textarea.style.position = "fixed"; // avoid scrolling to bottom
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+      } catch (e) {
+        console.error("Fallback: Oops, unable to copy", e);
+      }
+      document.body.removeChild(textarea);
+    }
+  }, [
+    selectionRange,
+    grid,
+    setClipboardData,
+    setIsCutMode,
+    currentDelimiter, // be sure it's in the dependency array
+  ]);
 
   const cutSelection = useCallback(() => {
+    // Reuse the copy logic to set the system clipboard:
     copySelection();
+
+    // Then clear the original cells:
     const { startRow, endRow, startCol, endCol } = selectionRange;
-    const cutArr: CutCell[] = [];
+    const cutArr: Array<{ row: number; col: number; text: string }> = [];
+
     for (let r = startRow; r <= endRow; r++) {
       for (let c = startCol; c <= endCol; c++) {
         const txt = grid.getCellRaw(r, c);
@@ -855,6 +1028,7 @@ export function GridView({
         }
       }
     }
+
     setCutCells(cutArr);
     setIsCutMode(true);
     forceRefresh();
