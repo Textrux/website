@@ -283,6 +283,22 @@ export function GridView({
     [editingCell, editingValue, grid, forceRefresh]
   );
 
+  const handleCellClick = (r: number, c: number) => {
+    setActiveRow(r);
+    setActiveCol(c);
+    setSelectionRange({
+      startRow: r,
+      endRow: r,
+      startCol: c,
+      endCol: c,
+    });
+
+    // Ensure the cell is properly selected but NOT put into editing mode
+    setEditingCell(null);
+    setEditingValue("");
+    setFocusTarget(null);
+  };
+
   const handleCellDoubleClick = useCallback(
     (r: number, c: number) => {
       const raw = grid.getCellRaw(r, c);
@@ -297,45 +313,44 @@ export function GridView({
    * measureAndExpand => measure wrapped text by placing it in
    * an offscreen <textarea> or <div> with the same styles.
    */
-  // In GridView.tsx
   function measureAndExpand(r: number, c: number, text: string) {
-    // 1) Create a hidden <textarea> that matches EXACTLY the real editing <textarea> styles.
+    // 1) Create a hidden <textarea> matching the real editor’s styles
     const hidden = document.createElement("textarea");
     hidden.style.position = "absolute";
     hidden.style.visibility = "hidden";
     hidden.style.zIndex = "-9999";
 
-    // Match real <textarea> styles used in CellView:
+    // Match the styles used in CellView’s <textarea>
     hidden.style.whiteSpace = "pre-wrap";
     hidden.style.wordBreak = "break-word";
-    hidden.style.overflowY = "scroll"; // <== If your real <textarea> has scroll
-    hidden.style.lineHeight = "1.2"; // match what you do in CSS
+    hidden.style.overflowY = "scroll";
+    hidden.style.lineHeight = "1.2";
     hidden.style.fontSize = fontSize + "px";
-    hidden.style.padding = "4px"; // match CellView’s padding, e.g. "p-1"
+    hidden.style.padding = "4px";
     hidden.style.boxSizing = "border-box";
 
-    // Give it the same initial width as the current column
+    // Start with the current column width
     const currentWidth = colWidths[c - 1] ?? baseColWidth * zoom;
     hidden.style.width = currentWidth + "px";
 
     hidden.value = text;
     document.body.appendChild(hidden);
 
-    // 2) Read scrollWidth/scrollHeight
+    // 2) Check the needed scrollWidth / scrollHeight
     const neededWidth = hidden.scrollWidth;
     const neededHeight = hidden.scrollHeight;
 
     document.body.removeChild(hidden);
 
-    // 3) Add some small padding if desired
+    // 3) Add some safety clamp so it doesn’t grow unbounded
     const finalWidth = Math.min(neededWidth + 2, 6 * baseColWidth * zoom);
     const finalHeight = Math.min(neededHeight + 2, 6 * baseRowHeight * zoom);
 
-    // 4) Only update row/col sizes if the difference is more than a couple pixels
+    // 4) Actually update the rowHeights/colWidths
     setColWidths((old) => {
       if (!old[c - 1]) return old;
       const current = old[c - 1];
-      // If finalWidth is at least 3 px bigger, update
+      // Only update if it’s at least ~3px bigger
       if (finalWidth - current >= 3) {
         const copy = [...old];
         copy[c - 1] = finalWidth;
@@ -393,7 +408,7 @@ export function GridView({
     if (newC < 1) newC = 1;
     if (newC > grid.cols) newC = grid.cols;
 
-    // update active cell & selection
+    // update the active cell & selection
     setActiveRow(newR);
     setActiveCol(newC);
     setSelectionRange({
@@ -403,7 +418,7 @@ export function GridView({
       endCol: newC,
     });
 
-    // scrollCellIntoView is your existing helper
+    // Scroll the new cell into view
     scrollCellIntoView(
       newR,
       newC,
@@ -411,6 +426,10 @@ export function GridView({
       colWidths,
       gridContainerRef.current
     );
+
+    // IMPORTANT: Re-focus the container so keystrokes go to it.
+    // This fixes the "can't type after pressing Enter" issue.
+    gridContainerRef.current?.focus();
   }
 
   const commitEdit = useCallback(
@@ -948,6 +967,18 @@ export function GridView({
         return;
       }
 
+      if (e.key === "Tab") {
+        e.preventDefault();
+
+        // Move one column right, or left if Shift is held
+        if (e.shiftKey) {
+          arrowNav("ArrowLeft"); // your existing logic that moves left
+        } else {
+          arrowNav("ArrowRight"); // your existing logic that moves right
+        }
+        return; // Done, skip further logic
+      }
+
       if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey && e.ctrlKey) {
@@ -1272,7 +1303,7 @@ export function GridView({
               editingCell={editingCell}
               fontSize={fontSize}
               onCellMouseDown={handleCellMouseDown}
-              onCellClick={() => {}}
+              onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
               onCommitEdit={commitEdit}
               onKeyboardNav={handleKeyboardNav}

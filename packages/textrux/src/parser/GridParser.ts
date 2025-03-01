@@ -23,30 +23,22 @@ export function parseAndFormatGrid(grid: Grid): {
   styleMap: Record<string, string[]>;
   blockList: Block[];
 } {
-  // console.time("parseAndFormatGrid");
-  const styleMap: StyleMap = {};
-
   // 1) Collect all non-empty (filled) cell positions:
-  const filledPoints: Array<{ row: number; col: number }> = [];
-  const contentsKeys = Object.keys((grid as any).contentsMap);
-  for (const key of contentsKeys) {
-    const val = (grid as any).contentsMap[key];
-    if (val && val.trim() !== "") {
-      const m = key.match(/^R(\d+)C(\d+)$/);
-      if (m) {
-        const r = parseInt(m[1], 10);
-        const c = parseInt(m[2], 10);
-        filledPoints.push({ row: r, col: c });
-      }
-    }
-  }
+  //    We simply rely on grid.getFilledCells(), which only returns genuinely filled cells.
+  const filledPoints = grid.getFilledCells().map(({ row, col }) => ({
+    row,
+    col,
+  }));
 
-  // 2) Build “containers” of filled cells with an outline expand=2 => Blocks
+  // 2) Build “containers” of filled cells with outline expand=2 => Blocks
   const containers = getContainers(filledPoints, 2, grid.rows, grid.cols);
   const blockList: Block[] = containers.map(finalizeBlock);
 
-  // 3) Also compute sub-lumps (“cell clusters”) inside each block
-  //    (these lumps are the contiguous lumps of the block’s “canvasPoints” with expand=1).
+  // Prepare our style map:
+  const styleMap: StyleMap = {};
+
+  // 3) Compute each block's sub-lumps (cell clusters), then
+  //    mark cluster‐empty vs. canvas‐empty cells.
   for (const blk of blockList) {
     // get sub-containers with expand=1 from all the block’s canvasPoints
     const subContainers = getContainers(
@@ -57,13 +49,15 @@ export function parseAndFormatGrid(grid: Grid): {
     );
     // each sub-container => array of filled points
     const cellClusters = subContainers.map((ctr) => ctr.filledPoints);
-    // we can store them on the block if needed:
+    // store them on the block if needed
     (blk as any).cellClusters = cellClusters;
 
-    // For each sub-lump bounding box => find “cluster‐empty” cells
-    // optional, if you want the same highlight as the old code:
+    // For each sub-lump bounding box => find "cluster-empty" cells
     const clusterEmptyCells: Array<{ row: number; col: number }> = [];
     for (const cluster of cellClusters) {
+      // speed up membership checks:
+      const clusterSet = new Set(cluster.map((pt) => pointKey(pt.row, pt.col)));
+
       const rr = cluster.map((p) => p.row);
       const cc = cluster.map((p) => p.col);
       const minR = Math.min(...rr);
@@ -73,26 +67,24 @@ export function parseAndFormatGrid(grid: Grid): {
 
       for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
-          // If not actually in the cluster (i.e., not a filled cell) AND not empty in the entire sheet
-          const isFilled = cluster.some((pt) => pt.row === r && pt.col === c);
-          const cellKey = `R${r}C${c}`;
-          const entireSheetVal = (grid as any).contentsMap[cellKey] ?? "";
-          if (!isFilled && !entireSheetVal.trim()) {
+          const key = pointKey(r, c);
+          // If not in the cluster and the entire grid cell is empty
+          //   (we confirm by checking raw text).
+          if (!clusterSet.has(key) && grid.getCellRaw(r, c).trim() === "") {
             clusterEmptyCells.push({ row: r, col: c });
           }
         }
       }
     }
 
-    // Then also for the block’s bounding rectangle => we can highlight
-    // “canvas‐empty” cells (the block’s bounding box minus the filled cluster).
+    // "canvas‐empty" cells = bounding box minus the filled cluster
     const blockEmptyCells: Array<{ row: number; col: number }> = [];
     const fillSet = new Set(
-      blk.canvasPoints.map((pt) => `${pt.row},${pt.col}`)
+      blk.canvasPoints.map((pt) => pointKey(pt.row, pt.col))
     );
     for (let r = blk.topRow; r <= blk.bottomRow; r++) {
       for (let c = blk.leftCol; c <= blk.rightCol; c++) {
-        const k = `${r},${c}`;
+        const k = pointKey(r, c);
         if (!fillSet.has(k)) {
           // not a filled cell
           blockEmptyCells.push({ row: r, col: c });
@@ -105,19 +97,19 @@ export function parseAndFormatGrid(grid: Grid): {
       addClass(styleMap, pt.row, pt.col, "cluster-empty-cell");
     }
     for (const pt of blockEmptyCells) {
+      const k = pointKey(pt.row, pt.col);
       // Only add "canvas-empty-cell" if not already cluster-empty
-      const k = `R${pt.row}C${pt.col}`;
       if (!styleMap[k]?.includes("cluster-empty-cell")) {
         addClass(styleMap, pt.row, pt.col, "canvas-empty-cell");
       }
     }
   }
 
-  // 4) Now populate all blockJoins => blockClusters
+  // 4) BlockJoins => BlockClusters => locked/linked
   const allJoins = BlockJoin.populateBlockJoins(blockList);
   const blockClusters = BlockCluster.populateBlockClusters(blockList, allJoins);
 
-  // 5) Mark locked/linked cells from the blockClusters
+  // 5) Mark locked/linked cells from blockClusters
   for (const bc of blockClusters) {
     for (const pt of bc.linkedPoints) {
       addClass(styleMap, pt.row, pt.col, "linked-cell");
@@ -128,7 +120,6 @@ export function parseAndFormatGrid(grid: Grid): {
   }
 
   // 6) Finally, apply “canvas‐cell”, “border‐cell”, “frame‐cell” for each block
-  //    (we already do the .canvasPoints in finalizeBlock).
   for (const b of blockList) {
     for (const pt of b.canvasPoints) {
       addClass(styleMap, pt.row, pt.col, "canvas-cell");
@@ -141,7 +132,6 @@ export function parseAndFormatGrid(grid: Grid): {
     }
   }
 
-  // console.timeEnd("parseAndFormatGrid");
   return { styleMap, blockList };
 }
 
@@ -155,73 +145,63 @@ function getContainers(
   rowCount: number,
   colCount: number
 ): Container[] {
+  if (filledPoints.length === 0) return [];
+
   const containers: Container[] = [];
-  const usedPoints: Array<{ row: number; col: number }> = [];
-  const allRemaining = [...filledPoints];
+  // faster membership checks:
+  const used = new Set<string>();
+  // We’ll keep a Set as well for quick membership.
+  const allPoints = new Set(filledPoints.map((p) => pointKey(p.row, p.col)));
 
   for (const cell of filledPoints) {
-    // if we already used it in some container, skip
-    if (usedPoints.some((p) => p.row === cell.row && p.col === cell.col)) {
-      continue;
-    }
+    const key = pointKey(cell.row, cell.col);
+    if (used.has(key)) continue; // skip if already in a container
 
     const tempContainer = new Container(cell.row, cell.col, cell.row, cell.col);
+    const containerSet = new Set<string>();
+    containerSet.add(key);
     tempContainer.filledPoints.push(cell);
 
     // BFS/merge approach:
-    const newlyOverlapped: Array<{ row: number; col: number }> = [];
+    let newlyAdded: boolean;
     do {
+      newlyAdded = false;
+      // expand bounding box by expandOutlineBy
       const expanded = tempContainer.expandOutlineBy(
         expandOutlineBy,
         rowCount,
         colCount
       );
-      newlyOverlapped.length = 0; // reset
 
-      // gather any points that overlap that bounding box
-      for (const pt of allRemaining) {
-        if (
-          !usedPoints.includes(pt) &&
-          !tempContainer.filledPoints.includes(pt)
-        ) {
-          const single = new Container(pt.row, pt.col, pt.row, pt.col);
-          if (expanded.overlaps(single)) {
-            newlyOverlapped.push(pt);
+      // gather any points that overlap
+      for (const ptStr of allPoints) {
+        if (!containerSet.has(ptStr)) {
+          const { row, col } = parsePoint(ptStr);
+          if (expanded.overlaps(new Container(row, col, row, col))) {
+            containerSet.add(ptStr);
+            tempContainer.filledPoints.push({ row, col });
+            newlyAdded = true;
           }
         }
       }
 
-      if (newlyOverlapped.length > 0) {
-        usedPoints.push(...newlyOverlapped);
-
+      if (newlyAdded) {
         // unify bounding box
-        const minR = Math.min(
-          tempContainer.topRow,
-          ...newlyOverlapped.map((p) => p.row)
-        );
-        const maxR = Math.max(
-          tempContainer.bottomRow,
-          ...newlyOverlapped.map((p) => p.row)
-        );
-        const minC = Math.min(
-          tempContainer.leftColumn,
-          ...newlyOverlapped.map((p) => p.col)
-        );
-        const maxC = Math.max(
-          tempContainer.rightColumn,
-          ...newlyOverlapped.map((p) => p.col)
-        );
-
-        tempContainer.topRow = minR;
-        tempContainer.bottomRow = maxR;
-        tempContainer.leftColumn = minC;
-        tempContainer.rightColumn = maxC;
-
-        tempContainer.filledPoints.push(...newlyOverlapped);
+        const rows = tempContainer.filledPoints.map((p) => p.row);
+        const cols = tempContainer.filledPoints.map((p) => p.col);
+        tempContainer.topRow = Math.min(...rows);
+        tempContainer.bottomRow = Math.max(...rows);
+        tempContainer.leftColumn = Math.min(...cols);
+        tempContainer.rightColumn = Math.max(...cols);
       }
-    } while (newlyOverlapped.length > 0);
+    } while (newlyAdded);
 
-    // Now also check if we overlap existing containers
+    // Mark everything in this container as used
+    for (const ptStr of containerSet) {
+      used.add(ptStr);
+    }
+
+    // Now also check if we overlap existing containers => merge
     let merged = true;
     while (merged) {
       merged = false;
@@ -234,7 +214,7 @@ function getContainers(
       for (let i = containers.length - 1; i >= 0; i--) {
         const c = containers[i];
         if (expanded.overlaps(c)) {
-          // remove from containers, unify bounding box & points
+          // unify bounding box & points
           containers.splice(i, 1);
           tempContainer.topRow = Math.min(tempContainer.topRow, c.topRow);
           tempContainer.bottomRow = Math.max(
@@ -249,7 +229,13 @@ function getContainers(
             tempContainer.rightColumn,
             c.rightColumn
           );
-          tempContainer.filledPoints.push(...c.filledPoints);
+          for (const fp of c.filledPoints) {
+            const s = pointKey(fp.row, fp.col);
+            if (!containerSet.has(s)) {
+              containerSet.add(s);
+              tempContainer.filledPoints.push(fp);
+            }
+          }
           merged = true;
         }
       }
@@ -284,6 +270,7 @@ function finalizeBlock(cont: Container): Block {
   const bc1 = b.leftCol - 1;
   const bc2 = b.rightCol + 1;
   const borderPts: Array<{ row: number; col: number }> = [];
+
   for (let c = bc1; c <= bc2; c++) {
     borderPts.push({ row: br1, col: c });
     borderPts.push({ row: br2, col: c });
@@ -302,6 +289,7 @@ function finalizeBlock(cont: Container): Block {
   const fc1 = bc1 - 1;
   const fc2 = bc2 + 1;
   const framePts: Array<{ row: number; col: number }> = [];
+
   for (let c = fc1; c <= fc2; c++) {
     framePts.push({ row: fr1, col: c });
     framePts.push({ row: fr2, col: c });
@@ -319,12 +307,12 @@ function finalizeBlock(cont: Container): Block {
 function dedupePoints(
   arr: Array<{ row: number; col: number }>
 ): Array<{ row: number; col: number }> {
-  const used = new Set<string>();
+  const seen = new Set<string>();
   const out: Array<{ row: number; col: number }> = [];
   for (const p of arr) {
-    const k = `${p.row},${p.col}`;
-    if (!used.has(k)) {
-      used.add(k);
+    const k = pointKey(p.row, p.col);
+    if (!seen.has(k)) {
+      seen.add(k);
       out.push(p);
     }
   }
@@ -339,11 +327,23 @@ function addClass(
   className: string
 ) {
   if (row < 1 || col < 1) return;
-  const key = `R${row}C${col}`;
+  const key = pointKey(row, col);
   if (!styleMap[key]) {
     styleMap[key] = [];
   }
   if (!styleMap[key].includes(className)) {
     styleMap[key].push(className);
   }
+}
+
+/** Helper to convert row,col => "R{row}C{col}". */
+function pointKey(row: number, col: number): string {
+  return `R${row}C${col}`;
+}
+
+/** Helper to parse a "R{row}C{col}" string. */
+function parsePoint(str: string): { row: number; col: number } {
+  const m = /^R(\d+)C(\d+)$/.exec(str);
+  if (!m) throw new Error(`Invalid point key: ${str}`);
+  return { row: parseInt(m[1], 10), col: parseInt(m[2], 10) };
 }

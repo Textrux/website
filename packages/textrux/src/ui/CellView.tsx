@@ -88,7 +88,7 @@ export function CellView(props: CellViewProps) {
 
   // Focus if we’re the editing cell
   useEffect(() => {
-    if (isEditing && focusTarget === "cell" && textareaRef.current) {
+    if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
       const len = textareaRef.current.value.length;
       textareaRef.current.setSelectionRange(len, len);
@@ -154,18 +154,20 @@ export function CellView(props: CellViewProps) {
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = start + 1;
           });
-          return; // Exit early to avoid committing
+          return; // Don’t commit yet
         }
 
-        // Commit and move selection
+        // Normal Enter: commit and move selection
         e.preventDefault();
         commitAndClose(sharedEditingValue);
         onKeyboardNav(row, col, e.shiftKey ? "down-right" : "down");
       } else if (e.key === "Escape") {
         e.preventDefault();
+        // Discard changes
         commitAndClose(value, { escape: true });
       } else if (e.key === "Tab") {
         e.preventDefault();
+        // Commit and tab over
         commitAndClose(sharedEditingValue);
         onKeyboardNav(row, col, e.shiftKey ? "left" : "right");
       } else if (
@@ -175,6 +177,7 @@ export function CellView(props: CellViewProps) {
         e.key === "ArrowRight"
       ) {
         e.preventDefault();
+        // Commit and arrow-move
         commitAndClose(sharedEditingValue);
         onKeyboardNav(
           row,
