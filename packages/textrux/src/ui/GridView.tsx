@@ -360,6 +360,63 @@ export function GridView({
     ]
   );
 
+  function handleKeyboardNav(
+    r: number,
+    c: number,
+    direction: "up" | "down" | "left" | "right" | "down-right" | "down-left"
+  ) {
+    let newR = r;
+    let newC = c;
+
+    switch (direction) {
+      case "up":
+        newR = r - 1;
+        break;
+      case "down":
+        newR = r + 1;
+        break;
+      case "left":
+        newC = c - 1;
+        break;
+      case "right":
+        newC = c + 1;
+        break;
+      case "down-right":
+        newR = r + 1;
+        newC = c + 1;
+        break;
+      case "down-left":
+        newR = r + 1;
+        newC = c - 1;
+        break;
+    }
+
+    // clamp within grid bounds
+    if (newR < 1) newR = 1;
+    if (newR > grid.rows) newR = grid.rows;
+    if (newC < 1) newC = 1;
+    if (newC > grid.cols) newC = grid.cols;
+
+    // update active cell & selection
+    setActiveRow(newR);
+    setActiveCol(newC);
+    setSelectionRange({
+      startRow: newR,
+      endRow: newR,
+      startCol: newC,
+      endCol: newC,
+    });
+
+    // scrollCellIntoView is your existing helper
+    scrollCellIntoView(
+      newR,
+      newC,
+      rowHeights,
+      colWidths,
+      gridContainerRef.current
+    );
+  }
+
   const commitEdit = useCallback(
     (r: number, c: number, newValue: string, opts?: { escape?: boolean }) => {
       if (!opts?.escape) {
@@ -895,6 +952,18 @@ export function GridView({
         return;
       }
 
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey && e.ctrlKey) {
+          handleKeyboardNav(activeRow, activeCol, "down-left");
+        } else if (e.shiftKey) {
+          handleKeyboardNav(activeRow, activeCol, "down-right");
+        } else {
+          handleKeyboardNav(activeRow, activeCol, "down");
+        }
+        return;
+      }
+
       // Not editing yet
       if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
         // first typed char => start editing
@@ -1248,7 +1317,7 @@ export function GridView({
               onCellClick={() => {}}
               onCellDoubleClick={handleCellDoubleClick}
               onCommitEdit={commitEdit}
-              onKeyboardNav={() => {}}
+              onKeyboardNav={handleKeyboardNav}
               measureAndExpand={measureAndExpand}
               sharedEditingValue={editingValue}
               setSharedEditingValue={setEditingValue}

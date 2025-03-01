@@ -28,7 +28,7 @@ interface GridCellsProps {
   onKeyboardNav: (
     r: number,
     c: number,
-    direction: "down" | "right" | "left" | "up"
+    direction: "down" | "right" | "left" | "up" | "down-right" | "down-left"
   ) => void;
 
   measureAndExpand: (r: number, c: number, text: string) => void;

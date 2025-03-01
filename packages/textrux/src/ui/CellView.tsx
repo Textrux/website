@@ -28,7 +28,7 @@ interface CellViewProps {
   onKeyboardNav: (
     r: number,
     c: number,
-    direction: "up" | "down" | "left" | "right"
+    direction: "up" | "down" | "left" | "right" | "down-right" | "down-left"
   ) => void;
 
   measureAndExpand: (r: number, c: number, text: string) => void;
@@ -141,7 +141,7 @@ export function CellView(props: CellViewProps) {
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter") {
         if (e.altKey) {
-          // Insert a newline
+          // Insert a newline without committing
           e.preventDefault();
           const target = e.currentTarget;
           const start = target.selectionStart ?? 0;
@@ -154,23 +154,20 @@ export function CellView(props: CellViewProps) {
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = start + 1;
           });
-        } else {
-          // normal Enter => commit
-          e.preventDefault();
-          commitAndClose(sharedEditingValue);
-          onKeyboardNav(row, col, "down");
+          return; // Exit early to avoid committing
         }
+
+        // Commit and move selection
+        e.preventDefault();
+        commitAndClose(sharedEditingValue);
+        onKeyboardNav(row, col, e.shiftKey ? "down-right" : "down");
       } else if (e.key === "Escape") {
         e.preventDefault();
         commitAndClose(value, { escape: true });
       } else if (e.key === "Tab") {
         e.preventDefault();
         commitAndClose(sharedEditingValue);
-        if (e.shiftKey) {
-          onKeyboardNav(row, col, "left");
-        } else {
-          onKeyboardNav(row, col, "right");
-        }
+        onKeyboardNav(row, col, e.shiftKey ? "left" : "right");
       } else if (
         e.key === "ArrowDown" ||
         e.key === "ArrowUp" ||
@@ -179,10 +176,17 @@ export function CellView(props: CellViewProps) {
       ) {
         e.preventDefault();
         commitAndClose(sharedEditingValue);
-        if (e.key === "ArrowDown") onKeyboardNav(row, col, "down");
-        if (e.key === "ArrowUp") onKeyboardNav(row, col, "up");
-        if (e.key === "ArrowLeft") onKeyboardNav(row, col, "left");
-        if (e.key === "ArrowRight") onKeyboardNav(row, col, "right");
+        onKeyboardNav(
+          row,
+          col,
+          e.key === "ArrowDown"
+            ? "down"
+            : e.key === "ArrowUp"
+            ? "up"
+            : e.key === "ArrowLeft"
+            ? "left"
+            : "right"
+        );
       }
     },
     [

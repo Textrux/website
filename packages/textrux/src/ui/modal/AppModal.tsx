@@ -123,7 +123,7 @@ export const AppModal: React.FC<CombinedProps> = ({
     >
       <div
         id="popupBox"
-        className="bg-white text-black max-w-[600px] w-[90%] max-h-[80%] overflow-y-auto rounded-md relative p-4"
+        className="bg-white text-black max-w-[600px] w-[90%] h-[60%] overflow-y-auto rounded-md relative p-4"
       >
         {/* Header with close button */}
         <div id="popupHeader" className="flex justify-end items-center">
