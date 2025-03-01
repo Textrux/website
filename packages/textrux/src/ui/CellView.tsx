@@ -204,8 +204,10 @@ export function CellView(props: CellViewProps) {
     ]
   );
 
-  const borderColor = isActive ? "border-blue-500" : "border-gray-200";
-  const bgColor = inSelection ? "bg-yellow-100" : "bg-white";
+  const borderColor = isActive ? "!border-blue-500" : "border-gray-200";
+  const bgColor = inSelection
+    ? "!border-2 !border-dashed !border-slate-600 "
+    : "bg-white";
 
   const styleFormat: React.CSSProperties = {
     backgroundColor: format.backgroundColor,
@@ -216,8 +218,8 @@ export function CellView(props: CellViewProps) {
   const combinedClasses = [
     "absolute",
     "box-border",
-    bgColor,
     borderColor,
+    bgColor,
     "overflow-hidden",
     "text-ellipsis",
     isActive ? "outline-2 outline-blue-500" : "",

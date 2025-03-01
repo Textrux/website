@@ -722,6 +722,9 @@ export function GridView({
       // shift active cell
       const newActiveR = activeRow + dR;
       const newActiveC = activeCol + dC;
+
+      anchorRef.current = { row: newActiveR, col: newActiveC };
+
       setActiveRow(newActiveR);
       setActiveCol(newActiveC);
       setSelectionRange({

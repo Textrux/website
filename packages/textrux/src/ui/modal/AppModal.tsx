@@ -5,7 +5,8 @@ const examples = [
   {
     name: "Block Basics",
     file: "/examples/BlockBasics.csv", // changed
-    description: "A simple intro into the basic text structure called the block.",
+    description:
+      "A simple intro into the basic text structure called the block.",
   },
   {
     name: "JSON",
@@ -67,7 +68,11 @@ export interface AppModalExtraProps {
   clearGrid: () => void;
   saveGridToFile: () => void;
   loadGridFromFile: (file: File) => void;
-  loadExample: (ex: { name: string; file: string; description: string }) => void;
+  loadExample: (ex: {
+    name: string;
+    file: string;
+    description: string;
+  }) => void;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -283,8 +288,8 @@ export const AppModal: React.FC<CombinedProps> = ({
                 canvas (white for filled cells, lightblue for empty).
               </p>
               <p>
-                Blocks can overlap. Overlapping frames => linked (orange).
-                Overlapping frame + border => locked (red). These form clusters.
+                Blocks can overlap. Overlapping frames → linked (orange).
+                Overlapping frame + border → locked (red). These form clusters.
               </p>
               <p>
                 <strong>Pinch-zoom</strong> on mobile or <code>Ctrl+wheel</code>{" "}
@@ -322,8 +327,8 @@ export const AppModal: React.FC<CombinedProps> = ({
             <div>
               <h3>About</h3>
               <p>
-                Textrux (Text Structures) is a content-driven-formatting grid for
-                discovering structure from text placement.
+                Textrux (Text Structures) is a content-driven-formatting grid
+                for discovering structure from text placement.
               </p>
               <p>
                 See{" "}
