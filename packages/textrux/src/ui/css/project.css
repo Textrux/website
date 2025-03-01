@@ -49,12 +49,12 @@
   background-color: #eef !important;
 }
 
-.locked-cell {
-  background-color: red !important;
+.linked-cell {
+  background-color: orange !important;
   color: white !important;
 }
 
-.linked-cell {
-  background-color: orange !important;
+.locked-cell {
+  background-color: red !important;
   color: white !important;
 }

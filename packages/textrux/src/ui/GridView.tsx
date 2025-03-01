@@ -1,5 +1,3 @@
-/* packages/textrux/src/ui/GridView.tsx */
-
 import "./css/project.css";
 
 import React, {
@@ -299,66 +297,64 @@ export function GridView({
    * measureAndExpand => measure wrapped text by placing it in
    * an offscreen <textarea> or <div> with the same styles.
    */
-  const measureAndExpand = useCallback(
-    (r: number, c: number, text: string) => {
-      // OFFSCREEN MEASURE:
+  // In GridView.tsx
+  function measureAndExpand(r: number, c: number, text: string) {
+    // 1) Create a hidden <textarea> that matches EXACTLY the real editing <textarea> styles.
+    const hidden = document.createElement("textarea");
+    hidden.style.position = "absolute";
+    hidden.style.visibility = "hidden";
+    hidden.style.zIndex = "-9999";
 
-      // 1) Create a hidden <textarea> (or <div>) with the same wrapping rules
-      const hidden = document.createElement("textarea");
-      hidden.style.position = "absolute";
-      hidden.style.visibility = "hidden";
-      hidden.style.zIndex = "-9999";
-      // mimic the same wrapping style as in CellView’s textarea:
-      hidden.style.whiteSpace = "pre-wrap";
-      hidden.style.overflow = "hidden";
-      hidden.style.wordBreak = "break-word";
-      hidden.style.fontSize = fontSize + "px";
-      hidden.style.lineHeight = "1.2";
-      // set an initial width to the current col width
-      const currentWidth = colWidths[c - 1] || baseColWidth * zoom;
-      hidden.style.width = currentWidth + "px";
+    // Match real <textarea> styles used in CellView:
+    hidden.style.whiteSpace = "pre-wrap";
+    hidden.style.wordBreak = "break-word";
+    hidden.style.overflowY = "scroll"; // <== If your real <textarea> has scroll
+    hidden.style.lineHeight = "1.2"; // match what you do in CSS
+    hidden.style.fontSize = fontSize + "px";
+    hidden.style.padding = "4px"; // match CellView’s padding, e.g. "p-1"
+    hidden.style.boxSizing = "border-box";
 
-      hidden.value = text;
-      document.body.appendChild(hidden);
+    // Give it the same initial width as the current column
+    const currentWidth = colWidths[c - 1] ?? baseColWidth * zoom;
+    hidden.style.width = currentWidth + "px";
 
-      // 2) Read .scrollWidth / .scrollHeight
-      const neededWidth = hidden.scrollWidth + 2; // +2 for a little padding
-      const neededHeight = hidden.scrollHeight + 2;
+    hidden.value = text;
+    document.body.appendChild(hidden);
 
-      // remove from DOM
-      document.body.removeChild(hidden);
+    // 2) Read scrollWidth/scrollHeight
+    const neededWidth = hidden.scrollWidth;
+    const neededHeight = hidden.scrollHeight;
 
-      // 3) Clamp to some max sizes
-      const maxColW = 4 * baseColWidth * zoom; // or 6x, your call
-      const maxRowH = 6 * baseRowHeight * zoom;
+    document.body.removeChild(hidden);
 
-      const finalWidth = Math.min(neededWidth, maxColW);
-      const finalHeight = Math.min(neededHeight, maxRowH);
+    // 3) Add some small padding if desired
+    const finalWidth = Math.min(neededWidth + 2, 6 * baseColWidth * zoom);
+    const finalHeight = Math.min(neededHeight + 2, 6 * baseRowHeight * zoom);
 
-      // 4) Expand rowHeights / colWidths if the needed is bigger
-      setColWidths((old) => {
+    // 4) Only update row/col sizes if the difference is more than a couple pixels
+    setColWidths((old) => {
+      if (!old[c - 1]) return old;
+      const current = old[c - 1];
+      // If finalWidth is at least 3 px bigger, update
+      if (finalWidth - current >= 3) {
         const copy = [...old];
-        if (c >= 1 && c <= copy.length && finalWidth > copy[c - 1]) {
-          copy[c - 1] = finalWidth;
-        }
+        copy[c - 1] = finalWidth;
         return copy;
-      });
-      setRowHeights((old) => {
+      }
+      return old;
+    });
+
+    setRowHeights((old) => {
+      if (!old[r - 1]) return old;
+      const current = old[r - 1];
+      if (finalHeight - current >= 3) {
         const copy = [...old];
-        if (r >= 1 && r <= copy.length && finalHeight > copy[r - 1]) {
-          copy[r - 1] = finalHeight;
-        }
+        copy[r - 1] = finalHeight;
         return copy;
-      });
-    },
-    [
-      baseColWidth,
-      baseRowHeight,
-      zoom,
-      fontSize,
-      colWidths, // used to get current column width
-    ]
-  );
+      }
+      return old;
+    });
+  }
 
   function handleKeyboardNav(
     r: number,
@@ -1101,132 +1097,94 @@ export function GridView({
   }
 
   function clearGrid() {
-    if (window.confirm("Are you sure you want to clear the entire grid?")) {
-      for (let r = 1; r <= grid.rows; r++) {
-        for (let c = 1; c <= grid.cols; c++) {
-          grid.setCellRaw(r, c, "");
-        }
-      }
-      forceRefresh();
-    }
-  }
+    const filledCells = grid.getFilledCells(); // Get only the filled cells
 
+    for (const { row, col } of filledCells) {
+      grid.setCellRaw(row, col, ""); // Clear only filled cells
+    }
+
+    forceRefresh();
+  }
   function saveGridToFile() {
-    let maxRowUsed = 0;
-    let maxColUsed = 0;
-    for (let fill of grid.getFilledCells()) {
-      if (fill.row > maxRowUsed) maxRowUsed = fill.row;
-      if (fill.col > maxColUsed) maxColUsed = fill.col;
-    }
-    const arr: string[][] = [];
-    for (let r = 0; r < maxRowUsed; r++) {
-      arr[r] = new Array(maxColUsed).fill("");
-    }
-    for (let fill of grid.getFilledCells()) {
-      arr[fill.row - 1][fill.col - 1] = fill.value;
-    }
-    const text = currentDelimiter === "tab" ? toTSV(arr) : toCSV(arr);
+    const filledCells = grid.getFilledCells();
+    if (filledCells.length === 0) return;
 
+    let maxRowUsed = 0,
+      maxColUsed = 0;
+    for (const { row, col } of filledCells) {
+      maxRowUsed = Math.max(maxRowUsed, row);
+      maxColUsed = Math.max(maxColUsed, col);
+    }
+
+    const arr = Array.from({ length: maxRowUsed }, () =>
+      Array(maxColUsed).fill("")
+    );
+    for (const { row, col, value } of filledCells) {
+      arr[row - 1][col - 1] = value;
+    }
+
+    const text = currentDelimiter === "tab" ? toTSV(arr) : toCSV(arr);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = currentDelimiter === "tab" ? "myGrid.tsv" : "myGrid.csv";
-    link.href = url;
+    const link = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: currentDelimiter === "tab" ? "myGrid.tsv" : "myGrid.csv",
+    });
     link.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(link.href);
   }
 
-  function loadGridFromFile(file: File) {
+  function loadGridFromFile(file) {
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target?.result;
-      if (typeof content !== "string") return;
+    reader.onload = ({ target }) => {
+      if (!target?.result) return;
+      const content = target.result;
 
-      // Decide CSV vs TSV by extension or presence of tabs
-      const isTab = file.name.endsWith(".tsv") || content.indexOf("\t") >= 0;
+      const isTab = file.name.endsWith(".tsv") || content.includes("\t");
       const arr = isTab ? fromTSV(content) : fromCSV(content);
 
-      // Determine how many rows/cols we actually need
       const neededRows = arr.length;
-      let neededCols = 0;
-      for (const rowArr of arr) {
-        if (rowArr.length > neededCols) {
-          neededCols = rowArr.length;
-        }
-      }
+      const neededCols = Math.max(...arr.map((row) => row.length), 0);
 
-      // Resize the grid if needed
-      if (neededRows > grid.rows) {
-        grid.resizeRows(neededRows);
-      }
-      if (neededCols > grid.cols) {
-        grid.resizeCols(neededCols);
-      }
+      grid.resizeRows(Math.max(grid.rows, neededRows));
+      grid.resizeCols(Math.max(grid.cols, neededCols));
 
-      // Clear the grid in one shot by wiping its sparse maps
-      // (faster than setting "" for every cell)
-      (grid as any).contentsMap = {};
-      (grid as any).formulas = {};
-      // If you'd like to clear custom formatting too:
-      // (grid as any).formatsMap = {};
+      Object.assign(grid, { contentsMap: {}, formulas: {} });
 
-      // Fill only the cells that are non-empty
-      for (let r = 0; r < arr.length; r++) {
+      for (let r = 0; r < neededRows; r++) {
         for (let c = 0; c < arr[r].length; c++) {
-          const val = arr[r][c];
-          if (val.trim() !== "") {
-            grid.setCellRaw(r + 1, c + 1, val);
-          }
+          const val = arr[r][c].trim();
+          if (val) grid.setCellRaw(r + 1, c + 1, val);
         }
       }
-
       forceRefresh();
     };
     reader.readAsText(file);
   }
 
-  function loadExample(ex: {
-    name: string;
-    file: string;
-    description: string;
-  }) {
+  function loadExample(ex) {
     fetch(ex.file)
       .then((res) => res.text())
       .then((content) => {
-        const delim = content.indexOf("\t") >= 0 ? "\t" : ",";
+        const delim = content.includes("\t") ? "\t" : ",";
         const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
 
-        let neededRows = arr.length;
-        let neededCols = 0;
-        for (let rowArr of arr) {
-          if (rowArr.length > neededCols) neededCols = rowArr.length;
-        }
-        if (neededRows > grid.rows) {
-          grid.resizeRows(neededRows);
-        }
-        if (neededCols > grid.cols) {
-          grid.resizeCols(neededCols);
-        }
-        // Clear
-        for (let r = 1; r <= grid.rows; r++) {
-          for (let c = 1; c <= grid.cols; c++) {
-            grid.setCellRaw(r, c, "");
-          }
-        }
-        // Fill
-        for (let r = 0; r < arr.length; r++) {
+        const neededRows = arr.length;
+        const neededCols = Math.max(...arr.map((row) => row.length), 0);
+
+        grid.resizeRows(Math.max(grid.rows, neededRows));
+        grid.resizeCols(Math.max(grid.cols, neededCols));
+
+        clearGrid();
+
+        for (let r = 0; r < neededRows; r++) {
           for (let c = 0; c < arr[r].length; c++) {
-            const val = arr[r][c];
-            if (val.trim()) {
-              grid.setCellRaw(r + 1, c + 1, val);
-            }
+            const val = arr[r][c].trim();
+            if (val) grid.setCellRaw(r + 1, c + 1, val);
           }
         }
         forceRefresh();
       })
-      .catch((err) => {
-        console.error("Failed to load example", err);
-      });
+      .catch((err) => console.error("Failed to load example", err));
   }
 
   return (
