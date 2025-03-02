@@ -206,7 +206,7 @@ export function CellView(props: CellViewProps) {
 
   const borderColor = isActive ? "!border-blue-500" : "border-gray-200";
   const bgColor = inSelection
-    ? "!border-2 !border-dashed !border-slate-600 "
+    ? "!border-1 !border-dashed !border-slate-600 "
     : "bg-white";
 
   const styleFormat: React.CSSProperties = {
