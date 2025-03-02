@@ -33,7 +33,7 @@ const examples = [
   {
     name: "LISP",
     file: "/examples/LISP.csv", // changed
-    description: "Define and call a simple LISP-style function.",
+    description: "Define and call a simple LISP-style function..",
   },
   {
     name: "LISP Recursive",
