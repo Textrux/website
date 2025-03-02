@@ -1070,85 +1070,107 @@ export function GridView({
     return row >= startR && row <= endR && col >= startC && col <= endC;
   }
 
-  const pasteSelection = useCallback(() => {
-    if (!clipboardData) return;
-    const { startRow, endRow, startCol, endCol } = selectionRange;
-    const selRows = endRow - startRow + 1;
-    const selCols = endCol - startCol + 1;
+  const pasteSelection = useCallback(async () => {
+    try {
+      // Read raw text from the system clipboard:
+      const textFromClipboard = await navigator.clipboard.readText();
 
-    // If single selected cell, paste entire block
-    if (selRows === 1 && selCols === 1) {
-      for (let r = 0; r < clipboardData.length; r++) {
-        for (let c = 0; c < clipboardData[r].length; c++) {
-          const rr = startRow + r;
-          const cc = startCol + c;
-          if (rr > grid.rows) grid.resizeRows(rr);
-          if (cc > grid.cols) grid.resizeCols(cc);
-          grid.setCellRaw(rr, cc, clipboardData[r][c]);
-        }
+      // If we got text, decide whether it’s tab-delimited or comma-delimited:
+      if (!textFromClipboard) {
+        return; // If clipboard is empty, do nothing
       }
-      if (isCutMode && cutCells) {
-        for (const cell of cutCells) {
-          if (
-            !isInRegion(cell.row, cell.col, startRow, endRow, startCol, endCol)
-          ) {
-            grid.setCellRaw(cell.row, cell.col, "");
+
+      const dataToPaste = textFromClipboard.includes("\t")
+        ? fromTSV(textFromClipboard)
+        : fromCSV(textFromClipboard);
+
+      // If still no data, do nothing.
+      if (!dataToPaste) {
+        return;
+      }
+
+      // The rest of your original paste logic — e.g. filling the selected cells:
+      const { startRow, endRow, startCol, endCol } = selectionRange;
+      const selRows = endRow - startRow + 1;
+      const selCols = endCol - startCol + 1;
+
+      // If single selected cell, paste entire block
+      if (selRows === 1 && selCols === 1) {
+        for (let r = 0; r < dataToPaste.length; r++) {
+          for (let c = 0; c < dataToPaste[r].length; c++) {
+            const rr = startRow + r;
+            const cc = startCol + c;
+            if (rr > grid.rows) grid.resizeRows(rr);
+            if (cc > grid.cols) grid.resizeCols(cc);
+            grid.setCellRaw(rr, cc, dataToPaste[r][c]);
           }
         }
-        setCutCells(null);
-        setIsCutMode(false);
-      }
-    } else {
-      // else fill the selection region
-      const dataRows = clipboardData.length;
-      const dataCols = Math.max(...clipboardData.map((a) => a.length));
-      // If 1x1 data => fill entire selection
-      if (dataRows === 1 && dataCols === 1) {
-        const val = clipboardData[0][0];
-        for (let r = startRow; r <= endRow; r++) {
-          for (let c = startCol; c <= endCol; c++) {
-            grid.setCellRaw(r, c, val);
-          }
-        }
-        if (isCutMode && cutRange) {
-          for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
-            for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
-              grid.setCellRaw(r, c, "");
+        if (isCutMode && cutCells) {
+          for (const cell of cutCells) {
+            if (
+              !isInRegion(
+                cell.row,
+                cell.col,
+                startRow,
+                endRow,
+                startCol,
+                endCol
+              )
+            ) {
+              grid.setCellRaw(cell.row, cell.col, "");
             }
           }
-          setCutRange(null);
+          setCutCells(null);
           setIsCutMode(false);
         }
       } else {
-        // partial fill
-        for (let r = 0; r < Math.min(dataRows, selRows); r++) {
-          for (let c = 0; c < Math.min(dataCols, selCols); c++) {
-            const rr = startRow + r;
-            const cc = startCol + c;
-            grid.setCellRaw(rr, cc, clipboardData[r][c]);
-          }
-        }
-        if (isCutMode && cutRange) {
-          for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
-            for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
-              grid.setCellRaw(r, c, "");
+        // else fill the selection region
+        const dataRows = dataToPaste.length;
+        const dataCols = Math.max(...dataToPaste.map((a) => a.length));
+
+        // If 1x1 data => fill entire selection
+        if (dataRows === 1 && dataCols === 1) {
+          const val = dataToPaste[0][0];
+          for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol; c <= endCol; c++) {
+              grid.setCellRaw(r, c, val);
             }
           }
-          setCutRange(null);
-          setIsCutMode(false);
+          if (isCutMode && cutRange) {
+            for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
+              for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
+                grid.setCellRaw(r, c, "");
+              }
+            }
+            setCutRange(null);
+            setIsCutMode(false);
+          }
+        } else {
+          // Partial fill
+          for (let r = 0; r < Math.min(dataRows, selRows); r++) {
+            for (let c = 0; c < Math.min(dataCols, selCols); c++) {
+              const rr = startRow + r;
+              const cc = startCol + c;
+              grid.setCellRaw(rr, cc, dataToPaste[r][c]);
+            }
+          }
+          if (isCutMode && cutRange) {
+            for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
+              for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
+                grid.setCellRaw(r, c, "");
+              }
+            }
+            setCutRange(null);
+            setIsCutMode(false);
+          }
         }
       }
+
+      forceRefresh();
+    } catch (err) {
+      console.error("Failed to read from system clipboard:", err);
     }
-    forceRefresh();
-  }, [
-    clipboardData,
-    selectionRange,
-    grid,
-    isCutMode,
-    cutCells,
-    cutRange,
-    forceRefresh,
-  ]);
+  }, [selectionRange, grid, isCutMode, cutCells, cutRange, forceRefresh]);
 
   // Main keydown
   const handleContainerKeyDown = useCallback(
@@ -1235,7 +1257,55 @@ export function GridView({
         cutSelection();
       } else if ((e.key === "v" || e.key === "V") && e.ctrlKey) {
         e.preventDefault();
-        pasteSelection();
+        (async () => {
+          await pasteSelection();
+        })();
+      } else if (e.key === "a" || (e.key === "A" && e.ctrlKey)) {
+        e.preventDefault();
+
+        // Check if the active cell is inside a block’s canvas
+        const block = blockListRef.current.find((b) =>
+          isCellInBlockCanvas(b, activeRow, activeCol)
+        );
+
+        if (block) {
+          // Select the entire block's canvas
+          setSelectionRange({
+            startRow: block.topRow,
+            endRow: block.bottomRow,
+            startCol: block.leftCol,
+            endCol: block.rightCol,
+          });
+
+          setActiveRow(block.topRow);
+          setActiveCol(block.leftCol);
+        } else {
+          // Select the entire used range of the grid
+          const filledCells = grid.getFilledCells();
+          if (filledCells.length === 0) return;
+
+          let minRow = Infinity,
+            maxRow = -Infinity,
+            minCol = Infinity,
+            maxCol = -Infinity;
+
+          filledCells.forEach(({ row, col }) => {
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+          });
+
+          setSelectionRange({
+            startRow: 1,
+            endRow: maxRow,
+            startCol: 1,
+            endCol: maxCol,
+          });
+
+          setActiveRow(minRow);
+          setActiveCol(minCol);
+        }
       }
       // Toggle structural formatting
       else if (e.key === "~" && e.ctrlKey && e.shiftKey) {
