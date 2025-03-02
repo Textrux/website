@@ -1369,8 +1369,13 @@ export function GridView({
       if (!target?.result) return;
       const content = target.result;
 
-      const isTab = file.name.endsWith(".tsv") || content.includes("\t");
-      const arr = isTab ? fromTSV(content) : fromCSV(content);
+      const isTab =
+        file.name.endsWith(".tsv") ||
+        (typeof content === "string" && content.includes("\t"));
+
+      const arr = isTab
+        ? fromTSV(content as string)
+        : fromCSV(content as string);
 
       const neededRows = arr.length;
       const neededCols = Math.max(...arr.map((row) => row.length), 0);
