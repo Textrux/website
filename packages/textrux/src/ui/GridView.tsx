@@ -1355,9 +1355,16 @@ export function GridView({
 
     const text = currentDelimiter === "tab" ? toTSV(arr) : toCSV(arr);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+
+    // Generate the timestamped filename
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[-T:]/g, "").split(".")[0]; // Format YYYYMMDD_HHMMSS
+    const fileExtension = currentDelimiter === "tab" ? "tsv" : "csv";
+    const fileName = `textrux_${timestamp}.${fileExtension}`;
+
     const link = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(blob),
-      download: currentDelimiter === "tab" ? "myGrid.tsv" : "myGrid.csv",
+      download: fileName,
     });
     link.click();
     URL.revokeObjectURL(link.href);
