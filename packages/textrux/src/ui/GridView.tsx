@@ -54,6 +54,11 @@ export interface GridViewProps {
   autoLoadLocalStorage?: boolean;
 }
 
+// LocalStorage keys
+const LS_TOP_LEFT_CELL = "savedTopLeftCell";
+const LS_GRID_ZOOM_LEVEL = "savedGridZoomLevel";
+const LS_SELECTED_CELL = "savedSelectedCell";
+
 /**
  * A helper to check if (r, c) is "inside" a block's canvas
  * — i.e. within bounding box but not in the frame/border.
@@ -69,6 +74,30 @@ function isCellInBlockCanvas(b: Block, row: number, col: number): boolean {
   const isFrame = b.framePoints.some((pt) => pt.row === row && pt.col === col);
 
   return !isBorder && !isFrame;
+}
+
+/**
+ * Scroll the container so that (topRow, leftCol) becomes the top-left in view.
+ */
+function scrollToCell(
+  topRow: number,
+  leftCol: number,
+  rowHeights: number[],
+  colWidths: number[],
+  container: HTMLDivElement | null
+) {
+  if (!container) return;
+
+  let scrollTop = 0;
+  for (let r = 0; r < topRow - 1; r++) {
+    scrollTop += rowHeights[r] || 0;
+  }
+  let scrollLeft = 0;
+  for (let c = 0; c < leftCol - 1; c++) {
+    scrollLeft += colWidths[c] || 0;
+  }
+  container.scrollTop = scrollTop;
+  container.scrollLeft = scrollLeft;
 }
 
 /**
@@ -116,7 +145,19 @@ export function GridView({
   baseFontSize = 14,
   autoLoadLocalStorage = false,
 }: GridViewProps) {
-  const [zoom, setZoom] = useState(1.0);
+  //
+  // 1) Load the saved grid zoom (default = 1.0) from localStorage
+  //
+  const storedZoomRaw = localStorage.getItem(LS_GRID_ZOOM_LEVEL);
+  const initialZoom = storedZoomRaw ? parseFloat(storedZoomRaw) : 1.0;
+  const [zoom, setZoom] = useState<number>(initialZoom);
+
+  // Whenever zoom changes, save to localStorage
+  useEffect(() => {
+    localStorage.setItem(LS_GRID_ZOOM_LEVEL, String(zoom));
+  }, [zoom]);
+
+  // Derive the actual font size
   const fontSize = baseFontSize * zoom;
 
   const [rowHeights, setRowHeights] = useState<number[]>(() =>
@@ -240,6 +281,90 @@ export function GridView({
     reparse();
   }, [version, reparse]);
 
+  //
+  // Restore topLeftCell on mount (after rowHeights/colWidths are set):
+  //
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_TOP_LEFT_CELL);
+    if (saved) {
+      const m = saved.match(/^R(\d+)C(\d+)$/);
+      if (m) {
+        const r = parseInt(m[1], 10);
+        const c = parseInt(m[2], 10);
+        scrollToCell(r, c, rowHeights, colWidths, gridContainerRef.current);
+      }
+    }
+  }, [rowHeights, colWidths]);
+
+  //
+  // Whenever the user scrolls, update localStorage with new topLeftCell
+  //
+  useEffect(() => {
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    function handleScroll() {
+      const { scrollTop, scrollLeft } = container;
+
+      // Figure out which row is at (or near) the top:
+      let cumY = 0;
+      let topRow = 1;
+      for (let i = 0; i < rowHeights.length; i++) {
+        if (scrollTop < cumY + rowHeights[i]) {
+          topRow = i + 1;
+          break;
+        }
+        cumY += rowHeights[i];
+      }
+      if (topRow > 1) {
+        topRow++;
+      }
+
+      // Figure out which col is at (or near) the left:
+      let cumX = 0;
+      let leftCol = 1;
+      for (let j = 0; j < colWidths.length; j++) {
+        if (scrollLeft < cumX + colWidths[j]) {
+          leftCol = j + 1;
+          break;
+        }
+        cumX += colWidths[j];
+      }
+
+      if (leftCol > 1) {
+        leftCol++;
+      }
+
+      const topLeft = `R${topRow}C${leftCol}`;
+      localStorage.setItem(LS_TOP_LEFT_CELL, topLeft);
+    }
+
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [rowHeights, colWidths]);
+
+  // Restore the selected cell
+  useEffect(() => {
+    const savedCell = localStorage.getItem(LS_SELECTED_CELL);
+    if (savedCell) {
+      try {
+        const { row, col } = JSON.parse(savedCell);
+        setActiveRow(row);
+        setActiveCol(col);
+        setSelectionRange({
+          startRow: row,
+          endRow: row,
+          startCol: col,
+          endCol: col,
+        });
+      } catch (error) {
+        console.error("Failed to load saved selected cell:", error);
+      }
+    }
+  }, []);
+
   /** Drag-select logic for desktop (left click + drag) */
   const dragSelectRef = useRef({
     active: false,
@@ -306,6 +431,9 @@ export function GridView({
       startCol: c,
       endCol: c,
     });
+
+    // Save to localStorage
+    localStorage.setItem(LS_SELECTED_CELL, JSON.stringify({ row: r, col: c }));
 
     // Ensure the cell is properly selected but NOT put into editing mode
     setEditingCell(null);
