@@ -112,7 +112,7 @@ export function GridCells({
 
       const val = grid.getCellValue(r, c);
       const raw = grid.getCellRaw(r, c);
-      const formula = raw.startsWith("=") ? raw : null;
+      const formula = raw.startsWith("=") && raw.length > 1 ? raw : null;
       const format = grid.getCellFormat(r, c);
 
       const isActive = r === activeRow && c === activeCol;

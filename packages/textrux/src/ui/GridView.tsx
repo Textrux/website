@@ -1316,6 +1316,21 @@ export function GridView({
         return;
       }
 
+      // Ctrl+Z => Undo
+      if ((e.key === "z" || e.key === "Z") && e.ctrlKey) {
+        e.preventDefault();
+        grid.undo();
+        forceRefresh();
+        return;
+      }
+      // Ctrl+Y => Redo
+      if ((e.key === "y" || e.key === "Y") && e.ctrlKey) {
+        e.preventDefault();
+        grid.redo();
+        forceRefresh();
+        return;
+      }
+
       if (e.key === "Tab") {
         e.preventDefault();
 
@@ -1388,7 +1403,7 @@ export function GridView({
         (async () => {
           await pasteSelection();
         })();
-      } else if (e.key === "a" || (e.key === "A" && e.ctrlKey)) {
+      } else if ((e.key === "a" || e.key === "A") && e.ctrlKey) {
         e.preventDefault();
 
         // Check if the active cell is inside a block’s canvas
@@ -1440,6 +1455,9 @@ export function GridView({
         e.preventDefault();
         setFormattingDisabled((prev) => !prev);
         forceRefresh();
+      } else if ((e.key === "s" || e.key === "S") && e.ctrlKey) {
+        e.preventDefault();
+        saveGridToFile();
       }
       // Another fallback for normal typed char
       else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {

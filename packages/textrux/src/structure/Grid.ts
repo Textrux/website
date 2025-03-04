@@ -1,4 +1,5 @@
 import { CellFormat } from "./CellFormat";
+import { Parser } from "expr-eval";
 
 export class Grid {
   /** The nominal row/col count for the “size” of the sheet. */
@@ -6,25 +7,25 @@ export class Grid {
   public cols: number;
 
   /**
-   * Sparse map of contents. Key = "r,c".
-   * Values = the raw text (could be formula like "=R2C3+R4C5" or plain text).
+   * Sparse map of contents. Key = "R#,C#".
+   * Values = raw text (could be a formula like "=R2C3+R4C5" or plain text).
    */
   private contentsMap: Record<string, string>;
 
   /**
-   * Sparse map of formatting. Key = "r,c".
+   * Sparse map of formatting. Key = "R#,C#".
    * Values = a CellFormat object only if that cell has custom formatting.
    */
   private formatsMap: Record<string, CellFormat>;
 
   /**
-   * If you want to store formulas separately for quick lookup:
+   * Stores formulas separately for quick lookup.
    */
   private formulas: Record<string, string>;
 
   /**
-   * History/future stacks for undo/redo. Each entry is a
-   * “snapshot” of contentsMap + formatsMap + formulas (for simplicity).
+   * History/future stacks for undo/redo.
+   * Each entry stores snapshots of contentsMap, formatsMap, and formulas.
    */
   private history: Array<{
     contentsMap: Record<string, string>;
@@ -40,58 +41,39 @@ export class Grid {
   constructor(rows = 1000, cols = 50) {
     this.rows = rows;
     this.cols = cols;
-
     this.contentsMap = {};
     this.formatsMap = {};
     this.formulas = {};
-
     this.history = [];
     this.future = [];
   }
 
-  /**
-   * Get the cell’s “raw” user-typed text, or "" if none.
-   */
+  /** Get the raw user-typed text of a cell or return an empty string if none exists. */
   getCellRaw(row: number, col: number): string {
     if (row < 1 || col < 1 || row > this.rows || col > this.cols) return "";
     const key = `R${row}C${col}`;
     return this.contentsMap[key] ?? "";
   }
 
-  /**
-   * Returns the “displayed” text. If there's a formula, we might evaluate it.
-   * For speed, we skip any big overhead. In a real app, you might cache it.
-   */
+  /** Get the displayed value of a cell, evaluating formulas if necessary. */
   getCellValue(row: number, col: number): string {
     const raw = this.getCellRaw(row, col);
-    // if it's a formula
-    if (raw.startsWith("=")) {
-      // optionally retrieve from this.formulas or we just evaluate on the fly:
-      return this.evaluateFormula(raw);
-    }
-    return raw;
+    return raw.startsWith("=") && raw.length > 1 ? this.evaluateFormula(raw) : raw;
   }
 
-  /**
-   * Set the raw text of a cell. If `rawText` is empty, remove from the map (sparse).
-   */
+  /** Set the raw text of a cell, updating maps accordingly. */
   setCellRaw(row: number, col: number, rawText: string): void {
-    if (row < 1 || col < 1 || row > this.rows || col > this.cols) {
-      return; // out of range
-    }
-    // Save old state to history for undo:
-    this.saveStateToHistory();
+    if (row < 1 || col < 1 || row > this.rows || col > this.cols) return;
+    this.saveStateToHistory(); // Save state for undo
 
     const key = `R${row}C${col}`;
-    rawText = rawText.trimEnd(); // optional: or keep trailing spaces
+    rawText = rawText.trimEnd();
 
     if (rawText === "") {
-      // remove
       delete this.contentsMap[key];
       delete this.formulas[key];
     } else {
       this.contentsMap[key] = rawText;
-      // If it starts with '=' => store in formulas
       if (rawText.startsWith("=")) {
         this.formulas[key] = rawText;
       } else {
@@ -99,54 +81,67 @@ export class Grid {
       }
     }
 
-    // Clear the future (no redo after new changes)
-    this.future = [];
+    this.future = []; // Clear redo stack
   }
 
   /**
-   * Evaluate a formula string, e.g. "=R9C4+R4C3". Very simplistic.
+   * Evaluate a formula string safely using expr-eval.
+   * Supports mathematical operations, string concatenation, booleans, and SUM() for ranges.
    */
   evaluateFormula(formula: string): string {
     try {
-      let expr = formula.slice(1); // remove '='
-      // Replace references R#C# with their “value” or 0.
-      expr = expr.replace(/R(\d+)C(\d+)/g, (_m, r, c) => {
-        const val = this.getCellValue(Number(r), Number(c));
-        return val.trim() === "" ? "0" : val;
+      if (!formula.startsWith("=")) return formula; // Not a formula, return raw text
+
+      let expr = formula.slice(1).trim(); // Remove '=' and trim spaces
+      const parser = new Parser();
+
+      // Replace boolean values TRUE/FALSE with 1/0
+      expr = expr.replace(/\bTRUE\b/gi, "1").replace(/\bFALSE\b/gi, "0");
+
+      // Replace cell references R#C# with actual values
+      expr = expr.replace(/R(\d+)C(\d+)/gi, (_m, r, c) => {
+        const val = this.getCellValue(Number(r), Number(c)).trim();
+        return val === "" ? "0" : JSON.stringify(val); // Ensure proper handling of strings
       });
-      const result = eval(expr);
-      return String(result);
+
+      // Handle SUM(R1C1:R3C1) or similar range-based functions
+      expr = expr.replace(/SUM\(\s*(R\d+C\d+:\s*R\d+C\d+)\s*\)/gi, (_m, range) => {
+        const [start, end] = range.split(":").map(cell => {
+          const match = cell.match(/R(\d+)C(\d+)/i);
+          return match ? { row: Number(match[1]), col: Number(match[2]) } : null;
+        });
+
+        if (!start || !end) return "0";
+
+        let sum = 0;
+        for (let r = start.row; r <= end.row; r++) {
+          sum += Number(this.getCellValue(r, start.col)) || 0;
+        }
+        return sum.toString();
+      });
+
+      // Replace '&' with '+' for string concatenation
+      expr = expr.replace(/&/g, "+");
+
+      // Evaluate the expression safely
+      return String(parser.evaluate(expr));
     } catch (err) {
       return "ERROR";
     }
   }
 
-  /**
-   * Get a (possibly) existing CellFormat object. If none, return a default.
-   */
+  /** Retrieve a cell's formatting, returning a default if none exists. */
   getCellFormat(row: number, col: number): CellFormat {
-    const key = `R${row}C${col}`;
-    if (!this.formatsMap[key]) {
-      return new CellFormat();
-    }
-    return this.formatsMap[key];
+    return this.formatsMap[`R${row}C${col}`] || new CellFormat();
   }
 
-  /**
-   * Merge the given format partial into the existing format object,
-   * or create a new one if none was set yet.
-   */
+  /** Merge a new format into an existing cell format or create one if missing. */
   setCellFormat(row: number, col: number, format: Partial<CellFormat>): void {
     const key = `R${row}C${col}`;
-    let existing = this.formatsMap[key];
-    if (!existing) {
-      existing = new CellFormat();
-    }
-    const merged = { ...existing, ...format };
-    this.formatsMap[key] = merged;
+    this.formatsMap[key] = { ...this.getCellFormat(row, col), ...format };
   }
 
-  /** For undo/redo, we do a shallow clone of all 3 main maps. */
+  /** Save the current state for undo functionality. */
   private saveStateToHistory() {
     this.history.push({
       contentsMap: { ...this.contentsMap },
@@ -155,20 +150,18 @@ export class Grid {
     });
   }
 
+  /** Undo the last action, restoring the previous state. */
   undo() {
     if (this.history.length === 0) return;
-    // push current to future
     this.future.push({
       contentsMap: { ...this.contentsMap },
       formatsMap: { ...this.formatsMap },
       formulas: { ...this.formulas },
     });
-    const prev = this.history.pop()!;
-    this.contentsMap = prev.contentsMap;
-    this.formatsMap = prev.formatsMap;
-    this.formulas = prev.formulas;
+    Object.assign(this, this.history.pop());
   }
 
+  /** Redo the last undone action, restoring the next state. */
   redo() {
     if (this.future.length === 0) return;
     this.history.push({
@@ -176,39 +169,27 @@ export class Grid {
       formatsMap: { ...this.formatsMap },
       formulas: { ...this.formulas },
     });
-    const next = this.future.pop()!;
-    this.contentsMap = next.contentsMap;
-    this.formatsMap = next.formatsMap;
-    this.formulas = next.formulas;
+    Object.assign(this, this.future.pop());
   }
 
-  /**
-   * Resize row logic. (Nominal only—no giant array to expand.)
-   */
+  /** Resize the number of rows while keeping existing data intact. */
   resizeRows(newRowCount: number) {
     if (newRowCount < 1) return;
     this.rows = newRowCount;
   }
 
+  /** Resize the number of columns while keeping existing data intact. */
   resizeCols(newColCount: number) {
     if (newColCount < 1) return;
     this.cols = newColCount;
   }
 
-  // In Grid.ts
+  /** Get all filled cells in the grid. */
   public getFilledCells(): Array<{ row: number; col: number; value: string }> {
-    const filled: Array<{ row: number; col: number; value: string }> = [];
-    for (const key of Object.keys(this.contentsMap)) {
-      // key looks like "R10C5"
+    return Object.entries(this.contentsMap).map(([key, value]) => {
       const match = key.match(/^R(\d+)C(\d+)$/);
-      if (!match) continue;
-
-      const row = parseInt(match[1], 10);
-      const col = parseInt(match[2], 10);
-      const value = this.contentsMap[key];
-
-      filled.push({ row, col, value });
-    }
-    return filled;
+      if (!match) return null;
+      return { row: parseInt(match[1], 10), col: parseInt(match[2], 10), value };
+    }).filter(Boolean) as Array<{ row: number; col: number; value: string }>;
   }
 }

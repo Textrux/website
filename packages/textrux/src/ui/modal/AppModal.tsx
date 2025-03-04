@@ -4,53 +4,59 @@ import { useEffect, useState } from "react";
 const examples = [
   {
     name: "Block Basics",
-    file: "/examples/BlockBasics.csv", // changed
+    file: "/examples/BlockBasics.csv",
     description:
       "A simple intro into the basic text structure called the block.",
   },
   {
     name: "JSON",
-    file: "/examples/Json.csv", // changed
+    file: "/examples/Json.csv",
     description: "A simple example of how JSON-style data can be represented.",
   },
   {
     name: "JSON Schema",
-    file: "/examples/JsonSchema.csv", // changed
+    file: "/examples/JsonSchema.csv",
     description: "Include the schema and rules for JSON-style data.",
   },
   {
     name: "JSON Schema with Data",
-    file: "/examples/JsonSchemaWithData.csv", // changed
+    file: "/examples/JsonSchemaWithData.csv",
     description:
       "A text structure with a JSON-style schema and multiple tuples of data",
   },
   {
     name: "JSON Schema with Data Transposed",
-    file: "/examples/JsonSchemaWithDataTransposed.csv", // changed
+    file: "/examples/JsonSchemaWithDataTransposed.csv",
     description:
       "A text structure with a JSON-style schema and multiple tuples of data oriented vertically.",
   },
   {
     name: "LISP",
-    file: "/examples/LISP.csv", // changed
+    file: "/examples/LISP.csv",
     description: "Define and call a simple LISP-style function..",
   },
   {
     name: "LISP Recursive",
-    file: "/examples/LISPRecursive.csv", // changed
+    file: "/examples/LISPRecursive.csv",
     description: "Define and call a recursive LISP-style function.",
   },
   {
     name: "State Machine Traffic Light",
-    file: "/examples/StateMachineTrafficLight.csv", // changed
+    file: "/examples/StateMachineTrafficLight.csv",
     description:
       "Defining a simple state machine for a traffic light with a pedestrian crossing.",
   },
   {
     name: "Recursive Grid Cells",
-    file: "/examples/RecursiveGridCells.csv", // changed
+    file: "/examples/RecursiveGridCells.csv",
     description:
       "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper. Then press Escape to return up.",
+  },
+  {
+    name: "SICP Lecture 1A",
+    file: "/examples/SICPLecture1A.csv",
+    description:
+      "How the LISP/Scheme functions from lecture 1A of the famous Structure and Interpretation of Computer Programs (SICP) lecture series from the 1980s could be defined and called in Textrux. https://www.youtube.com/watch?v=-J_xL4IGhJA",
   },
 ];
 
