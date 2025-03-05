@@ -79,6 +79,11 @@ export interface AppModalExtraProps {
     file: string;
     description: string;
   }) => void;
+
+  rowCount: number; // The grid's current row count
+  colCount: number; // The grid's current column count
+
+  onChangeDimensions: (newRowCount: number, newColCount: number) => void;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -92,7 +97,22 @@ export const AppModal: React.FC<CombinedProps> = ({
   saveGridToFile,
   loadGridFromFile,
   loadExample,
+  rowCount,
+  colCount,
+  onChangeDimensions,
 }) => {
+  // Keep a local copy of the row/col so we only commit changes on "Save"
+  const [localRowCount, setLocalRowCount] = useState(rowCount);
+  const [localColCount, setLocalColCount] = useState(colCount);
+
+  // If the modal re-opens, reset local fields to current grid counts:
+  useEffect(() => {
+    if (isOpen) {
+      setLocalRowCount(rowCount);
+      setLocalColCount(colCount);
+    }
+  }, [isOpen, rowCount, colCount]);
+
   const [activeTab, setActiveTab] = useState<
     "Settings" | "Examples" | "Instructions" | "About"
   >("Settings");
@@ -169,7 +189,7 @@ export const AppModal: React.FC<CombinedProps> = ({
           {activeTab === "Settings" && (
             <div>
               <label htmlFor="delimiterSelect" className="font-bold">
-                Copy as:
+                Copy and Save as:
               </label>
               <select
                 id="delimiterSelect"
@@ -183,8 +203,34 @@ export const AppModal: React.FC<CombinedProps> = ({
                 <option value=",">CSV</option>
               </select>
 
-              <br />
-              <br />
+              <div className="flex items-center mt-2 mb-4">
+                <label className="mr-2">Row Count:</label>
+                <input
+                  type="number"
+                  value={localRowCount}
+                  onChange={(e) => setLocalRowCount(e.target.valueAsNumber)}
+                  className="border px-2 py-1 mr-4 w-20"
+                />
+
+                <label className="mr-2">Column Count:</label>
+                <input
+                  type="number"
+                  value={localColCount}
+                  onChange={(e) => setLocalColCount(e.target.valueAsNumber)}
+                  className="border px-2 py-1 mr-4 w-20"
+                />
+
+                <button
+                  onClick={() => {
+                    // Pass back to the parent for final check/resize:
+                    onChangeDimensions(localRowCount, localColCount);
+                    onClose();
+                  }}
+                  className="px-3 py-1 border bg-gray-100"
+                >
+                  Save
+                </button>
+              </div>
 
               <button
                 id="clearGridButton"

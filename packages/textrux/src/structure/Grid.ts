@@ -2,9 +2,26 @@ import { CellFormat } from "./CellFormat";
 import { Parser } from "expr-eval";
 
 export class Grid {
+  public id: string;
+
+  public gridType: "base" | "embedded" | "elevated";
+
+  public grids: Grid[];
+
+  public structures: any;
+
+  public patterns: any;
+
+  public templates: any;
+
+  public representations: any;
+
   /** The nominal row/col count for the “size” of the sheet. */
   public rows: number;
   public cols: number;
+
+  // Add a simple flag to track whether we’re batching changes:
+  private inTransaction = false;
 
   /**
    * Sparse map of contents. Key = "R#,C#".
@@ -38,7 +55,8 @@ export class Grid {
     formulas: Record<string, string>;
   }>;
 
-  constructor(rows = 1000, cols = 50) {
+  constructor(rows = 1000, cols = 1000) {
+    this.id = crypto.randomUUID();
     this.rows = rows;
     this.cols = cols;
     this.contentsMap = {};
@@ -58,13 +76,30 @@ export class Grid {
   /** Get the displayed value of a cell, evaluating formulas if necessary. */
   getCellValue(row: number, col: number): string {
     const raw = this.getCellRaw(row, col);
-    return raw.startsWith("=") && raw.length > 1 ? this.evaluateFormula(raw) : raw;
+    return raw.startsWith("=") && raw.length > 1
+      ? this.evaluateFormula(raw)
+      : raw;
   }
 
-  /** Set the raw text of a cell, updating maps accordingly. */
-  setCellRaw(row: number, col: number, rawText: string): void {
+  /** Set the raw text of a cell, updating maps accordingly. */ /**
+   * Modified setCellRaw to skip saveStateToHistory()
+   * if we are inside a transaction.
+   */
+  public setCellRaw(
+    row: number,
+    col: number,
+    rawText: string,
+    skipUndo: boolean = false
+  ): void {
     if (row < 1 || col < 1 || row > this.rows || col > this.cols) return;
-    this.saveStateToHistory(); // Save state for undo
+
+    // Only record a separate undo state if:
+    //  - we're NOT in a transaction
+    //  - and we're NOT told to skip explicitly
+    if (!this.inTransaction && !skipUndo) {
+      this.saveStateToHistory();
+      this.future = [];
+    }
 
     const key = `R${row}C${col}`;
     rawText = rawText.trimEnd();
@@ -80,8 +115,6 @@ export class Grid {
         delete this.formulas[key];
       }
     }
-
-    this.future = []; // Clear redo stack
   }
 
   /**
@@ -105,20 +138,25 @@ export class Grid {
       });
 
       // Handle SUM(R1C1:R3C1) or similar range-based functions
-      expr = expr.replace(/SUM\(\s*(R\d+C\d+:\s*R\d+C\d+)\s*\)/gi, (_m, range) => {
-        const [start, end] = range.split(":").map(cell => {
-          const match = cell.match(/R(\d+)C(\d+)/i);
-          return match ? { row: Number(match[1]), col: Number(match[2]) } : null;
-        });
+      expr = expr.replace(
+        /SUM\(\s*(R\d+C\d+:\s*R\d+C\d+)\s*\)/gi,
+        (_m, range) => {
+          const [start, end] = range.split(":").map((cell) => {
+            const match = cell.match(/R(\d+)C(\d+)/i);
+            return match
+              ? { row: Number(match[1]), col: Number(match[2]) }
+              : null;
+          });
 
-        if (!start || !end) return "0";
+          if (!start || !end) return "0";
 
-        let sum = 0;
-        for (let r = start.row; r <= end.row; r++) {
-          sum += Number(this.getCellValue(r, start.col)) || 0;
+          let sum = 0;
+          for (let r = start.row; r <= end.row; r++) {
+            sum += Number(this.getCellValue(r, start.col)) || 0;
+          }
+          return sum.toString();
         }
-        return sum.toString();
-      });
+      );
 
       // Replace '&' with '+' for string concatenation
       expr = expr.replace(/&/g, "+");
@@ -186,10 +224,60 @@ export class Grid {
 
   /** Get all filled cells in the grid. */
   public getFilledCells(): Array<{ row: number; col: number; value: string }> {
-    return Object.entries(this.contentsMap).map(([key, value]) => {
-      const match = key.match(/^R(\d+)C(\d+)$/);
-      if (!match) return null;
-      return { row: parseInt(match[1], 10), col: parseInt(match[2], 10), value };
-    }).filter(Boolean) as Array<{ row: number; col: number; value: string }>;
+    return Object.entries(this.contentsMap)
+      .map(([key, value]) => {
+        const match = key.match(/^R(\d+)C(\d+)$/);
+        if (!match) return null;
+        return {
+          row: parseInt(match[1], 10),
+          col: parseInt(match[2], 10),
+          value,
+        };
+      })
+      .filter(Boolean) as Array<{ row: number; col: number; value: string }>;
+  }
+
+  /**
+   * Begin a “transaction” so that multiple cell changes
+   * become a single undo step.
+   */
+  public beginTransaction(): void {
+    // If we are not already in a transaction, record
+    // the current state so that UNDO will bring us back here:
+    if (!this.inTransaction) {
+      this.saveStateToHistory();
+      // Clearing future ensures we can redo from here
+      this.future = [];
+    }
+    this.inTransaction = true;
+  }
+
+  /**
+   * End the transaction, so future changes again
+   * store individual undo states unless we start
+   * another transaction.
+   */
+  public endTransaction(): void {
+    this.inTransaction = false;
+  }
+
+  /**
+   * Clear the entire grid (all cell contents, formats, and formulas),
+   * optionally skipping the undo/redo history.
+   */
+  public clearAllCells(skipUndo: boolean = false): void {
+    // If we are not already in a transaction and not explicitly asked
+    // to skip undo, record the current state so we can undo this clear.
+    if (!this.inTransaction && !skipUndo) {
+      this.saveStateToHistory();
+      this.future = [];
+    }
+
+    // Wipe out all cell contents, formulas, and formats:
+    this.contentsMap = {};
+    this.formulas = {};
+    this.formatsMap = {};
+
+    // (We do NOT reset .rows or .cols — this only removes data, not resize.)
   }
 }

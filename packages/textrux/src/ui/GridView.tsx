@@ -33,6 +33,7 @@ import {
   replaceMarkerInWrapper,
   sheetToCsv,
 } from "../util/NestedHelper";
+import { Scrubber } from "./Scrubber";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -822,6 +823,9 @@ export function GridView({
         // If we get here, there’s no collision => proceed with the move
       }
 
+      // --- START TRANSACTION ---
+      grid.beginTransaction();
+
       // gather old cell data
       const oldCells = targetBlock.canvasPoints;
       const buffer: Array<{ row: number; col: number; text: string }> = [];
@@ -844,6 +848,9 @@ export function GridView({
         const newC = item.col + dC;
         grid.setCellRaw(newR, newC, item.text);
       }
+
+      // Done editing cells => end the transaction
+      grid.endTransaction();
 
       forceRefresh();
 
@@ -1171,6 +1178,9 @@ export function GridView({
 
     // Then clear the original cells:
     const { startRow, endRow, startCol, endCol } = selectionRange;
+
+    grid.beginTransaction();
+
     const cutArr: Array<{ row: number; col: number; text: string }> = [];
 
     for (let r = startRow; r <= endRow; r++) {
@@ -1184,6 +1194,8 @@ export function GridView({
 
     setCutCells(cutArr);
     setIsCutMode(true);
+
+    grid.endTransaction();
     forceRefresh();
   }, [selectionRange, grid, copySelection, forceRefresh]);
 
@@ -1221,6 +1233,9 @@ export function GridView({
       const { startRow, endRow, startCol, endCol } = selectionRange;
       const selRows = endRow - startRow + 1;
       const selCols = endCol - startCol + 1;
+
+      // Wrap the entire setCellRaw calls in a transaction
+      grid.beginTransaction();
 
       // If single selected cell, paste entire block
       if (selRows === 1 && selCols === 1) {
@@ -1293,6 +1308,8 @@ export function GridView({
           }
         }
       }
+
+      grid.endTransaction();
 
       forceRefresh();
     } catch (err) {
@@ -1543,11 +1560,7 @@ export function GridView({
   }
 
   function clearGrid() {
-    const filledCells = grid.getFilledCells(); // Get only the filled cells
-
-    for (const { row, col } of filledCells) {
-      grid.setCellRaw(row, col, ""); // Clear only filled cells
-    }
+    grid.clearAllCells();
 
     forceRefresh();
   }
@@ -1634,16 +1647,48 @@ export function GridView({
 
         clearGrid();
 
+        grid.beginTransaction();
+
         for (let r = 0; r < neededRows; r++) {
           for (let c = 0; c < arr[r].length; c++) {
             const val = arr[r][c].trim();
             if (val) grid.setCellRaw(r + 1, c + 1, val);
           }
         }
+
+        grid.endTransaction();
+
         forceRefresh();
       })
       .catch((err) => console.error("Failed to load example", err));
   }
+
+  const onChangeDimensions = (newRowCount, newColCount) => {
+    // If user is trying to shrink row/col counts, check for filled cells
+    if (newRowCount < grid.rows || newColCount < grid.cols) {
+      const filled = grid.getFilledCells();
+      const wouldBeDeleted = filled.filter(
+        (cell) => cell.row > newRowCount || cell.col > newColCount
+      );
+      if (wouldBeDeleted.length > 0) {
+        const ok = window.confirm(
+          "Reducing rows/columns will delete some filled cells. Are you sure?"
+        );
+        if (!ok) {
+          return; // user cancelled
+        }
+        // Actually remove those cells from the grid
+        for (const cell of wouldBeDeleted) {
+          grid.setCellRaw(cell.row, cell.col, "");
+        }
+      }
+    }
+
+    // Then do the resizing
+    grid.resizeRows(newRowCount);
+    grid.resizeCols(newColCount);
+    forceRefresh(); // re-render
+  };
 
   return (
     <div
@@ -1677,7 +1722,10 @@ export function GridView({
       />
 
       {/* Main area */}
-      <div className="absolute left-0 right-0 bottom-0" style={{ top: "3rem" }}>
+      <div
+        className="absolute left-0 right-0 bottom-0"
+        style={{ top: "3rem", bottom: "35px" }}
+      >
         {/* top-left corner cell */}
         <div
           className="absolute top-0 left-0 bg-gray-200 border-b border-r border-gray-600 flex items-center justify-center z-10"
@@ -1743,6 +1791,18 @@ export function GridView({
         </div>
       </div>
 
+      {/* Scrubber */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          width: "100%",
+          // optionally: height: 50, or just let it auto-size
+        }}
+      >
+        <Scrubber />
+      </div>
+
       <AppModal
         isOpen={isModalOpen}
         onClose={closeModal}
@@ -1752,6 +1812,9 @@ export function GridView({
         saveGridToFile={saveGridToFile}
         loadGridFromFile={loadGridFromFile}
         loadExample={loadExample}
+        rowCount={grid.rows}
+        colCount={grid.cols}
+        onChangeDimensions={onChangeDimensions}
       />
     </div>
   );
