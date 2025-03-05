@@ -53,6 +53,8 @@ Visual programming tools like LabVIEW and Max/MSP allow users to manipulate node
 
 This spatial logic echoes the way circuit design tools (such as Verilog and VHDL) use spatial relationships to encode logical operations across 2D spaces. In the same way that circuits encode function in 2D space, BSS encodes complex relationships within its binary grids.
 
+There was also the fascinating 3D visual programming language called Cube detailed in [this](https://marc.najork.org/papers/jvlc1996.pdf) paper.
+
 ### Recursive Data Structures and Representations
 
 One of the more advanced capabilities of BSS is its support for recursive data structures. In BSS, blocks within a grid can zoom into sub-grids, representing lower-level structures inside a single cell. This recursive layering is common in functional programming languages like LISP, where nested data and functions represent complex hierarchies.

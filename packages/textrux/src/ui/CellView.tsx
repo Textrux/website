@@ -69,12 +69,16 @@ export function CellView(props: CellViewProps) {
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const prevIsEditingRef = useRef(false);
+
   // If editing newly begins, initialize the sharedEditingValue:
   useEffect(() => {
-    if (isEditing && sharedEditingValue === "") {
+    // Only initialize once, right as we go from not-editing to editing:
+    if (!prevIsEditingRef.current && isEditing && sharedEditingValue === "") {
       setSharedEditingValue(formula ?? value);
       measureAndExpand(row, col, formula ?? value);
     }
+    prevIsEditingRef.current = isEditing;
   }, [
     isEditing,
     formula,
@@ -85,7 +89,6 @@ export function CellView(props: CellViewProps) {
     row,
     col,
   ]);
-
   // Focus if we’re the editing cell
   useEffect(() => {
     if (isEditing && textareaRef.current) {

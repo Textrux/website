@@ -1401,6 +1401,9 @@ export function GridView({
       } else if (e.key === "Delete") {
         e.preventDefault();
         clearSelectedCells();
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        handleCellDoubleClick(activeRow, activeCol);
       } else if (e.key === "F3") {
         e.preventDefault();
         maybeEnterNested();
