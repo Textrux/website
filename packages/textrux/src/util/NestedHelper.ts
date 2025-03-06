@@ -87,7 +87,7 @@ export function arrayToGrid(grid: Grid, arr2D: string[][]): void {
  * For simplicity, we just look for <<)n(>> in the text.
  * If not found, returns 0.
  */
-export function getDepthFromWrapper(str: string): number {
+export function getDepthFromCsv(str: string): number {
   const match = str.match(/<<\)(\d+)\(>>/);
   if (!match) return 0;
   return parseInt(match[1], 10);
@@ -116,20 +116,39 @@ export function replaceMarkerInWrapper(
 }
 
 /**
+ * Replaces a deeply nested marker in the wrapper with the provided child CSV.
+ * Ensures correct escaping of quotes and maintains proper nesting structure.
+ */
+export function replaceDeepMarkerInWrapper(
+  wrapper: string,
+  depth: number,
+  childCsv: string
+): string {
+  // Define the marker to search for
+  const marker = `<<)${depth}(>>`;
+
+  // Ensure child CSV is properly escaped for inclusion
+  // const escapedChildCsv = childCsv.replace(/"/g, '""'); // Escape double quotes
+
+  const replacement = `<<(${depth})${childCsv}(${depth})>>`;
+
+  // Replace the marker in the wrapper
+  return wrapper.replace(marker, replacement);
+}
+
+/**
  * Another approach is to embed the current child CSV in place of the marker.
  * You can adapt from the old code’s “embedCurrentCsvInWrapper” or “removeCaret” logic.
  */
-export function embedCurrentCsvInWrapper(
+export function embedGridIntoR1C1(
   parentCsv: string,
   depth: number,
   childCsv: string
 ): string {
-  // We'll just do a straightforward example:
-  const marker = `<<)${depth}(>>`;
   // Escape double-quotes inside the child CSV
-  const escapedChild = childCsv.replace(/"/g, '""');
+  const escapedChildCsv = childCsv.replace(/"/g, '""');
 
-  const newWrapper = parentCsv.replace(marker, `"${escapedChild}"`);
-  // If none replaced, oh well:
-  return newWrapper;
+  const replacement = `"${escapedChildCsv}"`;
+
+  return parentCsv.replace(`<<)${depth}(>>`, replacement);
 }

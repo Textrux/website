@@ -28,9 +28,9 @@ import {
 } from "../util/LocalStorageStore";
 import {
   arrayToGrid,
-  embedCurrentCsvInWrapper,
-  getDepthFromWrapper,
-  replaceMarkerInWrapper,
+  embedGridIntoR1C1,
+  getDepthFromCsv,
+  replaceDeepMarkerInWrapper,
   sheetToCsv,
 } from "../util/NestedHelper";
 import { Scrubber } from "./Scrubber";
@@ -982,59 +982,98 @@ export function GridView({
     forceRefresh();
   }, [selectionRange, grid, forceRefresh]);
 
-  const maybeEnterNested = useCallback(() => {
+  const enterEmbeddedGrid = useCallback(() => {
+    // Markers / patterns used for embedded grids:
+    //  - A cell that starts with "," indicates it has an embedded grid.
+    //  - The first cell on the grid (R1C1) can contain '^' plus CSV for parent grid.
+    //  - When we enter an embedded grid, the containing cell’s contents are replaced with a marker like `<<)1(>>`in the parent CSV.
+    //  - When we enter an embedded grid from an embedded grid, the `<<)1(>>`in the parent CSV is replaced with `<<(1),b,<<)2(>>,,(1)>>` where `<<)1(>>` is replaced with `<<(1)` and `(1)>>` and the CSV from the first embedded grid is placed inside with a marker (`<<)2(>>` showing which cell the second embedded grid is in)
+
     // 1) Get the raw text in the currently active cell
-    let raw = grid.getCellRaw(activeRow, activeCol).trim();
+    let initialActiveCellContents = grid
+      .getCellRaw(activeRow, activeCol)
+      .trim();
 
     // 2) If it's empty, turn it into a comma cell
-    if (!raw) {
-      raw = ",";
-      grid.setCellRaw(activeRow, activeCol, raw);
+    if (!initialActiveCellContents) {
+      initialActiveCellContents = ",";
+      grid.setCellRaw(activeRow, activeCol, initialActiveCellContents);
     }
 
+    console.log("initialActiveCellContents", initialActiveCellContents);
+
     // 3) Only proceed if it starts with a comma (indicating a nested cell)
-    if (!raw.startsWith(",")) {
+    if (!initialActiveCellContents.startsWith(",")) {
       return;
     }
 
     // 4) Determine current depth from R1C1 (top-left cell)
-    const topLeft = grid.getCellRaw(1, 1);
-    let currentDepth = 0;
-    if (topLeft.startsWith("^")) {
-      currentDepth = getDepthFromWrapper(topLeft);
+    const initialR1C1CellContents = grid.getCellRaw(1, 1);
+
+    console.log("initialR1C1CellContents", initialR1C1CellContents);
+
+    let initialDepth = 0;
+    if (initialR1C1CellContents.startsWith("^")) {
+      // Attempt to see if there's a marker like `^...<<)2(>>...`
+      initialDepth = getDepthFromCsv(initialR1C1CellContents);
     }
 
+    console.log("initialDepth", initialDepth);
+
     // 5) Insert a marker at the active cell for deeper nesting
-    const newDepth = currentDepth + 1;
-    const markerCell = `<<)${newDepth}(>>`;
-    grid.setCellRaw(activeRow, activeCol, markerCell);
+    const nextDepth = initialDepth + 1;
+    console.log("nextDepth", nextDepth);
 
-    // 6) Convert the entire current sheet to CSV (excluding the active cell)
-    const parentCsv = sheetToCsv(grid, false);
+    const activeCellMarkerUsedInNextGrid = `<<)${nextDepth}(>>`;
+    console.log(
+      "activeCellMarkerUsedInNextGrid",
+      activeCellMarkerUsedInNextGrid
+    );
 
-    console.log("parentCsv", parentCsv);
+    grid.setCellRaw(activeRow, activeCol, activeCellMarkerUsedInNextGrid);
+    console.log(
+      "setting active cell contents to ",
+      activeCellMarkerUsedInNextGrid
+    );
+
+    // 6) Convert the entire initial sheet to CSV (excluding the active cell)
+    const initialSheetAsCsv = sheetToCsv(grid, true);
+    console.log("initialSheetAsCsv", initialSheetAsCsv);
 
     // 7) Wipe the entire grid to start fresh
     (grid as any).contentsMap = {};
     (grid as any).formulas = {};
 
+    console.log("clearing entire grid");
+
     // 8) Parse the child CSV (just "," for an empty grid) and fill the grid
-    const childCsv = raw;
-    const childArr = fromCSV(childCsv);
-    arrayToGrid(grid, childArr);
+    const initialActiveCellAsGrid = fromCSV(initialActiveCellContents);
+    console.log("initialActiveCellAsGrid", initialActiveCellAsGrid);
+
+    console.log("converting grid to initialActiveCellAsGrid");
+    arrayToGrid(grid, initialActiveCellAsGrid);
+
+    console.log("R1C1 is now empty and needs to be populated");
 
     // 9) Update R1C1 to store the parent CSV correctly
-    let newWrapper: string;
-    if (currentDepth === 0) {
+    let nextR1C1Contents: string;
+    if (initialDepth === 0) {
       // First-time nesting: store as `^` + CSV
-      newWrapper = `^${parentCsv}`;
+      nextR1C1Contents = `^${initialSheetAsCsv}`;
     } else {
       // Deeper nesting: correctly replace the marker
-      newWrapper = replaceMarkerInWrapper(topLeft, currentDepth, parentCsv);
+      nextR1C1Contents = replaceDeepMarkerInWrapper(
+        initialR1C1CellContents,
+        initialDepth,
+        initialSheetAsCsv
+      );
     }
 
-    console.log("Updated Wrapper:", newWrapper);
-    grid.setCellRaw(1, 1, newWrapper);
+    console.log("nextR1C1Contents:", nextR1C1Contents);
+    if (initialDepth === 0 || initialR1C1CellContents.startsWith("^")) {
+      console.log("setting R1C1 to nextR1C1Contents");
+      grid.setCellRaw(1, 1, nextR1C1Contents);
+    }
 
     // 10) Force a refresh of the UI
     forceRefresh();
@@ -1058,44 +1097,126 @@ export function GridView({
     setSelectionRange,
   ]);
 
-  const maybeExitNested = useCallback(() => {
+  const exitEmbeddedGrid = useCallback(() => {
     // 1) Check R1C1. If it doesn't start with '^', there's no parent to return to.
-    const topLeft = grid.getCellRaw(1, 1);
-    if (!topLeft.startsWith("^")) {
+    const initialR1C1Contents = grid.getCellRaw(1, 1);
+    if (!initialR1C1Contents.startsWith("^")) {
       return; // Not nested
     }
 
     // 2) Figure out the current depth
-    const currentDepth = getDepthFromWrapper(topLeft);
-    if (currentDepth < 1) {
-      return; // Malformed or no deeper nesting
+    const initialDepth = getDepthFromCsv(initialR1C1Contents);
+    if (initialDepth < 1) {
+      // Means we can’t go up any further
+      return;
     }
 
     // 3) Convert the entire *current* sheet to CSV, skipping R1C1 if it starts with '^':
     //    This is the "child CSV" that we want to embed back into the parent.
-    const childCsv = sheetToCsv(grid, true);
+    let initialGridAsCsv = sheetToCsv(grid, true);
+    if (!initialGridAsCsv.trim()) {
+      initialGridAsCsv = ","; // Ensure there's at least one empty cell
+    }
 
-    // 4) Now we wipe the entire sheet and go "up" to the parent CSV that was stored in R1C1
-    //    which might look like `^<<)2(...some big CSV...)`.
-    //    For simplicity, let's just remove the leading '^' and parse the rest:
-    const parentWrapper = topLeft.substring(1); // remove the '^'
-
-    // 5) (Optional) If you want to replace the `<<)N(` marker in that parentWrapper with childCsv, do so:
-    //    e.g. embedCurrentCsvInWrapper(...) or replaceMarkerInWrapper(...) from the old logic:
-    //    (In the simplest approach, we might not bother, or we do partial. Up to you!)
-    const updatedParent = embedCurrentCsvInWrapper(
-      parentWrapper,
-      currentDepth,
-      childCsv
-    );
-
-    // 6) Wipe the grid
+    // 4) Clear out the entire grid before restoring the parent
     (grid as any).contentsMap = {};
     (grid as any).formulas = {};
 
-    // 7) Parse the parent text (which no longer has '^') and fill the grid
-    const parentArr = fromCSV(updatedParent);
-    arrayToGrid(grid, parentArr);
+    if (initialDepth === 1) {
+      // we are returning to the base grid
+      const nextGridAsCsvWithInitialGridEmbedded = embedGridIntoR1C1(
+        initialR1C1Contents.substring(1), // remove the '^'
+        initialDepth,
+        initialGridAsCsv
+      );
+
+      // 7) Parse the parent text (which no longer has '^') and fill the grid
+      const nextGridAsArray = fromCSV(nextGridAsCsvWithInitialGridEmbedded);
+      arrayToGrid(grid, nextGridAsArray);
+    } else {
+      // we are going from an embedded grid back out to another embedded grid
+
+      // Look in the parent CSV (in cell R1C1)
+      // and grab out the part of that CSV that represents the next highest level
+      // So in the example below, if the currentDepth is 2 then grab out all
+      // the CSV between <<(1) and (1)>> since that is the CSV for the next level
+      // ^,,,
+      // ,,,
+      // ,,a,
+      // ,,,<<(1),,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>(1)>>
+      const nextDepth = initialDepth - 1;
+      const nextGridWithoutTrailer = initialR1C1Contents.split(
+        `(${nextDepth})>>`
+      )[0]; // Get everything before "(depth)>>"
+      const nextGridAsCsvWithMarker = nextGridWithoutTrailer.split(
+        `<<(${nextDepth})`
+      )[1]; // Get everything after "<<(depth)"
+
+      // In our example we now have this CSV for the next grid to replace the current grid
+      // ,,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>
+
+      // but before we can use this CSV to replace the contents of the current grid (level 2)
+      // with the contents of the CSV from level 1 (from our example above)
+      // we have to replace the <<)2(>> in that CSV with the current grid (level 2) as CSV
+
+      // so first define <<)2(>>
+      const initialGridMarker = `<<)${initialDepth}(>>`;
+      const initialGridAsCsvEscaped = initialGridAsCsv.replace(/"/g, `""`); // Escape double quotes
+      const initialGridAsCsvEscapedAndWrappedInQuotes = `"${initialGridAsCsvEscaped}"`; // Wrap the whole thing in quotes
+
+      // now we need to replace the marker in the initialGridAsCsvEscapedAndWrappedInQuotes
+      const initialGridAsCsvEscapedAndWrappedInQuotesWithMarkerReplaced =
+        nextGridAsCsvWithMarker.replace(
+          initialGridMarker,
+          initialGridAsCsvEscapedAndWrappedInQuotes
+        );
+
+      // In our example we now have this CSV for the next grid to replace the current grid
+      // notice the <<)2(>> has now ben replaced with the current grid converted to CSV
+      // ,,,
+      // ,,,
+      // ,,b,
+      // ,,,",c"
+
+      // Now we are almost ready to replace the contents of the initial grid with the next grid.
+      //  However, we need to add in the new parent CSV to R1C1 in our next grid
+
+      // So first create that next level parent by replacing (from the parent CSV from our example)
+
+      // <<(1),,,
+      // ,,,
+      // ,,b,
+      // ,,,<<)2(>>(1)>>
+
+      //with just
+
+      // <<)1(>>
+      const beginningOfNextInParent = `<<(${nextDepth})`;
+      const endOfNextInParent = `(${nextDepth})>>`;
+      const nextInParent = `${beginningOfNextInParent}${nextGridAsCsvWithMarker}${endOfNextInParent}`;
+      const newNextInParent = `<<)${nextDepth}(>>`;
+      const currentParentCsvWithNewNext = initialR1C1Contents.replace(
+        nextInParent,
+        newNextInParent
+      );
+
+      // Make sure we wrap the new parent cell in quotes
+      const currentParentCsvWithNewNextWrappedInQuotes = `"${currentParentCsvWithNewNext}"`;
+
+      // Now just add the new parent cell on to the beginning of the newly constructed
+      // next level CSV
+      const nextGridCsv = `${currentParentCsvWithNewNextWrappedInQuotes}${initialGridAsCsvEscapedAndWrappedInQuotesWithMarkerReplaced}`;
+
+      // Convert back to an array
+      const nextGridAsArray = fromCSV(nextGridCsv);
+      arrayToGrid(grid, nextGridAsArray);
+    }
 
     // 8) Force a refresh
     forceRefresh();
@@ -1404,12 +1525,12 @@ export function GridView({
       } else if (e.key === "F2") {
         e.preventDefault();
         handleCellDoubleClick(activeRow, activeCol);
-      } else if (e.key === "F3") {
+      } else if (e.key === "F4") {
         e.preventDefault();
-        maybeEnterNested();
+        enterEmbeddedGrid();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        maybeExitNested();
+        exitEmbeddedGrid();
       }
       // Copy/Cut/Paste
       else if ((e.key === "c" || e.key === "C") && e.ctrlKey) {
@@ -1498,8 +1619,8 @@ export function GridView({
       moveBlock,
       selectNearestBlock,
       clearSelectedCells,
-      maybeEnterNested,
-      maybeExitNested,
+      enterEmbeddedGrid,
+      exitEmbeddedGrid,
       copySelection,
       cutSelection,
       pasteSelection,
@@ -1680,10 +1801,12 @@ export function GridView({
         if (!ok) {
           return; // user cancelled
         }
+        grid.beginTransaction();
         // Actually remove those cells from the grid
         for (const cell of wouldBeDeleted) {
           grid.setCellRaw(cell.row, cell.col, "");
         }
+        grid.endTransaction();
       }
     }
 

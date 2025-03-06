@@ -6,6 +6,8 @@ export class Grid {
 
   public gridType: "base" | "embedded" | "elevated";
 
+  public sourceGrid: Grid | null;
+
   public grids: Grid[];
 
   public structures: any;

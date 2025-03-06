@@ -264,7 +264,7 @@ export function CellView(props: CellViewProps) {
             maxWidth: maxEditorWidth,
             maxHeight: maxEditorHeight,
             // Force wrapping
-            overflowY: "scroll",
+            overflowY: "auto",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           }}
