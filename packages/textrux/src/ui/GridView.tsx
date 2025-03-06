@@ -1000,7 +1000,7 @@ export function GridView({
       grid.setCellRaw(activeRow, activeCol, initialActiveCellContents);
     }
 
-    console.log("initialActiveCellContents", initialActiveCellContents);
+    // console.log("initialActiveCellContents", initialActiveCellContents);
 
     // 3) Only proceed if it starts with a comma (indicating a nested cell)
     if (!initialActiveCellContents.startsWith(",")) {
@@ -1010,7 +1010,7 @@ export function GridView({
     // 4) Determine current depth from R1C1 (top-left cell)
     const initialR1C1CellContents = grid.getCellRaw(1, 1);
 
-    console.log("initialR1C1CellContents", initialR1C1CellContents);
+    // console.log("initialR1C1CellContents", initialR1C1CellContents);
 
     let initialDepth = 0;
     if (initialR1C1CellContents.startsWith("^")) {
@@ -1018,42 +1018,42 @@ export function GridView({
       initialDepth = getDepthFromCsv(initialR1C1CellContents);
     }
 
-    console.log("initialDepth", initialDepth);
+    // console.log("initialDepth", initialDepth);
 
     // 5) Insert a marker at the active cell for deeper nesting
     const nextDepth = initialDepth + 1;
-    console.log("nextDepth", nextDepth);
+    // console.log("nextDepth", nextDepth);
 
     const activeCellMarkerUsedInNextGrid = `<<)${nextDepth}(>>`;
-    console.log(
-      "activeCellMarkerUsedInNextGrid",
-      activeCellMarkerUsedInNextGrid
-    );
+    // console.log(
+    //   "activeCellMarkerUsedInNextGrid",
+    //   activeCellMarkerUsedInNextGrid
+    // );
 
     grid.setCellRaw(activeRow, activeCol, activeCellMarkerUsedInNextGrid);
-    console.log(
-      "setting active cell contents to ",
-      activeCellMarkerUsedInNextGrid
-    );
+    // console.log(
+    //   "setting active cell contents to ",
+    //   activeCellMarkerUsedInNextGrid
+    // );
 
     // 6) Convert the entire initial sheet to CSV (excluding the active cell)
     const initialSheetAsCsv = sheetToCsv(grid, true);
-    console.log("initialSheetAsCsv", initialSheetAsCsv);
+    // console.log("initialSheetAsCsv", initialSheetAsCsv);
 
     // 7) Wipe the entire grid to start fresh
     (grid as any).contentsMap = {};
     (grid as any).formulas = {};
 
-    console.log("clearing entire grid");
+    // console.log("clearing entire grid");
 
     // 8) Parse the child CSV (just "," for an empty grid) and fill the grid
     const initialActiveCellAsGrid = fromCSV(initialActiveCellContents);
-    console.log("initialActiveCellAsGrid", initialActiveCellAsGrid);
+    // console.log("initialActiveCellAsGrid", initialActiveCellAsGrid);
 
-    console.log("converting grid to initialActiveCellAsGrid");
+    // console.log("converting grid to initialActiveCellAsGrid");
     arrayToGrid(grid, initialActiveCellAsGrid);
 
-    console.log("R1C1 is now empty and needs to be populated");
+    // console.log("R1C1 is now empty and needs to be populated");
 
     // 9) Update R1C1 to store the parent CSV correctly
     let nextR1C1Contents: string;
@@ -1069,9 +1069,9 @@ export function GridView({
       );
     }
 
-    console.log("nextR1C1Contents:", nextR1C1Contents);
+    // console.log("nextR1C1Contents:", nextR1C1Contents);
     if (initialDepth === 0 || initialR1C1CellContents.startsWith("^")) {
-      console.log("setting R1C1 to nextR1C1Contents");
+      // console.log("setting R1C1 to nextR1C1Contents");
       grid.setCellRaw(1, 1, nextR1C1Contents);
     }
 
