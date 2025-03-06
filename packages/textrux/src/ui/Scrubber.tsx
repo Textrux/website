@@ -80,9 +80,7 @@ export function Scrubber() {
         style={{ flex: 1 }}
       />
 
-      <div style={styles.timeIndicator}>
-        {currentTime.toFixed(2)}s
-      </div>
+      <div style={styles.timeIndicator}>{currentTime.toFixed(2)}s</div>
     </div>
   );
 }
@@ -90,7 +88,7 @@ export function Scrubber() {
 // inline style objects that replicate the sample's CSS
 const styles: Record<string, React.CSSProperties> = {
   timeControls: {
-    marginTop: "10px",
+    marginTop: "0px",
     display: "flex",
     alignItems: "center",
   },

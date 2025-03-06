@@ -203,6 +203,9 @@ export const AppModal: React.FC<CombinedProps> = ({
                 <option value=",">CSV</option>
               </select>
 
+              <br />
+              <br />
+
               <div className="flex items-center mt-2 mb-4">
                 <label className="mr-2">Row Count:</label>
                 <input
