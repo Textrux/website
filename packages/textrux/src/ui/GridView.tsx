@@ -1111,6 +1111,8 @@ export function GridView({
       return;
     }
 
+    const initialR1C1ContentsWithoutCaret = initialR1C1Contents.substring(1); // remove the '^'
+
     // 3) Convert the entire *current* sheet to CSV, skipping R1C1 if it starts with '^':
     //    This is the "child CSV" that we want to embed back into the parent.
     let initialGridAsCsv = sheetToCsv(grid, true);
@@ -1122,17 +1124,23 @@ export function GridView({
     (grid as any).contentsMap = {};
     (grid as any).formulas = {};
 
+    let nextGridAsArray: string[][];
+    let nextGridAsCsvWithMarker: string;
+    let prevActiveRow = 1;
+    let prevActiveCol = 1;
+
     if (initialDepth === 1) {
+      nextGridAsCsvWithMarker = initialR1C1ContentsWithoutCaret;
+
       // we are returning to the base grid
       const nextGridAsCsvWithInitialGridEmbedded = embedGridIntoR1C1(
-        initialR1C1Contents.substring(1), // remove the '^'
+        initialR1C1ContentsWithoutCaret,
         initialDepth,
         initialGridAsCsv
       );
 
       // 7) Parse the parent text (which no longer has '^') and fill the grid
-      const nextGridAsArray = fromCSV(nextGridAsCsvWithInitialGridEmbedded);
-      arrayToGrid(grid, nextGridAsArray);
+      nextGridAsArray = fromCSV(nextGridAsCsvWithInitialGridEmbedded);
     } else {
       // we are going from an embedded grid back out to another embedded grid
 
@@ -1151,7 +1159,7 @@ export function GridView({
       const nextGridWithoutTrailer = initialR1C1Contents.split(
         `(${nextDepth})>>`
       )[0]; // Get everything before "(depth)>>"
-      const nextGridAsCsvWithMarker = nextGridWithoutTrailer.split(
+      nextGridAsCsvWithMarker = nextGridWithoutTrailer.split(
         `<<(${nextDepth})`
       )[1]; // Get everything after "<<(depth)"
 
@@ -1214,22 +1222,46 @@ export function GridView({
       const nextGridCsv = `${currentParentCsvWithNewNextWrappedInQuotes}${initialGridAsCsvEscapedAndWrappedInQuotesWithMarkerReplaced}`;
 
       // Convert back to an array
-      const nextGridAsArray = fromCSV(nextGridCsv);
-      arrayToGrid(grid, nextGridAsArray);
+      nextGridAsArray = fromCSV(nextGridCsv);
     }
+
+    const nextGridWithMarker = fromCSV(nextGridAsCsvWithMarker);
+
+    // Find the position of `initialGridMarker` in `nextGridAsArray`
+    for (let r = 0; r < nextGridWithMarker.length; r++) {
+      for (let c = 0; c < nextGridWithMarker[r].length; c++) {
+        if (nextGridWithMarker[r][c] === `<<)${initialDepth}(>>`) {
+          prevActiveRow = r + 1; // Convert to 1-based index
+          prevActiveCol = c + 1;
+          break;
+        }
+      }
+    }
+
+    // Load the updated grid data
+    arrayToGrid(grid, nextGridAsArray);
+
+    // Restore selection to the cell that contained the embedded grid
+    setActiveRow(prevActiveRow);
+    setActiveCol(prevActiveCol);
+    setSelectionRange({
+      startRow: prevActiveRow,
+      endRow: prevActiveRow,
+      startCol: prevActiveCol,
+      endCol: prevActiveCol,
+    });
+
+    // Ensure the restored cell is visible
+    scrollCellIntoView(
+      prevActiveRow,
+      prevActiveCol,
+      rowHeights,
+      colWidths,
+      gridContainerRef.current
+    );
 
     // 8) Force a refresh
     forceRefresh();
-
-    // Maybe move selection back to something like R1C2
-    setActiveRow(1);
-    setActiveCol(2);
-    setSelectionRange({
-      startRow: 1,
-      endRow: 1,
-      startCol: 2,
-      endCol: 2,
-    });
   }, [grid, forceRefresh, setActiveRow, setActiveCol, setSelectionRange]);
 
   /** Copy/Cut/Paste */
