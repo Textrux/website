@@ -182,6 +182,14 @@ export function GridView({
     endCol: 1,
   });
 
+  const isR1C1Locked = useMemo(() => {
+    return (
+      activeRow === 1 &&
+      activeCol === 1 &&
+      grid.getCellRaw(1, 1).trim().startsWith("^")
+    );
+  }, [activeRow, activeCol, grid]);
+
   /** For shift+arrow expansions */
   const anchorRef = useRef<{ row: number; col: number } | null>(null);
 
@@ -429,6 +437,12 @@ export function GridView({
 
   const handleCellDoubleClick = useCallback(
     (r: number, c: number) => {
+      if (r === 1 && c === 1) {
+        const r1c1 = grid.getCellRaw(1, 1);
+        if (r1c1.trim().startsWith("^")) {
+          return; // skip
+        }
+      }
       const raw = grid.getCellRaw(r, c);
       setEditingValue(raw);
       setEditingCell({ row: r, col: c });
@@ -815,6 +829,18 @@ export function GridView({
 
       // check collisions if not allowMerge
       if (!allowMerge) {
+        // Make sure none of the *canvas* cells tries to land on R1C1 if locked
+        for (const pt of targetBlock.canvasPoints) {
+          const newR = pt.row + dR;
+          const newC = pt.col + dC;
+          if (newR === 1 && newC === 1) {
+            const r1c1Val = grid.getCellRaw(1, 1);
+            if (r1c1Val.trim().startsWith("^")) {
+              return; // locked => skip move
+            }
+          }
+        }
+        
         const framePad = 1; // how many rows/cols the frame extends beyond the block
 
         const newTop = targetBlock.topRow - framePad + dR;
@@ -1414,27 +1440,41 @@ export function GridView({
 
       // If single selected cell, paste entire block
       if (selRows === 1 && selCols === 1) {
+        const wrotePositions = new Set<string>();
         for (let r = 0; r < dataToPaste.length; r++) {
           for (let c = 0; c < dataToPaste[r].length; c++) {
             const rr = startRow + r;
             const cc = startCol + c;
+            // If we're aiming for R1C1 while it's locked, skip
+            if (rr === 1 && cc === 1) {
+              const r1c1 = grid.getCellRaw(1, 1);
+              if (r1c1.trim().startsWith("^")) {
+                continue; // skip
+              }
+            }
             if (rr > grid.rows) grid.resizeRows(rr);
             if (cc > grid.cols) grid.resizeCols(cc);
             grid.setCellRaw(rr, cc, dataToPaste[r][c]);
+            wrotePositions.add(`R${rr}C${cc}`);
           }
         }
         if (isCutMode && cutCells) {
           for (const cell of cutCells) {
-            if (
-              !isInRegion(
-                cell.row,
-                cell.col,
-                startRow,
-                endRow,
-                startCol,
-                endCol
-              )
-            ) {
+            // The "destination" is the newly pasted spot = same offset
+            // but if we never wrote to that position, skip clearing.
+            const newKey =
+              /* logic to figure out R#C# of new location if needed */
+              // or if you are doing "paste entire block" from top-left,
+              // this is the offset from the top-left corner.
+              // For a simple approach, if you're just re-locating the entire chunk with the same dimension,
+              // you can do the same for the partial approach.
+              // For demonstration let's say:
+              `R${startRow + (cell.row - startRow)}C${
+                startCol + (cell.col - startCol)
+              }`;
+
+            if (wrotePositions.has(newKey)) {
+              // Only then actually remove from the original
               grid.setCellRaw(cell.row, cell.col, "");
             }
           }
@@ -1549,12 +1589,20 @@ export function GridView({
 
       // Not editing yet
       if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+        if (activeRow === 1 && activeCol === 1) {
+          const r1c1 = grid.getCellRaw(1, 1);
+          if (r1c1.trim().startsWith("^")) {
+            return; // skip
+          }
+        }
+
         // first typed char => start editing
         e.preventDefault();
         setEditingCell({ row: activeRow, col: activeCol });
         setEditingValue(e.key);
         setFocusTarget("cell");
         measureAndExpand(activeRow, activeCol, e.key);
+        return;
       }
 
       if (e.key.startsWith("Arrow")) {
@@ -1893,12 +1941,14 @@ export function GridView({
         onFormulaChange={onFormulaChange}
         onFormulaKeyDown={(e) => onFormulaKeyDown(e)}
         onFocus={() => {
+          if (isR1C1Locked) return;
           setFocusTarget("formula");
           if (!editingCell) {
             setEditingCell({ row: activeRow, col: activeCol });
           }
         }}
         onGearClick={() => setModalOpen(true)}
+        disabled={isR1C1Locked}
       />
 
       {/* Main area */}

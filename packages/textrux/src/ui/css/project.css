@@ -58,3 +58,9 @@
   background-color: red !important;
   color: white !important;
 }
+
+.disabled-cell {
+  background-color: #eee !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+}

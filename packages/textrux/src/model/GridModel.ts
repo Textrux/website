@@ -94,6 +94,14 @@ export default class GridModel {
     rawText: string,
     skipUndo: boolean = false
   ): void {
+    // If we're trying to write to R1C1 while it's ^-locked, just return and do nothing.
+    if (row === 1 && col === 1) {
+      const existing = this.getCellRaw(1, 1);
+      if (existing.trim().startsWith("^")) {
+        return; // skip entirely
+      }
+    }
+
     if (row < 1 || col < 1 || row > this.rows || col > this.cols) return;
 
     // Only record a separate undo state if:

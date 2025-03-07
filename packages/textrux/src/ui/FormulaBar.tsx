@@ -8,6 +8,7 @@ interface FormulaBarProps {
   onFormulaKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onFocus: () => void;
   onGearClick: () => void; // opens the settings modal
+  disabled?: boolean;
 }
 
 export const FormulaBar: React.FC<FormulaBarProps> = ({
@@ -17,6 +18,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   onFormulaKeyDown,
   onFocus,
   onGearClick,
+  disabled,
 }) => {
   return (
     <div className="w-full h-12 bg-gray-300 flex items-center px-2 z-50 border-b border-gray-400">
@@ -33,12 +35,15 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
       </div>
 
       <input
-        className="flex-1 h-8 text-sm px-2 bg-white"
+        className={`flex-1 h-8 text-sm px-2 border rounded ${
+          disabled ? "bg-gray-200 cursor-not-allowed" : "bg-white"
+        }`}
         type="text"
         value={formulaText}
         onChange={onFormulaChange}
         onKeyDown={onFormulaKeyDown}
         onFocus={onFocus}
+        disabled={disabled}
       />
 
       <img

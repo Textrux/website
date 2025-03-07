@@ -23,18 +23,31 @@ export function parseAndFormatGrid(grid: GridModel): {
   blockList: Block[];
 } {
   // 1) Collect all non-empty (filled) cell positions:
-  //    We simply rely on grid.getFilledCells(), which only returns genuinely filled cells.
-  const filledPoints = grid.getFilledCells().map(({ row, col }) => ({
-    row,
-    col,
-  }));
+  const filledPoints = grid
+    .getFilledCells()
+    .filter(({ row, col }) => {
+      // Ignore R1C1 if its raw text starts with ^
+      if (
+        row === 1 &&
+        col === 1 &&
+        grid.getCellRaw(row, col).trim().startsWith("^")
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .map(({ row, col }) => ({ row, col }));
+
+  // Prepare our style map:
+  const styleMap: StyleMap = {};
+
+  if (grid.getCellRaw(1, 1).trim().startsWith("^")) {
+    addClass(styleMap, 1, 1, "disabled-cell");
+  }
 
   // 2) Build “containers” of filled cells with outline expand=2 => Blocks
   const containers = getContainers(filledPoints, 2, grid.rows, grid.cols);
   const blocks: Block[] = containers.map(finalizeBlock);
-
-  // Prepare our style map:
-  const styleMap: StyleMap = {};
 
   // 3) Compute each block's sub-lumps (cell clusters), then
   //    mark cluster‐empty vs. canvas‐empty cells.
