@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useEffect, useState } from "react";
-import { Grid } from "../structure/Grid";
+import Grid from "../model/GridModel";
 
 export function ColumnHeaders({
   grid,

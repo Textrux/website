@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from "react";
-import { Grid } from "../../structure/Grid";
+import Grid from "../../model/GridModel";
 
 export interface UseGridControllerOptions {
   grid: Grid; // The model
@@ -9,6 +9,9 @@ export interface UseGridControllerOptions {
   maxZoom?: number; // Default 10
   colPx: number; // base col width
   rowPx: number; // base row height
+  displayNextElevatedGrid;
+  enterElevatedGrid;
+  exitElevatedGrid;
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -25,8 +28,14 @@ export function useGridController(options: UseGridControllerOptions) {
     maxZoom = 10,
     colPx,
     rowPx,
+    displayNextElevatedGrid,
+    enterElevatedGrid,
+    exitElevatedGrid,
     gridContainerRef,
   } = options;
+
+  // Track if we’ve used the “displayNextElevatedGrid” step yet:
+  const hasDisplayedNextRef = useRef(false);
 
   // Refs for pinch
   const pinchInfoRef = useRef({
@@ -48,14 +57,45 @@ export function useGridController(options: UseGridControllerOptions) {
   const isSelectingViaLongPressRef = useRef(false);
   const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null);
   const longPressTimeoutRef = useRef<number | undefined>(undefined);
-
+  const lastScrollActionRef = useRef<
+    "displayedNext" | "entered" | "exited" | null
+  >(null);
+  
   // (A) Desktop Ctrl+wheel => zoom
   useEffect(() => {
     const container = gridContainerRef.current;
     if (!container) return;
 
     function handleWheel(e: WheelEvent) {
-      if (e.ctrlKey) {
+      if (e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+
+        if (e.deltaY > 0) {
+          // Scrolling down
+          if (
+            lastScrollActionRef.current === "exited" ||
+            lastScrollActionRef.current === null
+          ) {
+            // Reset and start from displayNextElevatedGrid
+            displayNextElevatedGrid();
+            lastScrollActionRef.current = "displayedNext";
+          } else if (lastScrollActionRef.current === "displayedNext") {
+            enterElevatedGrid();
+            lastScrollActionRef.current = "entered";
+          } else if (lastScrollActionRef.current === "entered") {
+            displayNextElevatedGrid();
+            lastScrollActionRef.current = "displayedNext";
+          }
+        } else {
+          // Scrolling up - exit immediately and reset
+          exitElevatedGrid();
+          lastScrollActionRef.current = "exited";
+        }
+
+        return; // Important: exit the function after handling Ctrl+Shift+scroll
+      }
+
+      if (e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         let newZoom = zoom * (e.deltaY < 0 ? 1.1 : 0.9);
         if (newZoom < minZoom) newZoom = minZoom;

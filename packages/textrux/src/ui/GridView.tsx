@@ -7,9 +7,8 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
-  CSSProperties,
 } from "react";
-import { Grid } from "../structure/Grid";
+import GridModel from "../model/GridModel";
 import Block from "../structure/Block";
 
 import { parseAndFormatGrid } from "../parser/GridParser";
@@ -32,8 +31,13 @@ import {
   getDepthFromCsv,
   replaceDeepMarkerInWrapper,
   sheetToCsv,
-} from "../util/NestedHelper";
+} from "../util/EmbeddedHelper";
 import { Scrubber } from "./Scrubber";
+import {
+  displayNextElevatedGridHelper,
+  enterElevatedGridHelper,
+  exitElevatedGridHelper,
+} from "../util/ElevatedHelpers";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -44,7 +48,7 @@ export interface SelectionRange {
 }
 
 export interface GridViewProps {
-  grid: Grid;
+  grid: GridModel;
   width?: number | string;
   height?: number | string;
   className?: string;
@@ -183,25 +187,6 @@ export function GridView({
 
   /** Container ref for scroll & zoom actions */
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
-
-  /** Setup pinch/middle-click drag from custom hook */
-  const {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-    onMouseDown: onGridContainerMouseDown,
-    isSelectingViaLongPressRef,
-    selectionAnchorRef,
-  } = useGridController({
-    grid,
-    zoom,
-    setZoom,
-    minZoom: 0.2,
-    maxZoom: 10,
-    colPx: baseColWidth,
-    rowPx: baseRowHeight,
-    gridContainerRef,
-  });
 
   /** Re-render version */
   const [version, setVersion] = useState(0);
@@ -632,6 +617,43 @@ export function GridView({
       document.removeEventListener("mouseup", onMouseUp);
     };
   }, [rowHeights, colWidths]);
+
+  // 1) Intermediary step: show the next elevated level
+  const displayNextElevatedGrid = useCallback(() => {
+    displayNextElevatedGridHelper(grid);
+  }, [grid]);
+
+  // 2) Actual “enter” the elevated grid
+  const enterElevatedGrid = useCallback(() => {
+    enterElevatedGridHelper(grid);
+  }, [grid]);
+
+  // 3) Exit back to a lower level
+  const exitElevatedGrid = useCallback(() => {
+    exitElevatedGridHelper(grid);
+  }, [grid]);
+
+  /** Setup pinch/middle-click drag from custom hook */
+  const {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    onMouseDown: onGridContainerMouseDown,
+    isSelectingViaLongPressRef,
+    selectionAnchorRef,
+  } = useGridController({
+    grid,
+    zoom,
+    setZoom,
+    minZoom: 0.2,
+    maxZoom: 10,
+    colPx: baseColWidth,
+    rowPx: baseRowHeight,
+    displayNextElevatedGrid,
+    enterElevatedGrid,
+    exitElevatedGrid,
+    gridContainerRef,
+  });
 
   // Touch-based long-press logic
   useEffect(() => {

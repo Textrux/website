@@ -1,5 +1,4 @@
-// packages/textrux/src/structure/Block.ts
-
+import CellCluster from "./CellCluster";
 import Container from "./Container";
 
 /**
@@ -23,14 +22,17 @@ export default class Block {
   /** The second ring (frame) around the bounding box. */
   framePoints: Array<{ row: number; col: number }>;
 
+  cellClusters: CellCluster[];
+
   constructor(container: Container) {
     this.topRow = container.topRow;
     this.bottomRow = container.bottomRow;
     this.leftCol = container.leftColumn;
     this.rightCol = container.rightColumn;
 
-    this.canvasPoints = []; // assigned later
+    this.canvasPoints = [];
     this.borderPoints = [];
     this.framePoints = [];
+    this.cellClusters = [];
   }
 }

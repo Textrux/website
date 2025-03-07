@@ -1,4 +1,4 @@
-export { Grid as GridModel } from "./structure/Grid";
+export { default as GridModel } from "./model/GridModel";
 export { GridView } from "./ui/GridView";
 
 // Fix: we actually export CellFormat from its own file:

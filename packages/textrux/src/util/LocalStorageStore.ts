@@ -4,7 +4,7 @@
  * Minimal helper to store only filled cells as JSON in localStorage.
  */
 
-import { Grid } from "../structure/Grid";
+import Grid from "../model/GridModel";
 
 /**
  * Shape we store in localStorage:

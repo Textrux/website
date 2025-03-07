@@ -1,8 +1,7 @@
-// packages/textrux/src/parser/GridParser.ts
-
-import { Grid } from "../structure/Grid";
-import Block from "../structure/Block";
+import GridModel from "../model/GridModel";
 import Container from "../structure/Container";
+import Block from "../structure/Block";
+import CellCluster from "../structure/CellCluster";
 import BlockJoin from "../structure/BlockJoin";
 import BlockCluster from "../structure/BlockCluster";
 
@@ -19,7 +18,7 @@ interface StyleMap {
  *
  * Returned styleMap can then be used by the UI layer to add classes to each cell.
  */
-export function parseAndFormatGrid(grid: Grid): {
+export function parseAndFormatGrid(grid: GridModel): {
   styleMap: Record<string, string[]>;
   blockList: Block[];
 } {
@@ -32,14 +31,14 @@ export function parseAndFormatGrid(grid: Grid): {
 
   // 2) Build “containers” of filled cells with outline expand=2 => Blocks
   const containers = getContainers(filledPoints, 2, grid.rows, grid.cols);
-  const blockList: Block[] = containers.map(finalizeBlock);
+  const blocks: Block[] = containers.map(finalizeBlock);
 
   // Prepare our style map:
   const styleMap: StyleMap = {};
 
   // 3) Compute each block's sub-lumps (cell clusters), then
   //    mark cluster‐empty vs. canvas‐empty cells.
-  for (const blk of blockList) {
+  for (const blk of blocks) {
     // get sub-containers with expand=1 from all the block’s canvasPoints
     const subContainers = getContainers(
       blk.canvasPoints,
@@ -48,22 +47,31 @@ export function parseAndFormatGrid(grid: Grid): {
       grid.cols
     );
     // each sub-container => array of filled points
-    const cellClusters = subContainers.map((ctr) => ctr.filledPoints);
+    const cellClusters = subContainers.map(
+      (ctr) =>
+        new CellCluster(
+          ctr.topRow,
+          ctr.bottomRow,
+          ctr.leftColumn,
+          ctr.rightColumn,
+          ctr.filledPoints
+        )
+    );
+
     // store them on the block if needed
-    (blk as any).cellClusters = cellClusters;
+    blk.cellClusters = cellClusters;
 
     // For each sub-lump bounding box => find "cluster-empty" cells
     const clusterEmptyCells: Array<{ row: number; col: number }> = [];
     for (const cluster of cellClusters) {
-      // speed up membership checks:
-      const clusterSet = new Set(cluster.map((pt) => pointKey(pt.row, pt.col)));
+      const clusterSet = new Set(
+        cluster.filledPoints.map((pt) => pointKey(pt.row, pt.col))
+      );
 
-      const rr = cluster.map((p) => p.row);
-      const cc = cluster.map((p) => p.col);
-      const minR = Math.min(...rr);
-      const maxR = Math.max(...rr);
-      const minC = Math.min(...cc);
-      const maxC = Math.max(...cc);
+      const minR = cluster.topRow;
+      const maxR = cluster.bottomRow;
+      const minC = cluster.leftCol;
+      const maxC = cluster.rightCol;
 
       for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
@@ -106,8 +114,15 @@ export function parseAndFormatGrid(grid: Grid): {
   }
 
   // 4) BlockJoins => BlockClusters => locked/linked
-  const allJoins = BlockJoin.populateBlockJoins(blockList);
-  const blockClusters = BlockCluster.populateBlockClusters(blockList, allJoins);
+  const blockJoins = BlockJoin.populateBlockJoins(blocks);
+  const blockClusters = BlockCluster.populateBlockClusters(
+    blocks,
+    blockJoins,
+    grid.rows,
+    grid.cols
+  );
+
+  grid.blockClusters = blockClusters;
 
   // 5) Mark locked/linked cells from blockClusters
   for (const bc of blockClusters) {
@@ -120,7 +135,7 @@ export function parseAndFormatGrid(grid: Grid): {
   }
 
   // 6) Finally, apply “canvas‐cell”, “border‐cell”, “frame‐cell” for each block
-  for (const b of blockList) {
+  for (const b of blocks) {
     for (const pt of b.canvasPoints) {
       addClass(styleMap, pt.row, pt.col, "canvas-cell");
     }
@@ -132,7 +147,7 @@ export function parseAndFormatGrid(grid: Grid): {
     }
   }
 
-  return { styleMap, blockList };
+  return { styleMap, blockList: blocks };
 }
 
 /**

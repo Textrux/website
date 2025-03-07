@@ -1,16 +1,17 @@
-import { CellFormat } from "./CellFormat";
+import BlockCluster from "../structure/BlockCluster";
+import { CellFormat } from "../structure/CellFormat";
 import { Parser } from "expr-eval";
 
-export class Grid {
+export default class GridModel {
   public id: string;
 
   public gridType: "base" | "embedded" | "elevated";
 
-  public sourceGrid: Grid | null;
+  public sourceGrid: GridModel | null;
 
-  public grids: Grid[];
+  public grids: GridModel[];
 
-  public structures: any;
+  public blockClusters: BlockCluster[];
 
   public patterns: any;
 
@@ -165,7 +166,7 @@ export class Grid {
 
       // Evaluate the expression safely
       return String(parser.evaluate(expr));
-    } catch (err) {
+    } catch {
       return "ERROR";
     }
   }

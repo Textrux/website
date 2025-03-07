@@ -23,6 +23,13 @@ export default class BlockCluster {
    */
   clusterCanvas: { top: number; left: number; bottom: number; right: number };
 
+  clusterPerimeter: {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+  };
+
   /** All “linked” points (row,col) in this cluster. */
   linkedPoints: Array<{ row: number; col: number }>;
 
@@ -49,7 +56,9 @@ export default class BlockCluster {
    */
   static populateBlockClusters(
     blockList: Block[],
-    allJoins: BlockJoin[]
+    allJoins: BlockJoin[],
+    rowCount: number,
+    colCount: number
   ): BlockCluster[] {
     const used = new Set<Block>();
     const blockClusters: BlockCluster[] = [];
@@ -109,12 +118,31 @@ export default class BlockCluster {
         mergedLinked,
         mergedLocked
       );
+
+      cluster.clusterPerimeter = cluster.expandOutline(rowCount, colCount);
+
       blockClusters.push(cluster);
 
       // Mark these blocks as used so we don’t reprocess them
       clusterBlocks.forEach((b) => used.add(b));
     }
 
+    console.log("blockClusters", blockClusters);
+
     return blockClusters;
+  }
+
+  expandOutline(
+    rowCount: number,
+    colCount: number
+  ): { top: number; left: number; bottom: number; right: number } {
+    const EXPAND_AMOUNT = 2;
+
+    return {
+      top: Math.max(1, this.clusterCanvas.top - EXPAND_AMOUNT),
+      left: Math.max(1, this.clusterCanvas.left - EXPAND_AMOUNT),
+      bottom: Math.min(rowCount, this.clusterCanvas.bottom + EXPAND_AMOUNT),
+      right: Math.min(colCount, this.clusterCanvas.right + EXPAND_AMOUNT),
+    };
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Grid } from "../structure/Grid";
+import Grid from "../model/GridModel";
 
 export function RowHeaders({
   grid,
