@@ -840,7 +840,7 @@ export function GridView({
             }
           }
         }
-        
+
         const framePad = 1; // how many rows/cols the frame extends beyond the block
 
         const newTop = targetBlock.topRow - framePad + dR;
@@ -1394,6 +1394,7 @@ export function GridView({
     }
 
     setCutCells(cutArr);
+    setCutRange({ startRow, endRow, startCol, endCol });
     setIsCutMode(true);
 
     grid.endTransaction();
@@ -1413,125 +1414,134 @@ export function GridView({
 
   const pasteSelection = useCallback(async () => {
     try {
-      // Read raw text from the system clipboard:
+      // 1) Read raw text from the system clipboard:
       const textFromClipboard = await navigator.clipboard.readText();
-
-      // If we got text, decide whether it’s tab-delimited or comma-delimited:
       if (!textFromClipboard) {
         return; // If clipboard is empty, do nothing
       }
 
+      // 2) Decide whether it’s tab-delimited or comma-delimited:
       const dataToPaste = textFromClipboard.includes("\t")
         ? fromTSV(textFromClipboard)
         : fromCSV(textFromClipboard);
 
-      // If still no data, do nothing.
       if (!dataToPaste) {
         return;
       }
 
-      // The rest of your original paste logic — e.g. filling the selected cells:
+      // 3) The selection rectangle dimensions
       const { startRow, endRow, startCol, endCol } = selectionRange;
       const selRows = endRow - startRow + 1;
       const selCols = endCol - startCol + 1;
 
-      // Wrap the entire setCellRaw calls in a transaction
+      // Begin a transaction so we can undo/redo
       grid.beginTransaction();
 
-      // If single selected cell, paste entire block
+      // Track every (row,col) we actually paste into
+      const wrotePositions = new Set<string>();
+
+      // --------------------------------------
+      // Special Case: Pasting over the exact same range in cut mode
+      // --------------------------------------
+      if (
+        isCutMode &&
+        cutRange &&
+        cutCells &&
+        startRow === cutRange.startRow &&
+        endRow === cutRange.endRow &&
+        startCol === cutRange.startCol &&
+        endCol === cutRange.endCol
+      ) {
+        // Restore the original cut cells to their original positions
+        for (const cell of cutCells) {
+          grid.setCellRaw(cell.row, cell.col, cell.text);
+          wrotePositions.add(`R${cell.row}C${cell.col}`);
+        }
+        // Exit cut mode without further changes
+        setCutCells(null);
+        setCutRange(null);
+        setIsCutMode(false);
+        grid.endTransaction();
+        forceRefresh();
+        return;
+      }
+
+      // --------------------------------------
+      // CASE A: Single selected cell => paste the entire block
+      // --------------------------------------
       if (selRows === 1 && selCols === 1) {
-        const wrotePositions = new Set<string>();
         for (let r = 0; r < dataToPaste.length; r++) {
           for (let c = 0; c < dataToPaste[r].length; c++) {
             const rr = startRow + r;
             const cc = startCol + c;
-            // If we're aiming for R1C1 while it's locked, skip
+
             if (rr === 1 && cc === 1) {
               const r1c1 = grid.getCellRaw(1, 1);
               if (r1c1.trim().startsWith("^")) {
-                continue; // skip
+                continue; // skip writing
               }
             }
             if (rr > grid.rows) grid.resizeRows(rr);
             if (cc > grid.cols) grid.resizeCols(cc);
+
             grid.setCellRaw(rr, cc, dataToPaste[r][c]);
             wrotePositions.add(`R${rr}C${cc}`);
           }
         }
-        if (isCutMode && cutCells) {
-          for (const cell of cutCells) {
-            // The "destination" is the newly pasted spot = same offset
-            // but if we never wrote to that position, skip clearing.
-            const newKey =
-              /* logic to figure out R#C# of new location if needed */
-              // or if you are doing "paste entire block" from top-left,
-              // this is the offset from the top-left corner.
-              // For a simple approach, if you're just re-locating the entire chunk with the same dimension,
-              // you can do the same for the partial approach.
-              // For demonstration let's say:
-              `R${startRow + (cell.row - startRow)}C${
-                startCol + (cell.col - startCol)
-              }`;
 
-            if (wrotePositions.has(newKey)) {
-              // Only then actually remove from the original
-              grid.setCellRaw(cell.row, cell.col, "");
-            }
-          }
-          setCutCells(null);
-          setIsCutMode(false);
-        }
+        // --------------------------------------
+        // CASE B: Multi-cell selection => fill selection rectangle
+        // --------------------------------------
       } else {
-        // else fill the selection region
         const dataRows = dataToPaste.length;
         const dataCols = Math.max(...dataToPaste.map((a) => a.length));
 
-        // If 1x1 data => fill entire selection
         if (dataRows === 1 && dataCols === 1) {
           const val = dataToPaste[0][0];
           for (let r = startRow; r <= endRow; r++) {
             for (let c = startCol; c <= endCol; c++) {
               grid.setCellRaw(r, c, val);
+              wrotePositions.add(`R${r}C${c}`);
             }
-          }
-          if (isCutMode && cutRange) {
-            for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
-              for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
-                grid.setCellRaw(r, c, "");
-              }
-            }
-            setCutRange(null);
-            setIsCutMode(false);
           }
         } else {
-          // Partial fill
           for (let r = 0; r < Math.min(dataRows, selRows); r++) {
             for (let c = 0; c < Math.min(dataCols, selCols); c++) {
               const rr = startRow + r;
               const cc = startCol + c;
               grid.setCellRaw(rr, cc, dataToPaste[r][c]);
+              wrotePositions.add(`R${rr}C${cc}`);
             }
-          }
-          if (isCutMode && cutRange) {
-            for (let r = cutRange.startRow; r <= cutRange.endRow; r++) {
-              for (let c = cutRange.startCol; c <= cutRange.endCol; c++) {
-                grid.setCellRaw(r, c, "");
-              }
-            }
-            setCutRange(null);
-            setIsCutMode(false);
           }
         }
       }
 
-      grid.endTransaction();
+      // --------------------------------------
+      // If "Cut" mode was active and pasting to a different range, clear original cells
+      // --------------------------------------
+      if (isCutMode && cutCells && cutRange) {
+        for (const cell of cutCells) {
+          const cellKey = `R${cell.row}C${cell.col}`;
 
+          // If the cell was NOT written to, clear it
+          if (!wrotePositions.has(cellKey)) {
+            grid.setCellRaw(cell.row, cell.col, "");
+          }
+        }
+
+        // Exit cut mode
+        setCutCells(null);
+        setCutRange(null);
+        setIsCutMode(false);
+      }
+
+      // End the transaction and refresh
+      grid.endTransaction();
       forceRefresh();
     } catch (err) {
-      console.error("Failed to read from system clipboard:", err);
+      console.error("Failed to paste from system clipboard:", err);
     }
   }, [selectionRange, grid, isCutMode, cutCells, cutRange, forceRefresh]);
-
   // Main keydown
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
