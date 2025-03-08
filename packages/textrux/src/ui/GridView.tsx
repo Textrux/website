@@ -1031,6 +1031,7 @@ export function GridView({
   }, [selectionRange, grid, forceRefresh]);
 
   const enterEmbeddedGrid = useCallback(() => {
+    grid.beginTransaction();
     // Markers / patterns used for embedded grids:
     //  - A cell that starts with "," indicates it has an embedded grid.
     //  - The first cell on the grid (R1C1) can contain '^' plus CSV for parent grid.
@@ -1123,10 +1124,7 @@ export function GridView({
       grid.setCellRaw(1, 1, nextR1C1Contents);
     }
 
-    // 10) Force a refresh of the UI
-    forceRefresh();
-
-    // 11) Move selection to R1C2
+    // 10) Move selection to R1C2
     setActiveRow(1);
     setActiveCol(2);
     setSelectionRange({
@@ -1135,6 +1133,11 @@ export function GridView({
       startCol: 2,
       endCol: 2,
     });
+
+    grid.endTransaction();
+
+    // 11) Force a refresh of the UI
+    forceRefresh();
   }, [
     grid,
     activeRow,
@@ -1146,6 +1149,7 @@ export function GridView({
   ]);
 
   const exitEmbeddedGrid = useCallback(() => {
+    grid.beginTransaction();
     // 1) Check R1C1. If it doesn't start with '^', there's no parent to return to.
     const initialR1C1Contents = grid.getCellRaw(1, 1);
     if (!initialR1C1Contents.startsWith("^")) {
@@ -1307,6 +1311,8 @@ export function GridView({
       colWidths,
       gridContainerRef.current
     );
+
+    grid.endTransaction();
 
     // 8) Force a refresh
     forceRefresh();
