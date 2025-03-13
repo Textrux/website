@@ -1,19 +1,10 @@
 import React from "react";
-import { GridModel, GridView } from "textrux";
+import { GridGallery } from "textrux";
 
 function App() {
-  // Create the model once
-  const gridModel = React.useMemo(() => {
-    const m = new GridModel(1000, 1000);
-    // Example formula cell
-    // m.setCell(4, 8, "=R9C4+R4C3");
-    // m.setCellFormat(4, 8, { backgroundColor: "lightgreen" });
-    return m;
-  }, []);
-
   return (
-    <div className="w-screen h-screen">
-      <GridView grid={gridModel} autoLoadLocalStorage={true} />
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <GridGallery autoLoadLocalStorage={true} />
     </div>
   );
 }

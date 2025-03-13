@@ -5,6 +5,7 @@
  */
 
 import Grid from "../model/GridModel";
+import Project from "../model/Project";
 
 /**
  * Shape we store in localStorage:
@@ -86,5 +87,51 @@ export function loadGridFromLocalStorage(
     }
   } catch (err) {
     console.error("Failed to parse grid data from localStorage:", err);
+  }
+}
+
+// NEW: Save a single Project under a separate key
+export function saveProjectToLocalStorage(project: Project, index: number) {
+  const data: StoredGridData = { rows: 0, cols: 0, cells: [] };
+  const filledCells = project.grid.getFilledCells();
+
+  for (const { row, col, value } of filledCells) {
+    data.cells.push({ row, col, value });
+    if (row > data.rows) data.rows = row;
+    if (col > data.cols) data.cols = col;
+  }
+
+  // e.g. "savedGridData_proj_0", "savedGridData_proj_1", etc.
+  const key = `${LOCAL_STORAGE_KEY}_proj_${index}`;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+export function loadProjectFromLocalStorage(project: Project, index: number) {
+  const key = `${LOCAL_STORAGE_KEY}_proj_${index}`;
+  const raw = localStorage.getItem(key);
+  if (!raw) return; // nothing saved for this project index
+
+  try {
+    const parsed = JSON.parse(raw) as StoredGridData;
+    if (!parsed.cells) return;
+
+    const { rows, cols, cells } = parsed;
+    if (rows > project.grid.rows) {
+      project.grid.resizeRows(rows);
+    }
+    if (cols > project.grid.cols) {
+      project.grid.resizeCols(cols);
+    }
+
+    // clear the existing
+    (project.grid as any).contentsMap = {};
+    (project.grid as any).formulas = {};
+
+    // reapply cells
+    for (const cell of cells) {
+      project.grid.setCellRaw(cell.row, cell.col, cell.value);
+    }
+  } catch (err) {
+    console.error("Failed to parse project data from localStorage:", err);
   }
 }

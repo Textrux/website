@@ -49,6 +49,7 @@ export interface SelectionRange {
 
 export interface GridViewProps {
   grid: GridModel;
+  projectIndex?: number;
   width?: number | string;
   height?: number | string;
   className?: string;
@@ -59,10 +60,11 @@ export interface GridViewProps {
   autoLoadLocalStorage?: boolean;
 }
 
-// LocalStorage keys
-const LS_TOP_LEFT_CELL = "savedTopLeftCell";
-const LS_GRID_ZOOM_LEVEL = "savedGridZoomLevel";
-const LS_SELECTED_CELL = "savedSelectedCell";
+function makeKey(base: string, projectIndex: number | undefined) {
+  // fallback 0 if missing
+  const idx = projectIndex ?? 0;
+  return `${base}_proj_${idx}`;
+}
 
 /**
  * A helper to check if (r, c) is "inside" a block's canvas
@@ -141,6 +143,7 @@ function scrollCellIntoView(
 
 export function GridView({
   grid,
+  projectIndex,
   width = "100%",
   height = "100%",
   className = "",
@@ -153,6 +156,11 @@ export function GridView({
   //
   // 1) Load the saved grid zoom (default = 1.0) from localStorage
   //
+  // For each setting, read/write from the project‑specific key:
+  const LS_TOP_LEFT_CELL = makeKey("savedTopLeftCell", projectIndex);
+  const LS_GRID_ZOOM_LEVEL = makeKey("savedGridZoomLevel", projectIndex);
+  const LS_SELECTED_CELL = makeKey("savedSelectedCell", projectIndex);
+
   const storedZoomRaw = localStorage.getItem(LS_GRID_ZOOM_LEVEL);
   const initialZoom = storedZoomRaw ? parseFloat(storedZoomRaw) : 1.0;
   const [zoom, setZoom] = useState<number>(initialZoom);
@@ -216,17 +224,18 @@ export function GridView({
 
   /** Modal for settings, CSV vs TSV, etc. */
   const [isModalOpen, setModalOpen] = useState(false);
+  const LS_DELIMITER = makeKey("savedDelimiter", projectIndex);
+
   const [currentDelimiter, setCurrentDelimiter] = useState<"tab" | ",">(() => {
-    const stored = localStorage.getItem("savedDelimiter");
+    const stored = localStorage.getItem(LS_DELIMITER);
     if (stored === "tab" || stored === ",") return stored;
     return GridConfig.defaultDelimiter;
   });
 
-  // Function to update state and persist to localStorage
-  const updateDelimiter = (delim: "tab" | ",") => {
+  function updateDelimiter(delim: "tab" | ",") {
     setCurrentDelimiter(delim);
-    localStorage.setItem("savedDelimiter", delim);
-  };
+    localStorage.setItem(LS_DELIMITER, delim);
+  }
 
   /** For block movement logic */
   const blockListRef = useRef<Block[]>([]);
