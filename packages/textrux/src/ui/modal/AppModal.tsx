@@ -50,7 +50,7 @@ const examples = [
     name: "Recursive Grid Cells",
     file: "/examples/RecursiveGridCells.csv",
     description:
-      "A cell can contain another grid. Select a cell that starts with a comma and press F3 to go deeper. Then press Escape to return up.",
+      "A cell can contain another grid. Select a cell that starts with a comma and press F4 to go deeper. Then press Escape to return up.",
   },
   {
     name: "SICP Lecture 1A",
@@ -372,7 +372,7 @@ export const AppModal: React.FC<CombinedProps> = ({
               </p>
               <p>
                 <strong>Nested cells:</strong> If a cell starts with "," it can
-                contain a nested grid. Select and press F3 to enter, Escape to
+                contain a nested grid. Select and press F4 to enter, Escape to
                 go back.
               </p>
             </div>
