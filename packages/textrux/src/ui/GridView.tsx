@@ -38,6 +38,8 @@ import {
   enterElevatedGridHelper,
   exitElevatedGridHelper,
 } from "../util/ElevatedHelpers";
+import Editor from "react-simple-code-editor";
+import Prism from "prismjs";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -201,6 +203,9 @@ export function GridView({
   /** For shift+arrow expansions */
   const anchorRef = useRef<{ row: number; col: number } | null>(null);
 
+  /** Full screen editor ref */
+  const editorRef = useRef(null);
+
   /** Container ref for scroll & zoom actions */
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -237,6 +242,175 @@ export function GridView({
     localStorage.setItem(LS_DELIMITER, delim);
   }
 
+  // Track repeated Ctrl+A presses
+  const ctrlAStageRef = useRef<number>(0);
+  // We’ll also track the last cell (row,col) on which Ctrl+A was pressed
+  const lastCtrlACellRef = useRef<{ row: number; col: number } | null>(null);
+
+  function handleProgressiveCtrlA() {
+    // If the user switched to a different cell since last time, reset our stage:
+    if (
+      lastCtrlACellRef.current == null ||
+      lastCtrlACellRef.current.row !== activeRow ||
+      lastCtrlACellRef.current.col !== activeCol
+    ) {
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
+    }
+
+    // Bump the stage:
+    ctrlAStageRef.current += 1;
+
+    // Remember this cell as the last one used for Ctrl+A
+    lastCtrlACellRef.current = { row: activeRow, col: activeCol };
+
+    // 1) Identify which block, cluster, and block cluster (if any) we are in
+    const blocks = blockListRef.current; // All top-level blocks
+    const block = blocks.find((b) =>
+      isCellInBlockCanvas(b, activeRow, activeCol)
+    );
+    // Each block has .cellClusters: CellCluster[]
+    // The grid also has grid.blockClusters if you want to find the cluster that block belongs to
+    const blockClusters = grid.blockClusters || [];
+    let myCluster: any = null;
+    let myBlockCluster: any = null;
+
+    // If we found a block:
+    if (block) {
+      // Check which sub-cluster inside that block might contain this (row,col)
+      // or contain this empty cell in its bounding box
+      block.cellClusters.forEach((cluster) => {
+        const { topRow, bottomRow, leftCol, rightCol } = cluster;
+        if (
+          activeRow >= topRow &&
+          activeRow <= bottomRow &&
+          activeCol >= leftCol &&
+          activeCol <= rightCol
+        ) {
+          myCluster = cluster;
+        }
+      });
+
+      // Also figure out the block cluster that includes this block
+      myBlockCluster = blockClusters.find((bc) => bc.blocks.includes(block));
+    }
+
+    // 2) Stage-based logic. We do a switch or if-else:
+    if (ctrlAStageRef.current === 1) {
+      // FIRST press => try to select a "cell cluster" bounding box, if it’s more than one cell
+      if (myCluster) {
+        const { topRow, bottomRow, leftCol, rightCol, filledPoints } =
+          myCluster;
+        // If it has at least 2 “filled” points or you want to let the user see that cluster anyway:
+        if (filledPoints.length >= 1) {
+          setSelectionRange({
+            startRow: topRow,
+            endRow: bottomRow,
+            startCol: leftCol,
+            endCol: rightCol,
+          });
+          setActiveRow(topRow);
+          setActiveCol(leftCol);
+          return; // done
+        }
+      }
+      // Otherwise skip ahead to stage 2 immediately
+      ctrlAStageRef.current = 2;
+    }
+
+    if (ctrlAStageRef.current === 2) {
+      // SECOND press => select entire block bounding box
+      if (block) {
+        setSelectionRange({
+          startRow: block.topRow,
+          endRow: block.bottomRow,
+          startCol: block.leftCol,
+          endCol: block.rightCol,
+        });
+        setActiveRow(block.topRow);
+        setActiveCol(block.leftCol);
+        return;
+      }
+      // else skip to stage 3
+      ctrlAStageRef.current = 3;
+    }
+
+    if (ctrlAStageRef.current === 3) {
+      // THIRD press => select entire block cluster bounding box
+      if (myBlockCluster && myBlockCluster.blocks.length > 1) {
+        // If you only want to do this if there’s >1 block
+        const { top, left, bottom, right } = myBlockCluster.clusterCanvas;
+        setSelectionRange({
+          startRow: top,
+          endRow: bottom,
+          startCol: left,
+          endCol: right,
+        });
+        setActiveRow(top);
+        setActiveCol(left);
+        return;
+      }
+      // else skip to stage 4
+      ctrlAStageRef.current = 4;
+    }
+
+    // 4) FOURTH (and subsequent) press => select entire used range
+    const filledCells = grid.getFilledCells();
+    if (filledCells.length === 0) return;
+    let minRow = Infinity,
+      maxRow = -Infinity;
+    let minCol = Infinity,
+      maxCol = -Infinity;
+    filledCells.forEach(({ row, col }) => {
+      if (row < minRow) minRow = row;
+      if (row > maxRow) maxRow = row;
+      if (col < minCol) minCol = col;
+      if (col > maxCol) maxCol = col;
+    });
+
+    setSelectionRange({
+      startRow: 1,
+      endRow: maxRow,
+      startCol: 1,
+      endCol: maxCol,
+    });
+    // If you want the active cell to be the top-left of the “used range,”
+    // you can set it to (minRow, minCol). For consistency, do:
+    setActiveRow(minRow);
+    setActiveCol(minCol);
+
+    // If the user presses Ctrl+A more times, we’ll remain in stage 4
+    ctrlAStageRef.current = 4;
+  }
+
+  // 2) ADD THIS: state to track full-screen editor:
+  const [fullscreenEditing, setFullscreenEditing] = useState<{
+    row: number;
+    col: number;
+    originalValue: string;
+    tempValue: string;
+  } | null>(null);
+
+  // 3) ADD THIS: function to discard changes
+  function discardFullscreenChanges() {
+    // do NOT setCellRaw => revert
+    setFullscreenEditing(null);
+    gridContainerRef.current?.focus(); // optional
+  }
+
+  // 4) ADD THIS: function to commit changes
+  function commitFullscreenChanges() {
+    if (!fullscreenEditing) return;
+    // Save new text to that cell
+    const { row, col, tempValue } = fullscreenEditing;
+    grid.setCellRaw(row, col, tempValue);
+    measureAndExpand(row, col, tempValue);
+    forceRefresh();
+
+    setFullscreenEditing(null);
+    gridContainerRef.current?.focus(); // optional
+  }
+
   /** For block movement logic */
   const blockListRef = useRef<Block[]>([]);
 
@@ -263,6 +437,15 @@ export function GridView({
     setRowHeights(Array(grid.rows).fill(baseRowHeight * zoom));
     setColWidths(Array(grid.cols).fill(baseColWidth * zoom));
   }, [grid.rows, grid.cols, baseRowHeight, baseColWidth, zoom]);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      const editorElement = editorRef.current;
+      if (editorElement && "focus" in editorElement) {
+        editorElement.focus(); // Ensures the editor gets focus
+      }
+    }
+  }, [fullscreenEditing?.tempValue]);
 
   /**
    * Re-parse => styleMap => blockList => store to localStorage
@@ -402,6 +585,8 @@ export function GridView({
             endCol: c,
           });
           anchorRef.current = { row: r, col: c };
+          ctrlAStageRef.current = 0;
+          lastCtrlACellRef.current = null;
         } else if (anchorRef.current) {
           // SHIFT+click
           const startR = anchorRef.current.row;
@@ -414,6 +599,8 @@ export function GridView({
           });
           setActiveRow(r);
           setActiveCol(c);
+          ctrlAStageRef.current = 0;
+          lastCtrlACellRef.current = null;
         }
 
         // focus for keyboard
@@ -434,6 +621,9 @@ export function GridView({
       startCol: c,
       endCol: c,
     });
+
+    ctrlAStageRef.current = 0;
+    lastCtrlACellRef.current = null;
 
     // Save to localStorage
     localStorage.setItem(LS_SELECTED_CELL, JSON.stringify({ row: r, col: c }));
@@ -569,6 +759,9 @@ export function GridView({
       endCol: newC,
     });
 
+    ctrlAStageRef.current = 0;
+    lastCtrlACellRef.current = null;
+
     // Scroll the new cell into view
     scrollCellIntoView(
       newR,
@@ -627,6 +820,8 @@ export function GridView({
       });
       setActiveRow(hoveredRow);
       setActiveCol(hoveredCol);
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
     }
     function onMouseUp(e: MouseEvent) {
       if (e.button === 0) {
@@ -706,6 +901,8 @@ export function GridView({
       });
       setActiveRow(hoveredRow);
       setActiveCol(hoveredCol);
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
     }
     function handleTouchEndDoc() {
       isSelectingViaLongPressRef.current = false;
@@ -743,6 +940,8 @@ export function GridView({
         endCol: newC,
       });
       anchorRef.current = { row: newR, col: newC };
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
       scrollCellIntoView(
         newR,
         newC,
@@ -784,6 +983,8 @@ export function GridView({
         startCol: Math.min(start.col, newC),
         endCol: Math.max(start.col, newC),
       });
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
       scrollCellIntoView(
         newR,
         newC,
@@ -925,6 +1126,8 @@ export function GridView({
         startCol: newActiveC,
         endCol: newActiveC,
       });
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
       scrollCellIntoView(
         newActiveR,
         newActiveC,
@@ -1018,6 +1221,8 @@ export function GridView({
         startCol: midCol,
         endCol: midCol,
       });
+      ctrlAStageRef.current = 0;
+      lastCtrlACellRef.current = null;
       scrollCellIntoView(
         midRow,
         midCol,
@@ -1142,6 +1347,9 @@ export function GridView({
       startCol: 2,
       endCol: 2,
     });
+
+    ctrlAStageRef.current = 0;
+    lastCtrlACellRef.current = null;
 
     grid.endTransaction();
 
@@ -1311,6 +1519,9 @@ export function GridView({
       startCol: prevActiveCol,
       endCol: prevActiveCol,
     });
+
+    ctrlAStageRef.current = 0;
+    lastCtrlACellRef.current = null;
 
     // Ensure the restored cell is visible
     scrollCellIntoView(
@@ -1560,6 +1771,36 @@ export function GridView({
   // Main keydown
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (fullscreenEditing) {
+        // If user pressed ESC => discard
+        if (e.key === "Escape") {
+          e.preventDefault();
+          console.log("Running discardFullscreenChanges");
+          discardFullscreenChanges();
+        }
+        // If user pressed Ctrl+Enter => commit
+        else if (e.key === "Enter" && e.ctrlKey) {
+          e.preventDefault();
+          commitFullscreenChanges();
+        }
+        // If user typed a normal character => append to tempValue
+        else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+          e.preventDefault();
+          setFullscreenEditing((prev) =>
+            prev ? { ...prev, tempValue: prev.tempValue + e.key } : null
+          );
+        }
+        // If user pressed Backspace => remove last char
+        else if (e.key === "Backspace") {
+          e.preventDefault();
+          setFullscreenEditing((prev) =>
+            prev ? { ...prev, tempValue: prev.tempValue.slice(0, -1) } : null
+          );
+        }
+        // Plain Enter => do nothing (stay in full-screen mode)
+        return;
+      }
+
       if (editingCell) {
         // If already editing, siphon typed chars into editingValue:
         if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
@@ -1649,6 +1890,16 @@ export function GridView({
       } else if (e.key === "Delete") {
         e.preventDefault();
         clearSelectedCells();
+      } else if (e.key === "F2" && e.shiftKey) {
+        e.preventDefault();
+        const rawText = grid.getCellRaw(activeRow, activeCol);
+        setFullscreenEditing({
+          row: activeRow,
+          col: activeCol,
+          originalValue: rawText,
+          tempValue: rawText,
+        });
+        return;
       } else if (e.key === "F2") {
         e.preventDefault();
         handleCellDoubleClick(activeRow, activeCol);
@@ -1673,50 +1924,8 @@ export function GridView({
         })();
       } else if ((e.key === "a" || e.key === "A") && e.ctrlKey) {
         e.preventDefault();
-
-        // Check if the active cell is inside a block’s canvas
-        const block = blockListRef.current.find((b) =>
-          isCellInBlockCanvas(b, activeRow, activeCol)
-        );
-
-        if (block) {
-          // Select the entire block's canvas
-          setSelectionRange({
-            startRow: block.topRow,
-            endRow: block.bottomRow,
-            startCol: block.leftCol,
-            endCol: block.rightCol,
-          });
-
-          setActiveRow(block.topRow);
-          setActiveCol(block.leftCol);
-        } else {
-          // Select the entire used range of the grid
-          const filledCells = grid.getFilledCells();
-          if (filledCells.length === 0) return;
-
-          let minRow = Infinity,
-            maxRow = -Infinity,
-            minCol = Infinity,
-            maxCol = -Infinity;
-
-          filledCells.forEach(({ row, col }) => {
-            minRow = Math.min(minRow, row);
-            maxRow = Math.max(maxRow, row);
-            minCol = Math.min(minCol, col);
-            maxCol = Math.max(maxCol, col);
-          });
-
-          setSelectionRange({
-            startRow: 1,
-            endRow: maxRow,
-            startCol: 1,
-            endCol: maxCol,
-          });
-
-          setActiveRow(minRow);
-          setActiveCol(minCol);
-        }
+        // Our new progressive function:
+        handleProgressiveCtrlA();
       }
       // Toggle structural formatting
       else if (e.key === "~" && e.ctrlKey && e.shiftKey) {
@@ -1753,6 +1962,9 @@ export function GridView({
       pasteSelection,
       setFormattingDisabled,
       forceRefresh,
+      fullscreenEditing,
+      discardFullscreenChanges,
+      commitFullscreenChanges,
     ]
   );
 
@@ -2071,6 +2283,69 @@ export function GridView({
         colCount={grid.cols}
         onChangeDimensions={onChangeDimensions}
       />
+
+      {fullscreenEditing && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 9999,
+            top: "3rem",
+            left: 0,
+            right: 0,
+            bottom: "35px",
+            background: "#fff",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* A small header */}
+          <div
+            style={{
+              background: "#ddd",
+              borderBottom: "1px solid #999",
+              padding: "4px",
+            }}
+          >
+            <strong>
+              Full-Screen Edit: R{fullscreenEditing.row}C{fullscreenEditing.col}
+            </strong>
+            <span style={{ marginLeft: 10, fontStyle: "italic" }}>
+              (Esc = discard, Ctrl+Enter = commit)
+            </span>
+          </div>
+
+          {/* The main editor area */}
+          <div style={{ flexGrow: 1, overflow: "auto" }}>
+            <Editor
+              ref={editorRef}
+              value={fullscreenEditing.tempValue}
+              onValueChange={(newVal) => {
+                setFullscreenEditing((prev) =>
+                  prev ? { ...prev, tempValue: newVal } : null
+                );
+              }}
+              highlight={(code) =>
+                Prism.highlight(code, Prism.languages.javascript, "javascript")
+              }
+              padding={10}
+              style={{
+                minHeight: "100%",
+                fontFamily: '"Fira code", "Fira Mono", monospace',
+                fontSize: 14,
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  discardFullscreenChanges();
+                } else if (e.key === "Enter" && e.ctrlKey) {
+                  e.preventDefault();
+                  commitFullscreenChanges();
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
