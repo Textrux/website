@@ -64,10 +64,10 @@ export function arrayToGrid(grid: Grid, arr2D: string[][]): void {
     }
   }
   // Optionally resize if needed:
-  if (numRows > grid.rows) {
+  if (numRows > grid.rowCount) {
     grid.resizeRows(numRows);
   }
-  if (maxCols > grid.cols) {
+  if (maxCols > grid.columnCount) {
     grid.resizeCols(maxCols);
   }
 

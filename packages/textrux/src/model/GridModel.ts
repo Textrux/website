@@ -3,7 +3,9 @@ import { CellFormat } from "../structure/CellFormat";
 import { Parser } from "expr-eval";
 
 export default class GridModel {
+  public name: string;
   public id: string;
+  public index: number;
 
   public gridType: "base" | "embedded" | "elevated";
 
@@ -14,16 +16,37 @@ export default class GridModel {
   public blockClusters: BlockCluster[];
 
   public patterns: any;
-
   public templates: any;
-
   public representations: any;
 
-  /** The nominal row/col count for the “size” of the sheet. */
-  public rows: number;
-  public cols: number;
+  /**
+   * The total number of rows/columns physically in this grid.
+   */
+  public rowCount: number;
+  public columnCount: number;
 
-  // Add a simple flag to track whether we’re batching changes:
+  /**
+   * The current zoom level (for the UI).
+   */
+  public zoomLevel: number;
+
+  /**
+   * CSV or TSV delimiter preference. ("tab" or ",")
+   */
+  public delimiter: "tab" | ",";
+
+  /**
+   * Which cell is currently selected.
+   */
+  public selectedCell: { row: number; col: number };
+
+  /**
+   * Which cell is at the top-left of the visible scroll region (if known).
+   * This helps restore scrolling position.
+   */
+  public topLeftCell: { row: number; col: number };
+
+  // A simple flag for whether we’re batching changes:
   private inTransaction = false;
 
   /**
@@ -58,10 +81,23 @@ export default class GridModel {
     formulas: Record<string, string>;
   }>;
 
-  constructor(rows = 1000, cols = 1000) {
+  constructor(rowCount = 1000, columnCount = 1000, index = 0) {
+    if (!Number.isFinite(index)) {
+      index = 0;
+    }
+    this.index = index;
+    this.name = `Grid ${index}`;
     this.id = crypto.randomUUID();
-    this.rows = rows;
-    this.cols = cols;
+
+    this.rowCount = rowCount;
+    this.columnCount = columnCount;
+
+    // Default them to some values:
+    this.zoomLevel = 1.0;
+    this.delimiter = "tab";
+    this.selectedCell = { row: 1, col: 1 };
+    this.topLeftCell = { row: 1, col: 1 };
+
     this.contentsMap = {};
     this.formatsMap = {};
     this.formulas = {};
@@ -69,9 +105,101 @@ export default class GridModel {
     this.future = [];
   }
 
+  /** Export *all* relevant grid state as a single object. */
+  public toJSONState() {
+    return {
+      id: this.id,
+      name: this.name,
+      index: this.index,
+      rowCount: this.rowCount,
+      columnCount: this.columnCount,
+      zoomLevel: this.zoomLevel,
+      delimiter: this.delimiter,
+      selectedCell: { ...this.selectedCell },
+      topLeftCell: { ...this.topLeftCell },
+      // Stash all non-empty cells:
+      cells: this.getFilledCells(),
+    };
+  }
+
+  /**
+   * Load *all* grid state from an object that was
+   * previously produced by `toJSONState()`.
+   */
+  public loadFromJSONState(state: any) {
+    // Name and index
+    if (typeof state.name === "string") {
+      this.name = state.name;
+    }
+    if (typeof state.index === "number") {
+      this.index = state.index;
+    }
+
+    // Row & column counts
+    if (typeof state.rowCount === "number") {
+      this.resizeRows(state.rowCount);
+    }
+    if (typeof state.columnCount === "number") {
+      this.resizeCols(state.columnCount);
+    }
+
+    // Zoom level
+    if (typeof state.zoomLevel === "number") {
+      this.zoomLevel = state.zoomLevel;
+    }
+
+    // Delimiter
+    if (state.delimiter === "tab" || state.delimiter === ",") {
+      this.delimiter = state.delimiter;
+    }
+
+    // Selected cell
+    if (
+      state.selectedCell &&
+      typeof state.selectedCell.row === "number" &&
+      typeof state.selectedCell.col === "number"
+    ) {
+      this.selectedCell = {
+        row: state.selectedCell.row,
+        col: state.selectedCell.col,
+      };
+    }
+
+    // Top-left scroll cell
+    if (
+      state.topLeftCell &&
+      typeof state.topLeftCell.row === "number" &&
+      typeof state.topLeftCell.col === "number"
+    ) {
+      this.topLeftCell = {
+        row: state.topLeftCell.row,
+        col: state.topLeftCell.col,
+      };
+    }
+
+    // Clear existing cells
+    this.contentsMap = {};
+    this.formulas = {};
+
+    // Refill from 'cells' array
+    if (Array.isArray(state.cells)) {
+      for (const cell of state.cells) {
+        if (
+          cell &&
+          typeof cell.row === "number" &&
+          typeof cell.col === "number" &&
+          typeof cell.value === "string"
+        ) {
+          this.setCellRaw(cell.row, cell.col, cell.value, true);
+        }
+      }
+    }
+  }
+
   /** Get the raw user-typed text of a cell or return an empty string if none exists. */
   getCellRaw(row: number, col: number): string {
-    if (row < 1 || col < 1 || row > this.rows || col > this.cols) return "";
+    if (row < 1 || col < 1 || row > this.rowCount || col > this.columnCount)
+      return "";
     const key = `R${row}C${col}`;
     return this.contentsMap[key] ?? "";
   }
@@ -84,9 +212,9 @@ export default class GridModel {
       : raw;
   }
 
-  /** Set the raw text of a cell, updating maps accordingly. */ /**
-   * Modified setCellRaw to skip saveStateToHistory()
-   * if we are inside a transaction.
+  /**
+   * Set the raw text of a cell, updating maps accordingly.
+   * skipUndo = true means we do NOT push an undo state.
    */
   public setCellRaw(
     row: number,
@@ -94,19 +222,17 @@ export default class GridModel {
     rawText: string,
     skipUndo: boolean = false
   ): void {
-    // If we're trying to write to R1C1 while it's ^-locked, just return and do nothing.
+    // If we're trying to write to R1C1 while it's ^-locked, do nothing
     if (row === 1 && col === 1) {
       const existing = this.getCellRaw(1, 1);
       if (existing.trim().startsWith("^")) {
-        return; // skip entirely
+        return;
       }
     }
 
-    if (row < 1 || col < 1 || row > this.rows || col > this.cols) return;
+    if (row < 1 || col < 1 || row > this.rowCount || col > this.columnCount)
+      return;
 
-    // Only record a separate undo state if:
-    //  - we're NOT in a transaction
-    //  - and we're NOT told to skip explicitly
     if (!this.inTransaction && !skipUndo) {
       this.saveStateToHistory();
       this.future = [];
@@ -130,13 +256,12 @@ export default class GridModel {
 
   /**
    * Evaluate a formula string safely using expr-eval.
-   * Supports mathematical operations, string concatenation, booleans, and SUM() for ranges.
+   * Supports typical math plus SUM(R1C1:R3C1) style references.
    */
   evaluateFormula(formula: string): string {
     try {
-      if (!formula.startsWith("=")) return formula; // Not a formula, return raw text
-
-      let expr = formula.slice(1).trim(); // Remove '=' and trim spaces
+      if (!formula.startsWith("=")) return formula;
+      let expr = formula.slice(1).trim();
       const parser = new Parser();
 
       // Replace boolean values TRUE/FALSE with 1/0
@@ -145,10 +270,10 @@ export default class GridModel {
       // Replace cell references R#C# with actual values
       expr = expr.replace(/R(\d+)C(\d+)/gi, (_m, r, c) => {
         const val = this.getCellValue(Number(r), Number(c)).trim();
-        return val === "" ? "0" : JSON.stringify(val); // Ensure proper handling of strings
+        return val === "" ? "0" : JSON.stringify(val);
       });
 
-      // Handle SUM(R1C1:R3C1) or similar range-based functions
+      // Handle SUM(R1C1:R3C1) or similar
       expr = expr.replace(
         /SUM\(\s*(R\d+C\d+:\s*R\d+C\d+)\s*\)/gi,
         (_m, range) => {
@@ -158,9 +283,7 @@ export default class GridModel {
               ? { row: Number(match[1]), col: Number(match[2]) }
               : null;
           });
-
           if (!start || !end) return "0";
-
           let sum = 0;
           for (let r = start.row; r <= end.row; r++) {
             sum += Number(this.getCellValue(r, start.col)) || 0;
@@ -172,7 +295,6 @@ export default class GridModel {
       // Replace '&' with '+' for string concatenation
       expr = expr.replace(/&/g, "+");
 
-      // Evaluate the expression safely
       return String(parser.evaluate(expr));
     } catch {
       return "ERROR";
@@ -224,13 +346,13 @@ export default class GridModel {
   /** Resize the number of rows while keeping existing data intact. */
   resizeRows(newRowCount: number) {
     if (newRowCount < 1) return;
-    this.rows = newRowCount;
+    this.rowCount = newRowCount;
   }
 
   /** Resize the number of columns while keeping existing data intact. */
   resizeCols(newColCount: number) {
     if (newColCount < 1) return;
-    this.cols = newColCount;
+    this.columnCount = newColCount;
   }
 
   /** Get all filled cells in the grid. */
@@ -253,28 +375,21 @@ export default class GridModel {
    * become a single undo step.
    */
   public beginTransaction(): void {
-    // If we are not already in a transaction, record
-    // the current state so that UNDO will bring us back here:
     if (!this.inTransaction) {
       this.saveStateToHistory();
-      // Clearing future ensures we can redo from here
       this.future = [];
     }
     this.inTransaction = true;
   }
 
-  /**
-   * End the transaction, so future changes again
-   * store individual undo states unless we start
-   * another transaction.
-   */
+  /** End the transaction, so future changes store separate undo states. */
   public endTransaction(): void {
     this.inTransaction = false;
   }
 
   /**
-   * Clear the entire grid (all cell contents, formats, and formulas),
-   * optionally skipping the undo/redo history.
+   * Clear the entire grid (all cell contents, formats, and formulas).
+   * Optionally skipping the undo/redo history.
    */
   public clearAllCells(skipUndo: boolean = false): void {
     // If we are not already in a transaction and not explicitly asked
@@ -283,12 +398,8 @@ export default class GridModel {
       this.saveStateToHistory();
       this.future = [];
     }
-
-    // Wipe out all cell contents, formulas, and formats:
     this.contentsMap = {};
     this.formulas = {};
     this.formatsMap = {};
-
-    // (We do NOT reset .rows or .cols — this only removes data, not resize.)
   }
 }

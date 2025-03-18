@@ -34,7 +34,7 @@ export function ColumnHeaders({
       const end = findLastColInView(sl + cw, colWidths);
       const buffer = 2;
       const renderStart = Math.max(1, start - buffer);
-      const renderEnd = Math.min(grid.cols, end + buffer);
+      const renderEnd = Math.min(grid.columnCount, end + buffer);
 
       setVisibleCols({ startCol: renderStart, endCol: renderEnd });
     }
@@ -46,7 +46,7 @@ export function ColumnHeaders({
       container.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [colWidths, grid.cols, gridContainerRef]);
+  }, [colWidths, grid.columnCount, gridContainerRef]);
 
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
 

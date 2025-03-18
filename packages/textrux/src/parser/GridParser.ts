@@ -46,7 +46,12 @@ export function parseAndFormatGrid(grid: GridModel): {
   }
 
   // 2) Build “containers” of filled cells with outline expand=2 => Blocks
-  const containers = getContainers(filledPoints, 2, grid.rows, grid.cols);
+  const containers = getContainers(
+    filledPoints,
+    2,
+    grid.rowCount,
+    grid.columnCount
+  );
   const blocks: Block[] = containers.map(finalizeBlock);
 
   // 3) Compute each block's sub-lumps (cell clusters), then
@@ -56,8 +61,8 @@ export function parseAndFormatGrid(grid: GridModel): {
     const subContainers = getContainers(
       blk.canvasPoints,
       1,
-      grid.rows,
-      grid.cols
+      grid.rowCount,
+      grid.columnCount
     );
     // each sub-container => array of filled points
     const cellClusters = subContainers.map(
@@ -131,8 +136,8 @@ export function parseAndFormatGrid(grid: GridModel): {
   const blockClusters = BlockCluster.populateBlockClusters(
     blocks,
     blockJoins,
-    grid.rows,
-    grid.cols
+    grid.rowCount,
+    grid.columnCount
   );
 
   grid.blockClusters = blockClusters;

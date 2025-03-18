@@ -83,9 +83,9 @@ export function GridCells({
 
       const buffer = 2;
       const renderStartRow = Math.max(1, startRow - buffer);
-      const renderEndRow = Math.min(grid.rows, endRow + buffer);
+      const renderEndRow = Math.min(grid.rowCount, endRow + buffer);
       const renderStartCol = Math.max(1, startCol - buffer);
-      const renderEndCol = Math.min(grid.cols, endCol + buffer);
+      const renderEndCol = Math.min(grid.columnCount, endCol + buffer);
 
       setVisibleRows({ startRow: renderStartRow, endRow: renderEndRow });
       setVisibleCols({ startCol: renderStartCol, endCol: renderEndCol });
@@ -98,7 +98,7 @@ export function GridCells({
       gridContainer.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [version, grid.rows, grid.cols, rowHeights, colWidths]);
+  }, [version, grid.rowCount, grid.columnCount, rowHeights, colWidths]);
 
   const cells: JSX.Element[] = [];
 

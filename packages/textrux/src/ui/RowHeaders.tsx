@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Grid from "../model/GridModel";
+import { findFirstRowInView, findLastRowInView } from "../util/GridHelper";
 
 export function RowHeaders({
   grid,
@@ -33,7 +34,7 @@ export function RowHeaders({
       const end = findLastRowInView(st + ch, rowHeights);
       const buffer = 2;
       const renderStart = Math.max(1, start - buffer);
-      const renderEnd = Math.min(grid.rows, end + buffer);
+      const renderEnd = Math.min(grid.rowCount, end + buffer);
 
       setVisibleRows({ startRow: renderStart, endRow: renderEnd });
     }
@@ -45,7 +46,7 @@ export function RowHeaders({
       container.removeEventListener("scroll", updateVisibleRange);
       window.removeEventListener("resize", updateVisibleRange);
     };
-  }, [rowHeights, grid.rows, gridContainerRef]);
+  }, [rowHeights, grid.rowCount, gridContainerRef]);
 
   return (
     <div className="absolute top-[30px] left-0 bottom-0 w-[50px] bg-gray-200 border-r border-gray-600 z-8 overflow-hidden">
@@ -97,26 +98,4 @@ function sumUpTo(arr: number[], n: number) {
   let s = 0;
   for (let i = 0; i < n; i++) s += arr[i];
   return s;
-}
-
-function findFirstRowInView(scrollTop: number, heights: number[]) {
-  let cum = 0;
-  for (let i = 0; i < heights.length; i++) {
-    if (scrollTop < cum + heights[i]) {
-      return i + 1;
-    }
-    cum += heights[i];
-  }
-  return heights.length;
-}
-
-function findLastRowInView(bottom: number, heights: number[]) {
-  let cum = 0;
-  let last = 1;
-  for (let i = 0; i < heights.length; i++) {
-    if (cum > bottom) break;
-    last = i + 1;
-    cum += heights[i];
-  }
-  return last;
 }

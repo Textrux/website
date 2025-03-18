@@ -9,7 +9,7 @@
 | :---------: | ----------------------------------------------------------------------------------------------------------------------------------- |
 | ✅          | NPM-package-based development                                                                                                       |
 | 🚧          | Headless usage allowed (parse and process CSV files in code without displaying in UI)                                               |
-| 🚧          | Web UI with gallery of projects each with a grid with row headers, column headers, and formula bar                                  |
+| 🚧          | Web UI with gallery of grids each with row headers, column headers, and formula bar                                                 |
 | ✅          | Grid virtualization to allow large grids to only load the cells in view to improve performance                                      |
 | ✅          | Core structures defined (blocks and clusters)                                                                                       |
 | 🚧          | Easily extensible structural definitions                                                                                            |
@@ -39,7 +39,7 @@
 | ✅          | Cell size limited when it contains a large amount of content                                                                        |
 | ❌          | Formatting follows cell (as block moves around, cell size stays consistent)                                                         |
 | ❌          | Save gallery state to localStorage to preserve UI on refresh / reload                                                               |
-| 🚧          | Save project name, delimiter, contents, zoom level, top left visible cell, selected cell, row/col counts                            |     
+| 🚧          | Save grid name, delimiter, contents, zoom level, top left visible cell, selected cell, row/col counts                               |     
 | ❌          | Setting to allow tree parent nodes to expand down to fill height of child nodes                                                     |
 | ❌          | Embedded grids algorithm and format defined                                                                                         |
 | ✅          | `R1C1` cell is uneditable in embedded grid but can be deleted after prompt                                                          |
@@ -68,7 +68,7 @@
 | ✅          | `Ctrl + Arrow Key`                |        | Move the block one cell in that direction                                                              |
 | ✅          | `Alt + Arrow Key`                 |        | Move selection to center of nearest block in that direction (weighted by direction)                    |
 | 🚧          | `Ctrl + A` (multiple presses)     |        | Expands selection progressively: cell cluster → block canvas → block cluster → used range              |
-| 🚧          | `Ctrl + S`                        |        | Save the grid as a CSV file with project name followed by triple underscores then date time            |
+| 🚧          | `Ctrl + S`                        |        | Save the grid as a CSV file with grid name followed by triple underscores then date time               |
 | ✅          | `Ctrl + Shift + ~`                |        | Toggle all formatting on or off                                                                        |
 | ✅          | `Shift + Enter`                   |        | Move selection one row down and one column to the right                                                |
 | ✅          | `Shift + Ctrl + Enter`            |        | Move selection one row down and one column to the left                                                 |
@@ -78,7 +78,7 @@
 | ✅          | `Esc`                             |        | Exit embedded grid                                                                                     |
 | ✅          | `Ctrl + Z`                        |        | Undo                                                                                                   |
 | ✅          | `Ctrl + Y`                        |        | Redo                                                                                                   |
-| 🚧          | Drag and Drop                     |        | Drop TSV/CSV file onto page to create new project                                                      |
+| 🚧          | Drag and Drop                     |        | Drop TSV/CSV file onto page to create new grid on new tab                                              |
 
 ## Version 0.1.0 (Beta)
 
