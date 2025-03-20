@@ -6,9 +6,15 @@ export default class GridGalleryModel {
   public nextGridIndex: number;
 
   constructor() {
-    // Start with no grids by default
     this.grids = [];
-    // We can track which grid is "active" (selected tab)
     this.activeGridIndex = 0;
+    this.nextGridIndex = 0;
+  }
+
+  createNewGrid(defaultRows: number, defaultCols: number): GridModel {
+    const newGrid = new GridModel(defaultRows, defaultCols, this.nextGridIndex);
+    this.grids.push(newGrid);
+    this.nextGridIndex++;
+    return newGrid;
   }
 }

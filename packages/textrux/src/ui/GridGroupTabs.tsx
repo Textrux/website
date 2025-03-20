@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 export function GridGroupTabs() {
   // For now, we'll store a local dummy array of tab labels
   const [tabs, setTabs] = useState<string[]>(["Sheet1"]);
-
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
+
+  // Ref for scrolling
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   const handleAddTab = () => {
     setTabs([...tabs, `Sheet${tabs.length + 1}`]);
@@ -41,88 +43,105 @@ export function GridGroupTabs() {
     setDraftName("");
   };
 
-  return (
-    <div
-      style={{
-        height: "25px",
-        background: "#f7f7f7",
-        borderTop: "1px solid #ccc",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 8px",
-        transform: "rotateX(180deg)", // optionally "flip" them to appear "upside down"
-      }}
-    >
-      {tabs.map((tabName, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            marginRight: "8px",
-            padding: "4px 8px",
-            border: "1px solid #ccc",
-            background: "#fff",
-            cursor: "pointer",
-          }}
-          onDoubleClick={() => handleDoubleClick(i)}
-        >
-          {editingIndex === i ? (
-            <input
-              autoFocus
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onBlur={() => handleRename(i)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleRename(i);
-                if (e.key === "Escape") {
-                  setEditingIndex(null);
-                  setDraftName("");
-                }
-              }}
-              style={{
-                width: "70px",
-                fontSize: "0.85rem",
-              }}
-            />
-          ) : (
-            <div style={{ marginRight: "8px", transform: "rotateX(180deg)" }}>
-              {tabName}
-            </div>
-          )}
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteTab(i);
-            }}
-            style={{
-              fontWeight: "bold",
-              cursor: "pointer",
-              padding: "0 4px",
-              color: "#666",
-              transform: "rotateX(180deg)",
-            }}
-          >
-            x
-          </div>
-        </div>
-      ))}
+  // Handle wheel events for horizontal scrolling
+  const handleWheel = (e: React.WheelEvent) => {
+    // Directly scroll horizontally with wheel
+    e.preventDefault();
+    if (tabsContainerRef.current) {
+      tabsContainerRef.current.scrollLeft += e.deltaY;
+    }
+  };
 
-      {/* Mini tab with a "+" */}
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      if (tabsContainerRef.current) {
+        const scrollAmount = 200;
+        tabsContainerRef.current.scrollBy({
+          left: e.key === "ArrowLeft" ? -scrollAmount : scrollAmount,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
+
+  return (
+    <div className="relative flex items-center h-[35px] bg-gray-50 border-t border-gray-200">
+      {/* Tabs container */}
       <div
-        onClick={handleAddTab}
+        ref={tabsContainerRef}
+        className="flex-1 flex items-center overflow-x-auto"
+        onWheel={handleWheel}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
         style={{
-          display: "inline-flex",
-          alignItems: "center",
-          marginLeft: "auto",
-          fontWeight: "bold",
-          cursor: "pointer",
-          transform: "rotateX(180deg)",
+          scrollbarWidth: "thin",
+          msOverflowStyle: "none",
         }}
-        title="Add new grid tab"
+      >
+        <div className="flex items-center px-2 space-x-1">
+          {tabs.map((tabName, i) => (
+            <div
+              key={i}
+              onClick={() => {
+                /* Future: select sheet */
+              }}
+              onDoubleClick={() => handleDoubleClick(i)}
+              className="flex items-center px-3 py-1.5 rounded-b-lg border border-gray-300 bg-white shadow-sm relative group cursor-pointer"
+            >
+              {editingIndex === i ? (
+                <input
+                  autoFocus
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onBlur={() => handleRename(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename(i);
+                    if (e.key === "Escape") {
+                      setEditingIndex(null);
+                      setDraftName("");
+                    }
+                  }}
+                  className="min-w-[24px] max-w-[384px] text-sm bg-transparent border-none focus:outline-none"
+                  maxLength={128}
+                />
+              ) : (
+                <span
+                  className="text-sm text-gray-700 pr-5 max-w-[150px] overflow-hidden whitespace-nowrap text-ellipsis"
+                  title={tabName}
+                >
+                  {tabName}
+                </span>
+              )}
+
+              {/* Delete button - hidden during rename and until hover */}
+              {editingIndex !== i && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTab(i);
+                  }}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                  aria-label="Delete sheet"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add new tab button */}
+      <button
+        onClick={handleAddTab}
+        className="px-3 py-1.5 mx-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors duration-150"
+        title="Add new sheet"
+        aria-label="Add new sheet"
       >
         +
-      </div>
+      </button>
     </div>
   );
 }

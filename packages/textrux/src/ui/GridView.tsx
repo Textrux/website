@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// @ts-expect-error - CSS file exists at runtime but TypeScript can't find it
 import "./css/project.css";
 
 import React, {
@@ -62,6 +63,8 @@ export interface GridViewProps {
   baseColWidth?: number;
   baseFontSize?: number;
   autoLoadLocalStorage?: boolean;
+  onGridChange?: (grid: GridModel) => void;
+  onLoadFileToNewGrid?: (file: File) => void;
 }
 
 export function GridView({
@@ -73,19 +76,96 @@ export function GridView({
   baseRowHeight = 24,
   baseColWidth = 60,
   baseFontSize = 14,
-  autoLoadLocalStorage = false,
+  autoLoadLocalStorage = true,
+  onGridChange,
+  onLoadFileToNewGrid,
 }: GridViewProps) {
   //
-  // 1) We’ll create a local “zoom” state. If autoLoadLocalStorage is true,
-  // we’ll load it once from LocalStorageManager on mount.
+  // 1) We'll create a local "zoom" state. If autoLoadLocalStorage is true,
+  // we'll load it once from LocalStorageManager on mount.
   //
   const [zoom, setZoom] = useState<number>(1.0);
 
-  // Whenever zoom changes, update grid model & store it:
+  // Initialize delimiter state here so it's available for the useEffect below
+  const [currentDelimiter, setCurrentDelimiter] = useState(
+    grid.delimiter || "tab"
+  );
+
+  // This is a helper function to notify of grid changes
+  const notifyGridChange = useCallback(() => {
+    if (onGridChange) {
+      onGridChange(grid);
+    } else if (autoLoadLocalStorage) {
+      // Fall back to direct localStorage save if no callback is provided
+      LocalStorageManager.saveGrid(grid);
+    }
+  }, [grid, onGridChange, autoLoadLocalStorage]);
+
+  // Handle zoom change
+  const handleZoomChange = useCallback(
+    (newZoom: number) => {
+      console.log(
+        `Changing zoom from ${zoom} to ${newZoom} for grid ${grid.index}`
+      );
+      setZoom(newZoom);
+      grid.zoomLevel = newZoom;
+      notifyGridChange();
+    },
+    [grid, zoom, notifyGridChange]
+  );
+
+  // Handle delimiter change
+  const handleDelimiterChange = useCallback(
+    (delimiter: "tab" | ",") => {
+      console.log(
+        `Changing delimiter from ${currentDelimiter} to ${delimiter} for grid ${grid.index}`
+      );
+      setCurrentDelimiter(delimiter);
+      grid.delimiter = delimiter;
+      notifyGridChange();
+    },
+    [grid, currentDelimiter, notifyGridChange]
+  );
+
+  // Add state update tracking in the GridView component
+  // Sync grid values with UI state when grid prop changes
   useEffect(() => {
-    grid.zoomLevel = zoom;
-    LocalStorageManager.saveGrid(grid);
-  }, [zoom, grid]);
+    console.log(
+      "Grid prop changed in GridView",
+      "grid.index:",
+      grid.index,
+      "grid.zoomLevel:",
+      grid.zoomLevel,
+      "grid.delimiter:",
+      grid.delimiter
+    );
+
+    // Check what our current state is vs the new grid
+    console.log("Current state", "zoom:", zoom, "delimiter:", currentDelimiter);
+
+    // Only sync on initial load or when switching tabs, not when user zooms
+    // This prevents overriding the zoom when user scrolls with Ctrl+wheel
+    if (zoom !== grid.zoomLevel && zoom === 1.0) {
+      console.log(`Updating zoom from ${zoom} to ${grid.zoomLevel}`);
+      setZoom(grid.zoomLevel || 1.0); // Default to 1.0 if undefined
+    }
+
+    if (currentDelimiter !== grid.delimiter) {
+      console.log(
+        `Updating delimiter from ${currentDelimiter} to ${grid.delimiter}`
+      );
+      setCurrentDelimiter(grid.delimiter || "tab"); // Default to tab if undefined
+    }
+  }, [grid, zoom, currentDelimiter]);
+
+  // Save scroll position
+  const saveScrollPosition = useCallback(
+    (topLeftCell: { row: number; col: number }) => {
+      grid.topLeftCell = topLeftCell;
+      notifyGridChange();
+    },
+    [grid, notifyGridChange]
+  );
 
   // Derive the actual font size
   const fontSize = baseFontSize * zoom;
@@ -144,10 +224,27 @@ export function GridView({
     null
   );
 
+  // Update the setCellSelection function
+  const setCellSelection = useCallback(
+    (range: SelectionRange) => {
+      setSelectionRange(range);
+      setActiveRow(range.startRow);
+      setActiveCol(range.startCol);
+
+      // Update grid's selected cell
+      grid.selectedCell = {
+        row: range.startRow,
+        col: range.startCol,
+      };
+
+      // Notify of changes instead of saving directly
+      notifyGridChange();
+    },
+    [grid, notifyGridChange]
+  );
+
   /** Modal for settings, CSV vs TSV, etc. */
   const [isModalOpen, setModalOpen] = useState(false);
-
-  const [currentDelimiter, setCurrentDelimiter] = useState(grid.delimiter);
 
   // Whenever delimiter changes, store it
   useEffect(() => {
@@ -160,10 +257,34 @@ export function GridView({
     if (!container) return;
 
     function handleScroll() {
-      const row = findFirstRowInView(container.scrollTop, rowHeights);
-      const col = findFirstRowInView(container.scrollLeft, colWidths);
-      const topLeftCell = `R${row}C${col}`;
-      LocalStorageManager.saveGrid(grid, { topLeftCell });
+      if (!container) return;
+
+      // Get the current scroll position
+      const scrollTop = container.scrollTop;
+      const scrollLeft = container.scrollLeft;
+
+      // Find the row and column indices for the current scroll position
+      // Note that these functions return 1-based indices (not 0-based)
+      const row = findFirstRowInView(scrollTop, rowHeights);
+      const col = findFirstRowInView(scrollLeft, colWidths);
+
+      // If we have a valid row and column, save them to the grid
+      if (row > 0 && col > 0) {
+        // Create new topLeftCell object
+        const topLeftCell = { row, col };
+
+        // Log what we're saving
+        console.log(
+          "Saving scroll position:",
+          topLeftCell,
+          "for grid",
+          grid.index
+        );
+
+        // Save to the grid model and localStorage
+        grid.topLeftCell = topLeftCell;
+        notifyGridChange();
+      }
     }
 
     container.addEventListener("scroll", handleScroll);
@@ -174,79 +295,82 @@ export function GridView({
 
   // Track repeated Ctrl+A presses
   const ctrlAStageRef = useRef<number>(0);
-  // We’ll also track the last cell (row,col) on which Ctrl+A was pressed
+  // We'll also track the last cell (row,col) on which Ctrl+A was pressed
   const lastCtrlACellRef = useRef<{ row: number; col: number } | null>(null);
 
-  function handleProgressiveCtrlA() {
-    // If the user switched to a different cell since last time, reset our stage:
-    if (
-      lastCtrlACellRef.current == null ||
-      lastCtrlACellRef.current.row !== activeRow ||
-      lastCtrlACellRef.current.col !== activeCol
-    ) {
-      ctrlAStageRef.current = 0;
-      lastCtrlACellRef.current = null;
-    }
+  const handleCtrlA = useCallback(
+    (e: React.KeyboardEvent) => {
+      e.preventDefault();
 
-    // Bump the stage:
-    ctrlAStageRef.current += 1;
+      // If the user switched to a different cell since last time, reset our stage
+      if (
+        lastCtrlACellRef.current === null ||
+        lastCtrlACellRef.current.row !== activeRow ||
+        lastCtrlACellRef.current.col !== activeCol
+      ) {
+        ctrlAStageRef.current = 0;
+        lastCtrlACellRef.current = null;
+      }
 
-    // Remember this cell as the last one used for Ctrl+A
-    lastCtrlACellRef.current = { row: activeRow, col: activeCol };
+      // Remember this cell as the last one used for Ctrl+A
+      lastCtrlACellRef.current = { row: activeRow, col: activeCol };
 
-    // 1) Identify which block, cluster, and block cluster (if any) we are in
-    const blocks = blockListRef.current; // All top-level blocks
-    const block = blocks.find((b) =>
-      isCellInBlockCanvas(b, activeRow, activeCol)
-    );
-    // Each block has .cellClusters: CellCluster[]
-    // The grid also has grid.blockClusters if you want to find the cluster that block belongs to
-    const blockClusters = grid.blockClusters || [];
-    let myCluster: any = null;
-    let myBlockCluster: any = null;
+      // Get the blocks and identify what structures we're in
+      const blocks = blockListRef.current; // All blocks
+      const blockClusters = grid.blockClusters || []; // All block clusters
 
-    if (block) {
-      block.cellClusters.forEach((cluster) => {
-        const { topRow, bottomRow, leftCol, rightCol } = cluster;
-        if (
-          activeRow >= topRow &&
-          activeRow <= bottomRow &&
-          activeCol >= leftCol &&
-          activeCol <= rightCol
-        ) {
-          myCluster = cluster;
-        }
-      });
+      // Find which block we're in (if any)
+      const block = blocks.find((b) =>
+        isCellInBlockCanvas(b, activeRow, activeCol)
+      );
 
-      myBlockCluster = blockClusters.find((bc) => bc.blocks.includes(block));
-    }
-
-    // 2) Stage-based logic.
-    if (ctrlAStageRef.current === 1) {
-      // FIRST press => try to select a "cell cluster" bounding box
-      if (myCluster) {
-        const { topRow, bottomRow, leftCol, rightCol, filledPoints } =
-          myCluster;
-
-        if (filledPoints.length >= 1) {
-          setSelectionRange({
-            startRow: topRow,
-            endRow: bottomRow,
-            startCol: leftCol,
-            endCol: rightCol,
-          });
-          setActiveRow(topRow);
-          setActiveCol(leftCol);
-          return;
+      // Find cell cluster if we're in a block
+      let cellCluster = null;
+      if (block) {
+        // Find which cell cluster we're in (if any)
+        for (const cluster of block.cellClusters) {
+          const { topRow, bottomRow, leftCol, rightCol } = cluster;
+          if (
+            activeRow >= topRow &&
+            activeRow <= bottomRow &&
+            activeCol >= leftCol &&
+            activeCol <= rightCol
+          ) {
+            cellCluster = cluster;
+            break;
+          }
         }
       }
 
-      ctrlAStageRef.current = 2;
-    }
+      // Find block cluster if we're in a block
+      const blockCluster = block
+        ? blockClusters.find((bc) => bc.blocks.includes(block))
+        : null;
 
-    if (ctrlAStageRef.current === 2) {
-      // SECOND press => entire block bounding box
-      if (block) {
+      // Check if we're on a filled cell
+      const isFilledCell = grid.getCellRaw(activeRow, activeCol).trim() !== "";
+
+      // Select different area based on context
+
+      // If we're in a cell cluster (regardless if the cell is filled or empty)
+      if (cellCluster) {
+        // First press - select cell cluster
+        const { topRow, bottomRow, leftCol, rightCol } = cellCluster;
+        setSelectionRange({
+          startRow: topRow,
+          endRow: bottomRow,
+          startCol: leftCol,
+          endCol: rightCol,
+        });
+        setActiveRow(topRow);
+        setActiveCol(leftCol);
+        ctrlAStageRef.current = 1;
+        return;
+      }
+
+      // If we're in a block (either initially or after selecting cell cluster)
+      if (block && ctrlAStageRef.current <= 1) {
+        // Select block canvas
         setSelectionRange({
           startRow: block.topRow,
           endRow: block.bottomRow,
@@ -255,16 +379,18 @@ export function GridView({
         });
         setActiveRow(block.topRow);
         setActiveCol(block.leftCol);
+        ctrlAStageRef.current = 2;
         return;
       }
 
-      ctrlAStageRef.current = 3;
-    }
-
-    if (ctrlAStageRef.current === 3) {
-      // THIRD press => entire block cluster
-      if (myBlockCluster && myBlockCluster.blocks.length > 1) {
-        const { top, left, bottom, right } = myBlockCluster.clusterCanvas;
+      // If we're in a block cluster with multiple blocks
+      if (
+        blockCluster &&
+        blockCluster.blocks.length > 1 &&
+        ctrlAStageRef.current <= 2
+      ) {
+        // Select block cluster canvas
+        const { top, left, bottom, right } = blockCluster.clusterCanvas;
         setSelectionRange({
           startRow: top,
           endRow: bottom,
@@ -273,38 +399,49 @@ export function GridView({
         });
         setActiveRow(top);
         setActiveCol(left);
+        ctrlAStageRef.current = 3;
         return;
       }
 
-      ctrlAStageRef.current = 4;
-    }
+      // Final stage - select entire used range
+      const filledCells = grid.getFilledCells();
+      if (filledCells.length > 0) {
+        let minRow = Infinity,
+          maxRow = -Infinity;
+        let minCol = Infinity,
+          maxCol = -Infinity;
 
-    // 4) FOURTH press => entire used range
-    const filledCells = grid.getFilledCells();
-    if (filledCells.length === 0) return;
-    let minRow = Infinity,
-      maxRow = -Infinity;
-    let minCol = Infinity,
-      maxCol = -Infinity;
-    filledCells.forEach(({ row, col }) => {
-      if (row < minRow) minRow = row;
-      if (row > maxRow) maxRow = row;
-      if (col < minCol) minCol = col;
-      if (col > maxCol) maxCol = col;
-    });
+        filledCells.forEach(({ row, col }) => {
+          minRow = 1;
+          maxRow = Math.max(maxRow, row);
+          minCol = 1;
+          maxCol = Math.max(maxCol, col);
+        });
 
-    setSelectionRange({
-      startRow: 1,
-      endRow: maxRow,
-      startCol: 1,
-      endCol: maxCol,
-    });
+        setSelectionRange({
+          startRow: minRow,
+          endRow: maxRow,
+          startCol: minCol,
+          endCol: maxCol,
+        });
+        setActiveRow(minRow);
+        setActiveCol(minCol);
+        ctrlAStageRef.current = 4;
+        return;
+      }
 
-    setActiveRow(minRow);
-    setActiveCol(minCol);
-
-    ctrlAStageRef.current = 4;
-  }
+      // If there are no filled cells, select cell R1C1
+      setSelectionRange({
+        startRow: 1,
+        endRow: 1,
+        startCol: 1,
+        endCol: 1,
+      });
+      setActiveRow(1);
+      setActiveCol(1);
+    },
+    [activeRow, activeCol, grid, setSelectionRange]
+  );
 
   // state to track full-screen editor:
   const [fullscreenEditing, setFullscreenEditing] = useState<{
@@ -351,36 +488,76 @@ export function GridView({
   // optionally do it here once on mount
   useEffect(() => {
     if (autoLoadLocalStorage) {
-      const loaded = LocalStorageManager.loadGrid(grid);
+      console.log(
+        "Initial load in GridView for grid",
+        grid.index,
+        "zoom:",
+        grid.zoomLevel,
+        "delimiter:",
+        grid.delimiter
+      );
 
-      if (loaded) {
-        // If it loaded, we might want to pick up new row/col counts, etc.
-        setZoom(grid.zoomLevel);
-        setCurrentDelimiter(grid.delimiter);
+      // We no longer need to load from localStorage here
+      // The parent component (GridGalleryView) already loaded the grid
 
-        setActiveRow(grid.selectedCell.row);
-        setActiveCol(grid.selectedCell.col);
-        setSelectionRange({
+      // Just set up the UI state based on the grid model
+      setZoom(grid.zoomLevel || 1.0);
+      setCurrentDelimiter(grid.delimiter || "tab");
+
+      console.log(
+        "After setting state",
+        "zoom:",
+        grid.zoomLevel,
+        "delimiter:",
+        grid.delimiter
+      );
+
+      if (grid.selectedCell) {
+        setCellSelection({
           startRow: grid.selectedCell.row,
-          endRow: grid.selectedCell.row,
           startCol: grid.selectedCell.col,
+          endRow: grid.selectedCell.row,
           endCol: grid.selectedCell.col,
         });
       }
+
+      // Position the viewport if a saved position exists
+      if (grid.topLeftCell) {
+        console.log("Restoring scroll position to:", grid.topLeftCell);
+
+        // We need to wait until rowHeights and colWidths are properly initialized
+        // Let's use a more reliable approach to calculate the scroll position
+        const scrollTop = calculateScrollPosition(
+          grid.topLeftCell.row,
+          rowHeights
+        );
+        const scrollLeft = calculateScrollPosition(
+          grid.topLeftCell.col,
+          colWidths
+        );
+
+        console.log("Calculated scroll position:", { scrollTop, scrollLeft });
+
+        if (gridContainerRef.current) {
+          gridContainerRef.current.scrollTop = scrollTop;
+          gridContainerRef.current.scrollLeft = scrollLeft;
+        }
+      }
+
+      // Notify of potential changes instead of saving directly
+      notifyGridChange();
     }
-
-    // After any load, rebuild rowHeights and colWidths:
-
-    setRowHeights(Array(grid.rowCount).fill(baseRowHeight * grid.zoomLevel));
-    setColWidths(Array(grid.columnCount).fill(baseColWidth * grid.zoomLevel));
   }, [
     autoLoadLocalStorage,
+    grid,
     baseRowHeight,
     baseColWidth,
-    grid,
-    setZoom,
-    setCurrentDelimiter,
+    zoom,
+    notifyGridChange,
+    rowHeights,
+    colWidths,
   ]);
+
   // Re-init rowHeights/colWidths if row/col count changes or zoom changes
   useEffect(() => {
     setRowHeights(Array(grid.rowCount).fill(baseRowHeight * zoom));
@@ -419,14 +596,29 @@ export function GridView({
 
   const handleCellMouseDown = useCallback(
     (r: number, c: number, e: React.MouseEvent) => {
-      // if we’re editing a different cell, commit it first
+      // if we're editing a different cell, commit it first
       if (editingCell && (editingCell.row !== r || editingCell.col !== c)) {
         const oldVal = editingValue;
-        grid.setCellRaw(editingCell.row, editingCell.col, oldVal);
         setEditingCell(null);
         setEditingValue("");
-        setFocusTarget(null);
-        forceRefresh();
+        if (
+          oldVal !== undefined &&
+          editingCell &&
+          grid.getCellValue(editingCell.row, editingCell.col) !== oldVal
+        ) {
+          // Update if changed
+          updateCellValue(editingCell.row, editingCell.col, oldVal);
+        }
+      }
+
+      // Select this cell (single-cell selection)
+      if (!e.shiftKey) {
+        setCellSelection({
+          startRow: r,
+          startCol: c,
+          endRow: r,
+          endCol: c,
+        });
       }
 
       if (e.button === 0) {
@@ -692,7 +884,7 @@ export function GridView({
     displayNextElevatedGridHelper(grid);
   }, [grid]);
 
-  // 2) Actual “enter” the elevated grid
+  // 2) Actual "enter" the elevated grid
   const enterElevatedGrid = useCallback(() => {
     enterElevatedGridHelper(grid);
   }, [grid]);
@@ -713,7 +905,7 @@ export function GridView({
   } = useGridController({
     grid,
     zoom,
-    setZoom,
+    setZoom: handleZoomChange, // Use handleZoomChange instead of setZoom
     minZoom: 0.2,
     maxZoom: 10,
     colPx: baseColWidth,
@@ -930,7 +1122,7 @@ export function GridView({
           const bLeft = b.leftCol - framePad;
           const bRight = b.rightCol + framePad;
 
-          // If these rectangles overlap, return without moving (prevents “merge”):
+          // If these rectangles overlap, return without moving (prevents "merge"):
           const noOverlap =
             newRight < bLeft ||
             newLeft > bRight ||
@@ -941,7 +1133,7 @@ export function GridView({
           }
         }
 
-        // If we get here, there’s no collision => proceed with the move
+        // If we get here, there's no collision => proceed with the move
       }
 
       // --- START TRANSACTION ---
@@ -1115,7 +1307,7 @@ export function GridView({
     // Markers / patterns used for embedded grids:
     //  - A cell that starts with "," indicates it has an embedded grid.
     //  - The first cell on the grid (R1C1) can contain '^' plus CSV for parent grid.
-    //  - When we enter an embedded grid, the containing cell’s contents are replaced with a marker like `<<)1(>>`in the parent CSV.
+    //  - When we enter an embedded grid, the containing cell's contents are replaced with a marker like `<<)1(>>`in the parent CSV.
     //  - When we enter an embedded grid from an embedded grid, the `<<)1(>>`in the parent CSV is replaced with `<<(1),b,<<)2(>>,,(1)>>` where `<<)1(>>` is replaced with `<<(1)` and `(1)>>` and the CSV from the first embedded grid is placed inside with a marker (`<<)2(>>` showing which cell the second embedded grid is in)
 
     // 1) Get the raw text in the currently active cell
@@ -1242,7 +1434,7 @@ export function GridView({
     // 2) Figure out the current depth
     const initialDepth = getDepthFromCsv(initialR1C1Contents);
     if (initialDepth < 1) {
-      // Means we can’t go up any further
+      // Means we can't go up any further
       return;
     }
 
@@ -1496,7 +1688,7 @@ export function GridView({
         return; // If clipboard is empty, do nothing
       }
 
-      // 2) Decide whether it’s tab-delimited or comma-delimited:
+      // 2) Decide whether it's tab-delimited or comma-delimited:
       const dataToPaste = textFromClipboard.includes("\t")
         ? fromTSV(textFromClipboard)
         : fromCSV(textFromClipboard);
@@ -1776,7 +1968,7 @@ export function GridView({
       } else if ((e.key === "a" || e.key === "A") && e.ctrlKey) {
         e.preventDefault();
         // Our new progressive function:
-        handleProgressiveCtrlA();
+        handleCtrlA(e);
       }
       // Toggle structural formatting
       else if (e.key === "~" && e.ctrlKey && e.shiftKey) {
@@ -1931,6 +2123,10 @@ export function GridView({
 
       grid.clearAllCells(true);
 
+      // Set grid.name to the filename without everything after and including the three underscores
+      const baseName = file.name.replace(/\.\w+$/, ""); // remove extension
+      grid.name = baseName.split("___")[0];
+
       grid.beginTransaction();
       for (let r = 0; r < neededRows; r++) {
         for (let c = 0; c < arr[r].length; c++) {
@@ -2006,9 +2202,98 @@ export function GridView({
     forceRefresh(); // re-render
   };
 
+  const handleGridScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const gridContainer = e.currentTarget;
+      const rowSize = baseRowHeight * zoom;
+      const colSize = baseColWidth * zoom;
+
+      if (!gridContainer) return;
+
+      const scrollTop = gridContainer.scrollTop;
+      const scrollLeft = gridContainer.scrollLeft;
+
+      // Compute which row/col is at the top left
+      const topRow = Math.floor(scrollTop / rowSize);
+      const leftCol = Math.floor(scrollLeft / colSize);
+
+      const topLeftCell = { row: topRow, col: leftCol };
+      grid.topLeftCell = topLeftCell;
+      notifyGridChange();
+    },
+    [baseRowHeight, baseColWidth, zoom, grid, notifyGridChange]
+  );
+
+  // Update the updateCellValue function
+  const updateCellValue = (
+    r: number,
+    c: number,
+    newValue: string,
+    options: { saveToLocalStorage?: boolean } = {}
+  ) => {
+    const { saveToLocalStorage = true } = options;
+
+    // Update the cell in the data model
+    grid.setCellRaw(r, c, newValue);
+
+    // If we should save (usually true)
+    if (saveToLocalStorage) {
+      notifyGridChange();
+    }
+
+    // Always force UI refresh
+    forceRefresh();
+  };
+
+  // Add a helper function to calculate scroll position
+  const calculateScrollPosition = (index: number, sizes: number[]): number => {
+    let position = 0;
+    // Convert from 1-based to 0-based index
+    const arrayIndex = Math.max(0, index - 1);
+
+    for (let i = 0; i < arrayIndex && i < sizes.length; i++) {
+      position += sizes[i];
+    }
+    return position;
+  };
+
+  // Add an effect to restore scroll position when the grid changes (for tab switching)
+  useEffect(() => {
+    // Only run this effect if we have a grid with a saved topLeftCell
+    if (grid && grid.topLeftCell && gridContainerRef.current) {
+      console.log(
+        "Grid changed, restoring scroll position to:",
+        grid.topLeftCell
+      );
+
+      // Calculate scroll position based on the current rowHeights and colWidths
+      const scrollTop = calculateScrollPosition(
+        grid.topLeftCell.row,
+        rowHeights
+      );
+      const scrollLeft = calculateScrollPosition(
+        grid.topLeftCell.col,
+        colWidths
+      );
+
+      console.log("Calculated scroll position for grid change:", {
+        scrollTop,
+        scrollLeft,
+      });
+
+      // Use requestAnimationFrame to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        if (gridContainerRef.current) {
+          gridContainerRef.current.scrollTop = scrollTop;
+          gridContainerRef.current.scrollLeft = scrollLeft;
+        }
+      });
+    }
+  }, [grid, rowHeights, colWidths]);
+
   return (
     <div
-      className={`relative ${className}`}
+      className={`relative overflow-hidden ${className}`}
       style={{ width, height, ...style }}
       onDragOver={(e) => {
         e.preventDefault();
@@ -2018,9 +2303,27 @@ export function GridView({
         e.preventDefault();
         const file = e.dataTransfer.files[0];
         if (file) {
-          loadGridFromFile(file);
+          // Check if it's a CSV or TSV file
+          if (
+            file.name.endsWith(".csv") ||
+            file.name.endsWith(".tsv") ||
+            file.type === "text/csv" ||
+            file.type === "text/tab-separated-values"
+          ) {
+            // If we have the onLoadFileToNewGrid prop, use it to create a new grid tab
+            if (onLoadFileToNewGrid) {
+              onLoadFileToNewGrid(file);
+            } else {
+              // Fallback to the old behavior if the parent component doesn't support the new functionality
+              loadGridFromFile(file);
+            }
+          } else {
+            // For non-CSV/TSV files, continue with the existing behavior
+            loadGridFromFile(file);
+          }
         }
       }}
+      onScroll={handleGridScroll}
     >
       {/* Formula bar */}
       <FormulaBar
@@ -2041,8 +2344,8 @@ export function GridView({
 
       {/* Main area */}
       <div
-        className="absolute left-0 right-0 bottom-0"
-        style={{ top: "3rem", bottom: "35px" }}
+        className="absolute left-0 right-0 bottom-[35px]"
+        style={{ top: "3rem", overflow: "hidden" }}
       >
         {/* top-left corner cell */}
         <div
@@ -2114,8 +2417,10 @@ export function GridView({
         style={{
           position: "absolute",
           bottom: 0,
-          width: "100%",
-          // optionally: height: 50, or just let it auto-size
+          left: 0,
+          right: 0,
+          height: "35px",
+          overflow: "hidden",
         }}
       >
         <Scrubber />
