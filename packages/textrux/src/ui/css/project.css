@@ -10,6 +10,10 @@
   user-select: none;
 }
 
+/* Structures */
+
+/* Cell Structures */
+
 .canvas-cell {
   background-color: white !important;
   color: black !important;
@@ -17,8 +21,22 @@
   text-align: center;
 }
 
-.empty-cell-cluster {
-  background-color: lightblue !important;
+.disabled-cell {
+  background-color: #eee !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+}
+
+/* Cell Cluster Structures */
+
+.cluster-empty-cell {
+  background-color: #bbf !important;
+}
+
+/* Block Structures */
+
+.canvas-empty-cell {
+  background-color: #eef !important;
 }
 
 .border-cell {
@@ -29,25 +47,7 @@
   background-color: yellow !important;
 }
 
-.underscore-cell {
-  text-align: center !important;
-  color: #ccc !important;
-  background-color: #555 !important;
-}
-
-.normal-cell {
-  text-align: left !important;
-  color: #000 !important;
-  background-color: #fff !important;
-}
-
-.cluster-empty-cell {
-  background-color: #bbf !important;
-}
-
-.canvas-empty-cell {
-  background-color: #eef !important;
-}
+/* Block Cluster Structures */
 
 .linked-cell {
   background-color: orange !important;
@@ -57,10 +57,4 @@
 .locked-cell {
   background-color: red !important;
   color: white !important;
-}
-
-.disabled-cell {
-  background-color: #eee !important;
-  color: #999 !important;
-  cursor: not-allowed !important;
 }

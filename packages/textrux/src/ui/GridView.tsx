@@ -1407,6 +1407,8 @@ export function GridView({
       endCol: 2,
     });
 
+    scrollCellIntoView(1, 1, rowHeights, colWidths, gridContainerRef.current);
+
     ctrlAStageRef.current = 0;
     lastCtrlACellRef.current = null;
 

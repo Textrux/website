@@ -1,5 +1,6 @@
 import GridHelper from "../util/GridHelper";
 import Block from "./Block";
+import { CellFormat } from "../style/CellFormat";
 
 /**
  * A BlockJoin represents the "link" or "lock" overlap between two Blocks.
@@ -8,11 +9,17 @@ export default class BlockJoin {
   blocks: [Block, Block];
   type: "linked" | "locked";
 
-  /** The points of overlap that produce the “linked” region. */
+  /** The points of overlap that produce the "linked" region. */
   linkedPoints: Array<{ row: number; col: number }>;
 
-  /** The points of overlap that produce the “locked” region. */
+  /** The points of overlap that produce the "locked" region. */
   lockedPoints: Array<{ row: number; col: number }>;
+
+  /** Formatting for linked cells in this join */
+  linkedFormat: CellFormat;
+
+  /** Formatting for locked cells in this join */
+  lockedFormat: CellFormat;
 
   constructor(
     blockA: Block,
@@ -24,6 +31,18 @@ export default class BlockJoin {
     this.linkedPoints = linkedPoints;
     this.lockedPoints = lockedPoints;
     this.type = lockedPoints.length > 0 ? "locked" : "linked";
+
+    // Initialize with default formats
+    this.linkedFormat = CellFormat.fromCssClass("linked-cell");
+    this.lockedFormat = CellFormat.fromCssClass("locked-cell");
+  }
+
+  /**
+   * Set custom formatting for this join's cells
+   */
+  setCustomFormatting(linkedFormat?: CellFormat, lockedFormat?: CellFormat) {
+    if (linkedFormat) this.linkedFormat = linkedFormat;
+    if (lockedFormat) this.lockedFormat = lockedFormat;
   }
 
   /**

@@ -4,22 +4,32 @@ import Block from "../structure/Block";
 import CellCluster from "../structure/CellCluster";
 import BlockJoin from "../structure/BlockJoin";
 import BlockCluster from "../structure/BlockCluster";
+import { CellFormat } from "../style/CellFormat";
 
 /** Key = "R{row}C{col}" => array of class names */
 interface StyleMap {
   [key: string]: string[];
 }
 
+/** Key = "R{row}C{col}" => CellFormat object */
+interface FormatMap {
+  [key: string]: CellFormat;
+}
+
 /**
  * Scan the grid for non-empty cells => create containers => finalize blocks =>
  * produce a style map. Then also compute BlockJoins => BlockClusters and add
- * locked/linked formatting. Finally, identify “empty cluster” cells as well as
- * “canvas-empty” cells.
+ * locked/linked formatting. Finally, identify "empty cluster" cells as well as
+ * "canvas-empty" cells.
  *
- * Returned styleMap can then be used by the UI layer to add classes to each cell.
+ * Returns:
+ * - styleMap: Can be used by the UI layer to add classes to each cell (backward compatibility)
+ * - formatMap: Maps cell positions to CellFormat objects for advanced styling
+ * - blockList: List of all blocks found in the grid
  */
 export function parseAndFormatGrid(grid: GridModel): {
   styleMap: Record<string, string[]>;
+  formatMap: Record<string, CellFormat>;
   blockList: Block[];
 } {
   // 1) Collect all non-empty (filled) cell positions:
@@ -38,14 +48,16 @@ export function parseAndFormatGrid(grid: GridModel): {
     })
     .map(({ row, col }) => ({ row, col }));
 
-  // Prepare our style map:
+  // Prepare our style and format maps:
   const styleMap: StyleMap = {};
+  const formatMap: FormatMap = {};
 
   if (grid.getCellRaw(1, 1).trim().startsWith("^")) {
-    addClass(styleMap, 1, 1, "disabled-cell");
+    const disabledFormat = CellFormat.fromCssClass("disabled-cell");
+    addFormatAndClass(styleMap, formatMap, 1, 1, disabledFormat);
   }
 
-  // 2) Build “containers” of filled cells with outline expand=2 => Blocks
+  // 2) Build "containers" of filled cells with outline expand=2 => Blocks
   const containers = getContainers(
     filledPoints,
     2,
@@ -57,7 +69,7 @@ export function parseAndFormatGrid(grid: GridModel): {
   // 3) Compute each block's sub-lumps (cell clusters), then
   //    mark cluster‐empty vs. canvas‐empty cells.
   for (const blk of blocks) {
-    // get sub-containers with expand=1 from all the block’s canvasPoints
+    // get sub-containers with expand=1 from all the block's canvasPoints
     const subContainers = getContainers(
       blk.canvasPoints,
       1,
@@ -118,15 +130,34 @@ export function parseAndFormatGrid(grid: GridModel): {
       }
     }
 
-    // Apply “cluster-empty-cell” and “canvas-empty-cell” to styleMap
+    // Apply cluster-empty and canvas-empty formatting to cells
     for (const pt of clusterEmptyCells) {
-      addClass(styleMap, pt.row, pt.col, "cluster-empty-cell");
+      addFormatAndClass(
+        styleMap,
+        formatMap,
+        pt.row,
+        pt.col,
+        cellClusters.find(
+          (c) =>
+            pt.row >= c.topRow &&
+            pt.row <= c.bottomRow &&
+            pt.col >= c.leftCol &&
+            pt.col <= c.rightCol
+        )?.clusterEmptyFormat || CellFormat.fromCssClass("cluster-empty-cell")
+      );
     }
+
     for (const pt of blockEmptyCells) {
       const k = pointKey(pt.row, pt.col);
-      // Only add "canvas-empty-cell" if not already cluster-empty
+      // Only add canvas-empty if not already cluster-empty
       if (!styleMap[k]?.includes("cluster-empty-cell")) {
-        addClass(styleMap, pt.row, pt.col, "canvas-empty-cell");
+        addFormatAndClass(
+          styleMap,
+          formatMap,
+          pt.row,
+          pt.col,
+          blk.canvasEmptyFormat
+        );
       }
     }
   }
@@ -145,27 +176,61 @@ export function parseAndFormatGrid(grid: GridModel): {
   // 5) Mark locked/linked cells from blockClusters
   for (const bc of blockClusters) {
     for (const pt of bc.linkedPoints) {
-      addClass(styleMap, pt.row, pt.col, "linked-cell");
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.linkedFormat);
     }
     for (const pt of bc.lockedPoints) {
-      addClass(styleMap, pt.row, pt.col, "locked-cell");
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.lockedFormat);
     }
   }
 
-  // 6) Finally, apply “canvas‐cell”, “border‐cell”, “frame‐cell” for each block
+  // 6) Finally, apply formatting for canvas, border, frame for each block
   for (const b of blocks) {
     for (const pt of b.canvasPoints) {
-      addClass(styleMap, pt.row, pt.col, "canvas-cell");
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.canvasFormat);
     }
     for (const pt of b.borderPoints) {
-      addClass(styleMap, pt.row, pt.col, "border-cell");
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.borderFormat);
     }
     for (const pt of b.framePoints) {
-      addClass(styleMap, pt.row, pt.col, "frame-cell");
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.frameFormat);
     }
   }
 
-  return { styleMap, blockList: blocks };
+  return { styleMap, formatMap, blockList: blocks };
+}
+
+/**
+ * Add a CellFormat to formatMap and its corresponding CSS classes to styleMap
+ */
+function addFormatAndClass(
+  styleMap: StyleMap,
+  formatMap: FormatMap,
+  row: number,
+  col: number,
+  format: CellFormat
+) {
+  if (row < 1 || col < 1) return;
+  const key = pointKey(row, col);
+
+  // For CSS classes (backward compatibility)
+  if (!styleMap[key]) {
+    styleMap[key] = [];
+  }
+
+  const cssClasses = format.toCssClasses();
+  for (const cls of cssClasses) {
+    if (!styleMap[key].includes(cls)) {
+      styleMap[key].push(cls);
+    }
+  }
+
+  // For formats (new approach)
+  if (!formatMap[key]) {
+    formatMap[key] = format;
+  } else {
+    // Merge with existing format if any
+    formatMap[key] = formatMap[key].merge(format);
+  }
 }
 
 /**
@@ -183,7 +248,7 @@ function getContainers(
   const containers: Container[] = [];
   // faster membership checks:
   const used = new Set<string>();
-  // We’ll keep a Set as well for quick membership.
+  // We'll keep a Set as well for quick membership.
   const allPoints = new Set(filledPoints.map((p) => pointKey(p.row, p.col)));
 
   for (const cell of filledPoints) {
@@ -350,23 +415,6 @@ function dedupePoints(
     }
   }
   return out;
-}
-
-/** Add a classname to styleMap if not already present. */
-function addClass(
-  styleMap: StyleMap,
-  row: number,
-  col: number,
-  className: string
-) {
-  if (row < 1 || col < 1) return;
-  const key = pointKey(row, col);
-  if (!styleMap[key]) {
-    styleMap[key] = [];
-  }
-  if (!styleMap[key].includes(className)) {
-    styleMap[key].push(className);
-  }
 }
 
 /** Helper to convert row,col => "R{row}C{col}". */

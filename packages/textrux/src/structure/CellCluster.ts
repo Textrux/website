@@ -1,3 +1,5 @@
+import { CellFormat } from "../style/CellFormat";
+
 export default class CellCluster {
   topRow: number;
   bottomRow: number;
@@ -5,6 +7,9 @@ export default class CellCluster {
   rightCol: number;
 
   filledPoints: Array<{ row: number; col: number }>;
+
+  /** Formatting for empty cells within the cluster */
+  clusterEmptyFormat: CellFormat;
 
   constructor(
     topRow: number,
@@ -18,5 +23,15 @@ export default class CellCluster {
     this.leftCol = leftCol;
     this.rightCol = rightCol;
     this.filledPoints = filledPoints;
+
+    // Initialize with default format
+    this.clusterEmptyFormat = CellFormat.fromCssClass("cluster-empty-cell");
+  }
+
+  /**
+   * Set custom formatting for this cluster's empty cells
+   */
+  setCustomFormatting(clusterEmptyFormat?: CellFormat) {
+    if (clusterEmptyFormat) this.clusterEmptyFormat = clusterEmptyFormat;
   }
 }

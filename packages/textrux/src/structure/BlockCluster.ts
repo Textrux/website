@@ -1,6 +1,7 @@
 import Block from "./Block";
 import BlockJoin from "./BlockJoin";
 import GridHelper from "../util/GridHelper";
+import { CellFormat } from "../style/CellFormat";
 
 /**
  * A BlockCluster is a group of Blocks that are connected (via their BlockJoins).
@@ -8,7 +9,7 @@ import GridHelper from "../util/GridHelper";
  *   - the individual blocks in the cluster
  *   - the joins among them
  *   - a simple bounding rectangle around all their canvas points
- *   - any “linked” or “locked” overlap points gathered from joins
+ *   - any "linked" or "locked" overlap points gathered from joins
  */
 export default class BlockCluster {
   /** The blocks in this cluster. */
@@ -37,11 +38,17 @@ export default class BlockCluster {
     right: number;
   };
 
-  /** All “linked” points (row,col) in this cluster. */
+  /** All "linked" points (row,col) in this cluster. */
   linkedPoints: Array<{ row: number; col: number }>;
 
-  /** All “locked” points (row,col) in this cluster. */
+  /** All "locked" points (row,col) in this cluster. */
   lockedPoints: Array<{ row: number; col: number }>;
+
+  /** Formatting for linked cells */
+  linkedFormat: CellFormat;
+
+  /** Formatting for locked cells */
+  lockedFormat: CellFormat;
 
   constructor(
     blocks: Block[],
@@ -55,6 +62,18 @@ export default class BlockCluster {
     this.clusterCanvas = clusterCanvas;
     this.linkedPoints = linkedPoints;
     this.lockedPoints = lockedPoints;
+
+    // Initialize with default formats
+    this.linkedFormat = CellFormat.fromCssClass("linked-cell");
+    this.lockedFormat = CellFormat.fromCssClass("locked-cell");
+  }
+
+  /**
+   * Set custom formatting for this block cluster's cells
+   */
+  setCustomFormatting(linkedFormat?: CellFormat, lockedFormat?: CellFormat) {
+    if (linkedFormat) this.linkedFormat = linkedFormat;
+    if (lockedFormat) this.lockedFormat = lockedFormat;
   }
 
   /**
@@ -84,7 +103,7 @@ export default class BlockCluster {
         jn.blocks.includes(currentBlock)
       );
       for (const join of relevantJoins) {
-        // If we haven’t recorded this join in clusterJoins, add it
+        // If we haven't recorded this join in clusterJoins, add it
         if (!clusterJoins.includes(join)) {
           clusterJoins.push(join);
         }
@@ -131,7 +150,7 @@ export default class BlockCluster {
 
       blockClusters.push(cluster);
 
-      // Mark these blocks as used so we don’t reprocess them
+      // Mark these blocks as used so we don't reprocess them
       clusterBlocks.forEach((b) => used.add(b));
     }
 
@@ -141,9 +160,9 @@ export default class BlockCluster {
   }
 
   expandOutline(
-    expandBy: number,
     rowCount: number,
-    colCount: number
+    colCount: number,
+    expandBy: number
   ): { top: number; left: number; bottom: number; right: number } {
     return {
       top: Math.max(1, this.clusterCanvas.top - expandBy),
