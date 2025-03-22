@@ -451,6 +451,32 @@ export default function GridGalleryView(props: GridGalleryProps) {
     });
   };
 
+  // Function to reorder grids via drag and drop
+  const reorderGrids = useCallback((newGrids: GridModel[]) => {
+    console.log(
+      "Reordering grids",
+      newGrids.map((g) => g.name)
+    );
+
+    setGallery((prev) => {
+      // Create a shallow copy while preserving the type
+      const newGal = Object.assign(new GridGalleryModel(), prev);
+
+      // Update with the new order of grids
+      newGal.grids = newGrids;
+
+      // Save to localStorage immediately
+      LocalStorageManager.saveGalleryIndexes(newGal.grids);
+
+      // Save each individual grid to ensure no data is lost
+      for (const grid of newGal.grids) {
+        LocalStorageManager.saveGrid(grid);
+      }
+
+      return newGal;
+    });
+  }, []);
+
   // Function to create a new grid and load a file into it
   const loadFileToNewGrid = (file: File) => {
     const reader = new FileReader();
@@ -537,6 +563,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
         onAddGrid={addGrid}
         onDeleteGrid={deleteGrid}
         onRenameGrid={renameGrid}
+        onReorderGrids={reorderGrids}
       />
       <div style={{ flex: "1 1 0%", position: "relative", overflow: "hidden" }}>
         {activeGrid ? (
