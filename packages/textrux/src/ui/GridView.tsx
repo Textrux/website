@@ -14,7 +14,6 @@ import Block from "../structure/Block";
 import { parseAndFormatGrid } from "../parser/GridParser";
 import { fromCSV, toCSV } from "../util/CSV";
 import { fromTSV, toTSV } from "../util/TSV";
-import { GridConfig } from "../util/GridConfig";
 import { useGridController } from "./controller/GridController";
 import { ColumnHeaders } from "./ColumnHeaders";
 import { RowHeaders } from "./RowHeaders";
@@ -65,6 +64,7 @@ export interface GridViewProps {
   autoLoadLocalStorage?: boolean;
   onGridChange?: (grid: GridModel) => void;
   onLoadFileToNewGrid?: (file: File) => void;
+  clearAllGrids?: () => void; // Function to reset all grids to defaults
 }
 
 export function GridView({
@@ -79,6 +79,7 @@ export function GridView({
   autoLoadLocalStorage = true,
   onGridChange,
   onLoadFileToNewGrid,
+  clearAllGrids,
 }: GridViewProps) {
   //
   // 1) We'll create a local "zoom" state. If autoLoadLocalStorage is true,
@@ -2136,7 +2137,16 @@ export function GridView({
       }
       grid.endTransaction();
 
+      // Save to localStorage to ensure grid name and dimensions persist
+      if (autoLoadLocalStorage) {
+        LocalStorageManager.saveGrid(grid);
+      }
+
+      // Trigger UI refresh to reflect the updated grid name
       forceRefresh();
+      if (onGridChange) {
+        onGridChange(grid);
+      }
     };
     reader.readAsText(file);
   }
@@ -2198,6 +2208,16 @@ export function GridView({
     // Then do the resizing
     grid.resizeRows(newRowCount);
     grid.resizeCols(newColCount);
+
+    // Save the updated dimensions to localStorage to ensure they persist
+    if (autoLoadLocalStorage) {
+      LocalStorageManager.saveGrid(grid);
+    }
+
+    // Notify parent component about the change
+    if (onGridChange) {
+      onGridChange(grid);
+    }
 
     forceRefresh(); // re-render
   };
@@ -2436,6 +2456,7 @@ export function GridView({
           LocalStorageManager.saveGrid(grid);
         }}
         clearGrid={clearGrid}
+        clearAllGrids={clearAllGrids}
         saveGridToFile={saveGridToFile}
         loadGridFromFile={loadGridFromFile}
         loadExample={loadExample}

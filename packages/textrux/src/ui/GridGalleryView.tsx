@@ -295,6 +295,42 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
   const activeGrid = gallery.grids[gallery.activeGridIndex] || null;
 
+  // Function to reset everything to defaults (single grid with default settings)
+  const clearAllGrids = useCallback(() => {
+    console.log("Clearing all grids and resetting to defaults");
+
+    // First, delete all existing grids from localStorage
+    for (const grid of gallery.grids) {
+      LocalStorageManager.deleteGrid(grid);
+    }
+
+    // Create a fresh gallery with a single grid
+    const newGal = new GridGalleryModel();
+    newGal.nextGridIndex = 1;
+
+    // Create a single default grid
+    const defaultGrid = new GridModel(
+      defaultRows,
+      defaultCols,
+      newGal.nextGridIndex++
+    );
+    defaultGrid.name = "Grid 1";
+    defaultGrid.zoomLevel = 1.0;
+    defaultGrid.delimiter = "tab";
+
+    // Add the grid to the gallery
+    newGal.grids = [defaultGrid];
+    newGal.activeGridIndex = 0;
+
+    // Update localStorage with the new state
+    LocalStorageManager.saveGrid(defaultGrid);
+    LocalStorageManager.saveGalleryIndexes(newGal.grids);
+    LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+
+    // Update the state
+    setGallery(newGal);
+  }, [gallery.grids, defaultRows, defaultCols]);
+
   // Simplified selectGrid function - just changes the active index
   const selectGrid = (index: number) => {
     console.log(`Switching to grid ${index}`);
@@ -513,6 +549,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
             baseFontSize={14}
             onGridChange={onGridChange}
             onLoadFileToNewGrid={loadFileToNewGrid}
+            clearAllGrids={clearAllGrids}
           />
         ) : (
           <div style={{ padding: "10px" }}>No grid selected.</div>
