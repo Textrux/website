@@ -8,7 +8,7 @@ import React, {
   useMemo,
 } from "react";
 import GridModel from "../model/GridModel";
-import Block from "../layers/3-foundations/Block";
+import Block from "../layers/3-foundations/block/Block";
 import { parseAndFormatGrid } from "../parser/GridParser";
 import { fromCSV, toCSV } from "../util/CSV";
 import { fromTSV, toTSV } from "../util/TSV";

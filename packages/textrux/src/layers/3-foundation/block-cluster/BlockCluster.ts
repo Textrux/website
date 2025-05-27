@@ -1,7 +1,8 @@
-import Block from "./Block";
-import BlockJoin from "./BlockJoin";
-import GridHelper from "../../util/GridHelper";
-import { CellFormat } from "../../style/CellFormat";
+import Block from "../block/Block";
+import BlockJoin from "../block-join/BlockJoin";
+import GridHelper from "../../../util/GridHelper";
+import { CellFormat } from "../../../style/CellFormat";
+import { BlockClusterTraits } from "../block-cluster/BlockClusterTraits";
 
 /**
  * A BlockCluster is a group of Blocks that are connected (via their BlockJoins).
@@ -50,6 +51,9 @@ export default class BlockCluster {
   /** Formatting for locked cells */
   lockedFormat: CellFormat;
 
+  /** Traits for this block cluster */
+  traits: BlockClusterTraits;
+
   constructor(
     blocks: Block[],
     blockJoins: BlockJoin[],
@@ -66,6 +70,19 @@ export default class BlockCluster {
     // Initialize with default formats
     this.linkedFormat = CellFormat.fromCssClass("linked-cell");
     this.lockedFormat = CellFormat.fromCssClass("locked-cell");
+
+    // Initialize traits with placeholder values - will be populated later
+    this.traits = this.initializeTraits();
+  }
+
+  private initializeTraits(): BlockClusterTraits {
+    // TODO: Implement trait analysis and population
+    // For now, return a basic structure with default values
+    return {
+      base: {} as any,
+      composite: {} as any,
+      derived: {} as any,
+    };
   }
 
   /**

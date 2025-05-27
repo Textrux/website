@@ -9,26 +9,28 @@
 | :---------: | ----------------------------------------------------------------------------------------------------------------------------------- |
 | ✅          | NPM-package-based development                                                                                                       |
 | 🚧          | Headless usage allowed (parse and process CSV files in code without displaying in UI)                                               |
-| 🚧          | Web UI with gallery of grids each with row headers, column headers, and formula bar                                                 |
+| ✅          | Pick up where you left off - all changes saved in local storage                                                                     |
+| ✅          | Site still works offline                                                                                                            |
+| ✅          | Web UI with gallery of grids each with row headers, column headers, and formula bar                                                 |
 | ✅          | Grid virtualization to allow large grids to only load the cells in view to improve performance                                      |
-| ✅          | Core structures defined (blocks and clusters)                                                                                       |
-| 🚧          | Easily extensible structural definitions                                                                                            |
-| ✅          | Code-based core structure definitions                                                                                               |
-| ✅          | Parse core structures                                                                                                               |
-| ✅          | Format core structures                                                                                                              |
-| ❌          | Structural Feature Definitions (SFD) created and included in parser                                                                 |
-| ❌          | Core patterns defined (trees and tables)                                                                                            |
-| ❌          | Code-based pattern definitions                                                                                                      |
-| ❌          | Pattern definitions matched to SFDs                                                                                                 |
-| ❌          | Parse core patterns                                                                                                                 |
-| ❌          | Format core patterns                                                                                                                |
-| ❌          | Core templates defined (APIs)                                                                                                       |
-| ❌          | Code-based template definitions                                                                                                     |
-| ❌          | Parse templates                                                                                                                     |
-| ❌          | Format templates                                                                                                                    |
-| ❌          | Core representations defined                                                                                                        |
-| ❌          | Code-based representations definitions                                                                                              |
-| ❌          | Parse representations                                                                                                               |
+| ✅          | Foundations defined (blocks, clusters, subclusters)                                                                                 |
+| ✅          | Code-based foundation definitions                                                                                                   |
+| ✅          | Parse foundations                                                                                                                   |
+| ✅          | Format foundations                                                                                                                  |
+| ❌          | Foundation traits defined                                                                                                           |
+| ❌          | Core construct (trees and tables) signatures defined from foundation traits                                                         |
+| 🚧          | Easily extensible construct definitions                                                                                             |
+| ❌          | Code-based construct definitions                                                                                                    |
+| ❌          | Construct definitions matched to SFDs                                                                                               |
+| ❌          | Parse core constructs                                                                                                               |
+| ❌          | Format core constructs                                                                                                              |
+| ❌          | Core blueprints defined (APIs)                                                                                                      |
+| ❌          | Code-based blueprints definitions                                                                                                   |
+| ❌          | Parse blueprints                                                                                                                    |
+| ❌          | Format blueprints                                                                                                                   |
+| ❌          | Core explorers defined                                                                                                              |
+| ❌          | Code-based explorers definitions                                                                                                    |
+| ❌          | Core explorers produce artifacts                                                                                                    |
 | ✅          | Basic references                                                                                                                    |
 | ✅          | Basic formula evaluation                                                                                                            |
 | ❌          | Basic interaction resolver                                                                                                          |
@@ -47,7 +49,6 @@
 | ❌          | Elevated grids algorithm and format defined                                                                                         |
 | ❌          | Elevated grids                                                                                                                      |
 | ❌          | Elevated grid borders                                                                                                               |
-| ❌          | Automated structural repositioning (adding a row to a block moves blocks below it down)                                             |
 | ❌          | Elevated grid structural repositioning on change                                                                                    |
 | 🚧          | Examples of every primary use case provided                                                                                         |
 | ❌          | Basic evaluation resolver (with resolved value overlay and optional sequential scrubbing)                                           |
@@ -68,17 +69,17 @@
 | ✅          | `Ctrl + Arrow Key`                |        | Move the block one cell in that direction                                                              |
 | ✅          | `Alt + Arrow Key`                 |        | Move selection to center of nearest block in that direction (weighted by direction)                    |
 | 🚧          | `Ctrl + A` (multiple presses)     |        | Expands selection progressively: cell cluster → block canvas → block cluster → used range              |
-| 🚧          | `Ctrl + S`                        |        | Save the grid as a CSV file with grid name followed by triple underscores then date time               |
+| ✅          | `Ctrl + S`                        |        | Save the grid as a CSV file with grid name followed by triple underscores then date time               |
 | ✅          | `Ctrl + Shift + ~`                |        | Toggle all formatting on or off                                                                        |
 | ✅          | `Shift + Enter`                   |        | Move selection one row down and one column to the right                                                |
 | ✅          | `Shift + Ctrl + Enter`            |        | Move selection one row down and one column to the left                                                 |
 | ✅          | `F2`                              |        | Edit selected cell                                                                                     |
-| 🚧          | `Ctrl + F2`                       |        | Edit selected cell full screen                                                                         |
+| ✅          | `Ctrl + F2`                       |        | Edit selected cell full screen                                                                         |
 | ✅          | `F4`                              |        | Enter embedded grid                                                                                    |
 | ✅          | `Esc`                             |        | Exit embedded grid                                                                                     |
 | ✅          | `Ctrl + Z`                        |        | Undo                                                                                                   |
 | ✅          | `Ctrl + Y`                        |        | Redo                                                                                                   |
-| 🚧          | Drag and Drop                     |        | Drop TSV/CSV file onto page to create new grid on new tab                                              |
+| ✅          | Drag and Drop                     |        | Drop TSV/CSV file onto page to create new grid on new tab                                              |
 
 ## Version 0.1.0 (Beta)
 
@@ -87,14 +88,14 @@
 <!-- prettier-ignore -->
 | Implemented | Description                                                                                                                        |
 | :---------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-|             | Content-based pattern definitions (you can define a pattern inside a grid and use it in that grid)                                 |
-|             | Content-based template definitions                                                                                                 |
-|             | Content-based representation definitions                                                                                           |
-|             | IDE viewport (selected cell full screen with file/folder tree next to it)                                                          |
-|             | Complex formula evaluation                                                                                                         |
-|             | Precedent / Dependent arrows                                                                                                       |
-|             | Structure-defined interaction definitions (`Shift + Enter` creates new child node in tree, adjusting other blocks as necessary)    |
-|             | Complex references (including cross-level pointers)                                                                                |
+| ❌          | Automated structural repositioning (adding a row to a block moves blocks below it down)                                            |
+| ❌          | Content-based construct definitions (you can define a construct inside a grid and use it in that grid)                             |
+| ❌          | Content-based layout definitions                                                                                                   |
+| ❌          | Content-based blueprint definitions                                                                                                |
+| ❌          | IDE viewport (selected cell full screen with file/folder tree next to it)                                                          |
+| ❌          | Complex formula evaluation                                                                                                         |
+| ❌          | Precedent / Dependent arrows                                                                                                       |
+| ❌          | Construct-defined interaction definitions (`Shift + Enter` creates new child node in tree, adjusting other blocks as necessary)    |
 
 ## Version 1.0.0 (Release)
 
@@ -103,6 +104,7 @@
 <!-- prettier-ignore -->
 | Implemented | Description                                                                                                                        |
 | :---------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-|             | Full-flow viewport (4 grids in quadrant: top left=dev, bottom right=api, top right=ui, bottom left = db)                           |
-|             | Allow core structures, patterns, templates, and representations to be redefined or overridden in code                              |
-|             | Protocol defined for connecting to a remote grid for interactive editing                                                           |
+| ❌          | Full-flow viewport (4 grids in quadrant: top left=dev, bottom right=api, top right=ui, bottom left = db)                           |
+| ❌          | Allow foundations, constructs, layouts, and blueprints to be redefined or overridden in code                                       |
+| ❌          | Protocol defined for connecting to a remote grid for interactive editing                                                           |
+| ❌          | Complex references (including cross-level pointers)                                                                                |

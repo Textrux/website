@@ -1,11 +1,10 @@
-
 import ConstructFoundation from "./ConstructFoundation";
-import PatternResult from "./PatternResult";
+import ConstructResult from "./ConstructResult";
 
-export default class Pattern {
+export default class Construct {
   Name: string;
   foundation: ConstructFoundation;
   Parse: () => void;
-  Result: PatternResult;
+  Result: ConstructResult;
   Format: (cells: Cell[]) => void;
 }

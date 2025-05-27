@@ -1,6 +1,7 @@
-import CellCluster from "./CellCluster";
-import Container from "./Container";
-import { CellFormat } from "../../style/CellFormat";
+import CellCluster from "../cell-cluster/CellCluster";
+import Container from "../Container";
+import { CellFormat } from "../../../style/CellFormat";
+import { BlockTraits } from "./BlockTraits";
 
 /**
  * A Block is a structured object that includes:
@@ -38,6 +39,9 @@ export default class Block {
   /** Formatting for frame cells */
   frameFormat: CellFormat;
 
+  /** Traits for this block */
+  traits: BlockTraits;
+
   constructor(container: Container) {
     this.topRow = container.topRow;
     this.bottomRow = container.bottomRow;
@@ -54,6 +58,19 @@ export default class Block {
     this.canvasEmptyFormat = CellFormat.fromCssClass("canvas-empty-cell");
     this.borderFormat = CellFormat.fromCssClass("border-cell");
     this.frameFormat = CellFormat.fromCssClass("frame-cell");
+
+    // Initialize traits with placeholder values - will be populated later
+    this.traits = this.initializeTraits();
+  }
+
+  private initializeTraits(): BlockTraits {
+    // TODO: Implement trait analysis and population
+    // For now, return a basic structure with default values
+    return {
+      base: {} as any,
+      composite: {} as any,
+      derived: {} as any,
+    };
   }
 
   /**

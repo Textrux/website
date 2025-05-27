@@ -1,6 +1,7 @@
-import GridHelper from "../../util/GridHelper";
-import Block from "./Block";
-import { CellFormat } from "../../style/CellFormat";
+import GridHelper from "../../../util/GridHelper";
+import Block from "../block/Block";
+import { CellFormat } from "../../../style/CellFormat";
+import { BlockJoinTraits } from "./BlockJoinTraits";
 
 /**
  * A BlockJoin represents the "link" or "lock" overlap between two Blocks.
@@ -21,6 +22,9 @@ export default class BlockJoin {
   /** Formatting for locked cells in this join */
   lockedFormat: CellFormat;
 
+  /** Traits for this block join */
+  traits: BlockJoinTraits;
+
   constructor(
     blockA: Block,
     blockB: Block,
@@ -35,6 +39,19 @@ export default class BlockJoin {
     // Initialize with default formats
     this.linkedFormat = CellFormat.fromCssClass("linked-cell");
     this.lockedFormat = CellFormat.fromCssClass("locked-cell");
+
+    // Initialize traits with placeholder values - will be populated later
+    this.traits = this.initializeTraits();
+  }
+
+  private initializeTraits(): BlockJoinTraits {
+    // TODO: Implement trait analysis and population
+    // For now, return a basic structure with default values
+    return {
+      base: {} as any,
+      composite: {} as any,
+      derived: {} as any,
+    };
   }
 
   /**

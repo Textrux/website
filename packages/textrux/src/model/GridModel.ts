@@ -1,4 +1,4 @@
-import BlockCluster from "../layers/3-foundations/BlockCluster";
+import BlockCluster from "../layers/3-foundations/block-cluster/BlockCluster";
 import { CellFormat } from "../style/CellFormat";
 import { Parser } from "expr-eval";
 

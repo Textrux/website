@@ -1,4 +1,4 @@
-export const PatternsManager = (function () {
+export const ConstructManager = (function () {
   const patternDefinitions = {
     cell: [] as CellPatternDefinition[],
     contiguousCellCluster: [] as ClusterPatternDefinition[],

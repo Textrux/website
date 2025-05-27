@@ -1,4 +1,4 @@
-import Block from "../layers/3-foundations/Block";
+import Block from "../layers/3-foundations/block/Block";
 
 // A simple interface for anything with row/col:
 export interface Point {
