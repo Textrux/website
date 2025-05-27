@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Grid from "../model/GridModel";
+import Grid from "../layers/1-substrate/GridModel";
 import { toCSV } from "./CSV";
 
 /**

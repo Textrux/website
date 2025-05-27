@@ -1,5 +1,5 @@
-import BlockCluster from "../layers/3-foundations/block-cluster/BlockCluster";
-import { CellFormat } from "../style/CellFormat";
+import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
+import { CellFormat } from "../../style/CellFormat";
 import { Parser } from "expr-eval";
 
 export default class GridModel {

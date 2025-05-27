@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from "react";
-import Grid from "../../model/GridModel";
+import Grid from "../../layers/1-substrate/GridModel";
 
 export interface UseGridControllerOptions {
   grid: Grid; // The model
@@ -60,7 +60,7 @@ export function useGridController(options: UseGridControllerOptions) {
   const lastScrollActionRef = useRef<
     "displayedNext" | "entered" | "exited" | null
   >(null);
-  
+
   // (A) Desktop Ctrl+wheel => zoom
   useEffect(() => {
     const container = gridContainerRef.current;

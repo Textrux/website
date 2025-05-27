@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import GridModel from "../model/GridModel";
+import GridModel from "../layers/1-substrate/GridModel";
 
 interface GridTabsProps {
   grids: GridModel[];

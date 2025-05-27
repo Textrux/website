@@ -1,4 +1,4 @@
-import GridModel from "../model/GridModel";
+import GridModel from "../layers/1-substrate/GridModel";
 
 export class LocalStorageManager {
   static saveActiveGridIndex(activeIndex: number) {

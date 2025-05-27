@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Grid from "../model/GridModel";
+import Grid from "../layers/1-substrate/GridModel";
 import { findFirstRowInView, findLastRowInView } from "../util/GridHelper";
 
 export function RowHeaders({

@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 // packages/textrux/src/ui/GridCells.tsx
 import { useEffect, useRef, useState, JSX } from "react";
-import Grid from "../model/GridModel";
+import Grid from "../layers/1-substrate/GridModel";
 import { SelectionRange } from "./GridView";
 import { CellView } from "./CellView";
 

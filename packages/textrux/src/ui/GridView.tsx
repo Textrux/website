@@ -7,9 +7,9 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import GridModel from "../model/GridModel";
-import Block from "../layers/3-foundations/block/Block";
-import { parseAndFormatGrid } from "../parser/GridParser";
+import GridModel from "../layers/1-substrate/GridModel";
+import Block from "../layers/3-foundation/block/Block";
+import { parseAndFormatGrid } from "../layers/1-substrate/GridParser";
 import { fromCSV, toCSV } from "../util/CSV";
 import { fromTSV, toTSV } from "../util/TSV";
 import { useGridController } from "./controller/GridController";

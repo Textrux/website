@@ -1,10 +1,10 @@
-import GridModel from "../model/GridModel";
-import Container from "../layers/3-foundations/Container";
-import Block from "../layers/3-foundations/block/Block";
-import CellCluster from "../layers/3-foundations/cell-cluster/CellCluster";
-import BlockJoin from "../layers/3-foundations/block-join/BlockJoin";
-import BlockCluster from "../layers/3-foundations/block-cluster/BlockCluster";
-import { CellFormat } from "../style/CellFormat";
+import GridModel from "./GridModel";
+import Container from "../3-foundation/Container";
+import Block from "../3-foundation/block/Block";
+import CellCluster from "../3-foundation/cell-cluster/CellCluster";
+import BlockJoin from "../3-foundation/block-join/BlockJoin";
+import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
+import { CellFormat } from "../../style/CellFormat";
 
 /** Key = "R{row}C{col}" => array of class names */
 interface StyleMap {

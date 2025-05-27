@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
-import GridGalleryModel from "../model/GridGalleryModel";
-import GridModel from "../model/GridModel";
+import GridGalleryModel from "../layers/1-substrate/GridGalleryModel";
+import GridModel from "../layers/1-substrate/GridModel";
 import { GridTabs } from "./GridTabs";
 import { GridView } from "./GridView";
 import { GridGroupTabs } from "./GridGroupTabs";

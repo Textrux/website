@@ -1,5 +1,5 @@
-import GridModel from "../model/GridModel";
-import Grid from "../model/GridModel";
+import GridModel from "../layers/1-substrate/GridModel";
+import Grid from "../layers/1-substrate/GridModel";
 import { toCSV } from "./CSV";
 
 export function displayNextElevatedGridHelper(grid: GridModel) {
