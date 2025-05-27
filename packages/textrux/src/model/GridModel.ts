@@ -1,5 +1,5 @@
-import BlockCluster from "../structure/BlockCluster";
-import { CellFormat } from "../structure/CellFormat";
+import BlockCluster from "../layers/3-foundations/BlockCluster";
+import { CellFormat } from "../style/CellFormat";
 import { Parser } from "expr-eval";
 
 export default class GridModel {
@@ -309,7 +309,8 @@ export default class GridModel {
   /** Merge a new format into an existing cell format or create one if missing. */
   setCellFormat(row: number, col: number, format: Partial<CellFormat>): void {
     const key = `R${row}C${col}`;
-    this.formatsMap[key] = { ...this.getCellFormat(row, col), ...format };
+    const existingFormat = this.getCellFormat(row, col);
+    this.formatsMap[key] = existingFormat.merge(new CellFormat(format));
   }
 
   /** Save the current state for undo functionality. */

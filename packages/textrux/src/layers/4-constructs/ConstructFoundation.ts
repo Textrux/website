@@ -1,4 +1,4 @@
-enum PatternLevel {
+enum ConstructFoundation {
   Cell,
   ContiguousCellCluster,
   CellCluster,
@@ -7,4 +7,4 @@ enum PatternLevel {
   BlockCluster,
 }
 
-export default PatternLevel;
+export default ConstructFoundation;

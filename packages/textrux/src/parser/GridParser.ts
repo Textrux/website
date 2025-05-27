@@ -1,9 +1,9 @@
 import GridModel from "../model/GridModel";
-import Container from "../structure/Container";
-import Block from "../structure/Block";
-import CellCluster from "../structure/CellCluster";
-import BlockJoin from "../structure/BlockJoin";
-import BlockCluster from "../structure/BlockCluster";
+import Container from "../layers/3-foundations/Container";
+import Block from "../layers/3-foundations/Block";
+import CellCluster from "../layers/3-foundations/CellCluster";
+import BlockJoin from "../layers/3-foundations/BlockJoin";
+import BlockCluster from "../layers/3-foundations/BlockCluster";
 import { CellFormat } from "../style/CellFormat";
 
 /** Key = "R{row}C{col}" => array of class names */

@@ -1,6 +1,6 @@
 import CellCluster from "./CellCluster";
 import Container from "./Container";
-import { CellFormat } from "../style/CellFormat";
+import { CellFormat } from "../../style/CellFormat";
 
 /**
  * A Block is a structured object that includes:

@@ -23,7 +23,7 @@ export class CellFormat {
 
   // Interaction
   cursor?: string;
-  pointerEvents?: string;
+  pointerEvents?: React.CSSProperties["pointerEvents"];
 
   // Additional
   opacity?: number;

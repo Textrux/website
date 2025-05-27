@@ -1,10 +1,10 @@
-import Cell from "../structure/Cell";
-import PatternLevel from "./PatternLevel";
+
+import ConstructFoundation from "./ConstructFoundation";
 import PatternResult from "./PatternResult";
 
 export default class Pattern {
   Name: string;
-  Level: PatternLevel;
+  foundation: ConstructFoundation;
   Parse: () => void;
   Result: PatternResult;
   Format: (cells: Cell[]) => void;

@@ -4,7 +4,7 @@ export { GridView } from "./ui/GridView";
 export { default as GridModel } from "./model/GridModel";
 
 // Fix: we actually export CellFormat from its own file:
-export { CellFormat } from "./structure/CellFormat";
+export { CellFormat } from "./style/CellFormat";
 
 // Fix: reference correct path for GridView's SelectionRange
 export type { SelectionRange } from "./ui/GridView";

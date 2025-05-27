@@ -1,6 +1,6 @@
-import GridHelper from "../util/GridHelper";
+import GridHelper from "../../util/GridHelper";
 import Block from "./Block";
-import { CellFormat } from "../style/CellFormat";
+import { CellFormat } from "../../style/CellFormat";
 
 /**
  * A BlockJoin represents the "link" or "lock" overlap between two Blocks.

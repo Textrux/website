@@ -1,4 +1,4 @@
-import { CellFormat } from "../style/CellFormat";
+import { CellFormat } from "../../style/CellFormat";
 
 export default class CellCluster {
   topRow: number;

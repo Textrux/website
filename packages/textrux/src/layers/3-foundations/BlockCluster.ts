@@ -1,7 +1,7 @@
 import Block from "./Block";
 import BlockJoin from "./BlockJoin";
-import GridHelper from "../util/GridHelper";
-import { CellFormat } from "../style/CellFormat";
+import GridHelper from "../../util/GridHelper";
+import { CellFormat } from "../../style/CellFormat";
 
 /**
  * A BlockCluster is a group of Blocks that are connected (via their BlockJoins).

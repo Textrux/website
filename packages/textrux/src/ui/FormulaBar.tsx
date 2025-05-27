@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-// @ts-expect-error - Image file exists at runtime but TypeScript can't find it
+
 import GearIcon from "./img/gear-icon.png";
 
 interface FormulaBarProps {

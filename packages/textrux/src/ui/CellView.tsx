@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { CellFormat } from "../structure/CellFormat";
+import { CellFormat } from "../style/CellFormat";
 
 interface CellViewProps {
   row: number;

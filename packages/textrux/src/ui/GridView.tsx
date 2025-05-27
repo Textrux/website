@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-expect-error - CSS file exists at runtime but TypeScript can't find it
 import "./css/project.css";
 
 import React, {
@@ -10,7 +8,7 @@ import React, {
   useMemo,
 } from "react";
 import GridModel from "../model/GridModel";
-import Block from "../structure/Block";
+import Block from "../layers/3-foundations/Block";
 import { parseAndFormatGrid } from "../parser/GridParser";
 import { fromCSV, toCSV } from "../util/CSV";
 import { fromTSV, toTSV } from "../util/TSV";
