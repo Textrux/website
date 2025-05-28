@@ -168,15 +168,15 @@ export const AppModal: React.FC<CombinedProps> = ({
     >
       <div
         id="popupBox"
-        className="bg-white text-black w-full max-w-md md:max-w-lg rounded-lg shadow-lg overflow-hidden flex flex-col h-[90vh]"
+        className="bg-white text-black dark:bg-gray-800 dark:text-gray-100 w-full max-w-md md:max-w-lg rounded-lg shadow-lg overflow-hidden flex flex-col h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with title and close button */}
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-semibold">Textrux</h2>
+        <div className="flex justify-between items-center p-4 border-b dark:border-gray-600">
+          <h2 className="text-xl font-semibold dark:text-gray-100">Textrux</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
             aria-label="Close"
           >
             <svg
@@ -196,7 +196,7 @@ export const AppModal: React.FC<CombinedProps> = ({
         </div>
 
         {/* Tab navigation - horizontal on desktop, horizontal scrollable on mobile */}
-        <div className="border-b overflow-x-auto">
+        <div className="border-b dark:border-gray-600 overflow-x-auto">
           <div className="flex">
             {(["Settings", "Examples", "Instructions", "About"] as const).map(
               (tab) => (
@@ -204,8 +204,8 @@ export const AppModal: React.FC<CombinedProps> = ({
                   key={tab}
                   className={`px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap ${
                     activeTab === tab
-                      ? "text-blue-600 border-b-2 border-blue-600"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
                   onClick={() => handleTabClick(tab)}
                 >
@@ -221,13 +221,15 @@ export const AppModal: React.FC<CombinedProps> = ({
           {activeTab === "Settings" && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <div className="font-medium">Export Format</div>
+                <div className="font-medium dark:text-gray-200">
+                  Export Format
+                </div>
                 <select
                   value={currentDelimiter}
                   onChange={(e) =>
                     setCurrentDelimiter(e.target.value as "tab" | ",")
                   }
-                  className="w-full p-2 border rounded-md bg-white"
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                 >
                   <option value="tab">Tab-Separated Values (TSV)</option>
                   <option value=",">Comma-Separated Values (CSV)</option>
@@ -235,29 +237,31 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div className="space-y-2">
-                <div className="font-medium">Grid Dimensions</div>
+                <div className="font-medium dark:text-gray-200">
+                  Grid Dimensions
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                       Rows
                     </label>
                     <input
                       type="number"
                       value={localRowCount}
                       onChange={(e) => setLocalRowCount(e.target.valueAsNumber)}
-                      className="w-full p-2 border rounded-md"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                       min="1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                       Columns
                     </label>
                     <input
                       type="number"
                       value={localColCount}
                       onChange={(e) => setLocalColCount(e.target.valueAsNumber)}
-                      className="w-full p-2 border rounded-md"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                       min="1"
                     />
                   </div>
@@ -267,7 +271,7 @@ export const AppModal: React.FC<CombinedProps> = ({
                     onChangeDimensions(localRowCount, localColCount);
                     onClose();
                   }}
-                  className="w-full py-2 mt-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:bg-blue-600 transition-colors"
+                  className="w-full py-2 mt-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
                   style={{ backgroundColor: "#2563EB" }}
                 >
                   Save Dimensions
@@ -275,7 +279,9 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div className="space-y-2">
-                <div className="font-medium">Manage Grid Content</div>
+                <div className="font-medium dark:text-gray-200">
+                  Manage Grid Content
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={() => {
@@ -288,14 +294,14 @@ export const AppModal: React.FC<CombinedProps> = ({
                         onClose();
                       }
                     }}
-                    className="py-2 px-4 border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                    className="py-2 px-4 border border-red-300 text-red-600 rounded-md hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
                   >
                     Clear Grid
                   </button>
 
                   <button
                     onClick={saveGridToFile}
-                    className="py-2 px-4 border border-gray-300 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+                    className="py-2 px-4 border border-gray-300 bg-gray-50 rounded-md hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 transition-colors"
                   >
                     Save to File
                   </button>
@@ -322,7 +328,7 @@ export const AppModal: React.FC<CombinedProps> = ({
                   onClick={() =>
                     document.getElementById("loadGridFileInput")?.click()
                   }
-                  className="w-full py-2 px-4 border border-gray-300 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+                  className="w-full py-2 px-4 border border-gray-300 bg-gray-50 rounded-md hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 transition-colors"
                 >
                   Load from File
                 </button>
@@ -347,12 +353,14 @@ export const AppModal: React.FC<CombinedProps> = ({
 
           {activeTab === "Examples" && (
             <div className="space-y-4">
-              <div className="font-medium">Select an example:</div>
+              <div className="font-medium dark:text-gray-200">
+                Select an example:
+              </div>
 
-              <div className="border rounded-md overflow-hidden">
+              <div className="border rounded-md overflow-hidden dark:border-gray-600">
                 <select
                   size={7}
-                  className="w-full p-0 border-none focus:ring-0 focus:outline-none"
+                  className="w-full p-0 border-none focus:ring-0 focus:outline-none dark:bg-gray-700 dark:text-gray-100"
                   onChange={(e) => {
                     const ex = examples.find((x) => x.name === e.target.value);
                     if (ex) setSelectedExample(ex);
@@ -363,7 +371,7 @@ export const AppModal: React.FC<CombinedProps> = ({
                     <option
                       key={ex.name}
                       value={ex.name}
-                      className="px-3 py-2 hover:bg-gray-100 focus:bg-blue-50"
+                      className="px-3 py-2 hover:bg-gray-100 focus:bg-blue-50 dark:hover:bg-gray-600 dark:focus:bg-blue-900"
                     >
                       {ex.name}
                     </option>
@@ -371,14 +379,14 @@ export const AppModal: React.FC<CombinedProps> = ({
                 </select>
               </div>
 
-              <div className="bg-gray-50 border rounded-md p-3 text-sm min-h-[80px] max-h-[120px] overflow-y-auto">
+              <div className="bg-gray-50 border rounded-md p-3 text-sm min-h-[80px] max-h-[120px] overflow-y-auto dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
                 <div className="font-medium mb-1">Description:</div>
                 {selectedExample.description}
               </div>
 
               <button
                 onClick={onLoadExampleClick}
-                className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:bg-blue-600 transition-colors"
+                className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
                 style={{ backgroundColor: "#2563EB" }}
               >
                 Load Example
@@ -387,11 +395,15 @@ export const AppModal: React.FC<CombinedProps> = ({
           )}
 
           {activeTab === "Instructions" && (
-            <div className="space-y-4 text-sm">
-              <h3 className="text-lg font-medium">How to Use Textrux</h3>
+            <div className="space-y-4 text-sm dark:text-gray-100">
+              <h3 className="text-lg font-medium dark:text-gray-100">
+                How to Use Textrux
+              </h3>
 
               <div>
-                <div className="font-medium mb-1">Basics</div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Basics
+                </div>
                 <p className="mb-2">
                   Enter text in cells to build text structures. The structures
                   are built from the placement of text in the grid.
@@ -404,7 +416,9 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div>
-                <div className="font-medium mb-1">Block Relationships</div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Block Relationships
+                </div>
                 <p>
                   Blocks can overlap. Overlapping frames → linked (orange).
                   Overlapping frame + border → locked (red). These form
@@ -413,11 +427,15 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div>
-                <div className="font-medium mb-1">Navigation</div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Navigation
+                </div>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>
                     <strong>Zoom:</strong> Pinch-zoom on mobile or{" "}
-                    <span className="px-1 bg-gray-100 rounded">Ctrl+wheel</span>{" "}
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+wheel
+                    </span>{" "}
                     on desktop
                   </li>
                   <li>
@@ -426,7 +444,7 @@ export const AppModal: React.FC<CombinedProps> = ({
                   </li>
                   <li>
                     <strong>Jump to block:</strong>{" "}
-                    <span className="px-1 bg-gray-100 rounded">
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
                       Alt+ArrowKey
                     </span>{" "}
                     jumps to the nearest block in that direction
@@ -435,32 +453,41 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div>
-                <div className="font-medium mb-1">Editing</div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Editing
+                </div>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>
                     <strong>Cut/Copy/Paste:</strong> Select cells, press{" "}
-                    <span className="px-1 bg-gray-100 rounded">Ctrl+C</span> or{" "}
-                    <span className="px-1 bg-gray-100 rounded">Ctrl+X</span>,
-                    then select a target cell and press{" "}
-                    <span className="px-1 bg-gray-100 rounded">Ctrl+V</span>
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+C
+                    </span>{" "}
+                    or{" "}
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+X
+                    </span>
+                    , then select a target cell and press{" "}
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+V
+                    </span>
                   </li>
                   <li>
                     <strong>Move block:</strong> Select a cell in its canvas,
                     then press{" "}
-                    <span className="px-1 bg-gray-100 rounded">
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
                       Ctrl+ArrowKey
                     </span>{" "}
                     to move it
                   </li>
                   <li>
                     <strong>Merge with collisions:</strong> Use{" "}
-                    <span className="px-1 bg-gray-100 rounded">
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
                       Ctrl+Alt+ArrowKey
                     </span>
                   </li>
                   <li>
                     <strong>Toggle formatting:</strong>{" "}
-                    <span className="px-1 bg-gray-100 rounded">
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
                       Ctrl+Shift+~
                     </span>
                   </li>
@@ -468,21 +495,30 @@ export const AppModal: React.FC<CombinedProps> = ({
               </div>
 
               <div>
-                <div className="font-medium mb-1">Nested Grids</div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Nested Grids
+                </div>
                 <p>
                   If a cell starts with "," it can contain a nested grid. Select
-                  and press <span className="px-1 bg-gray-100 rounded">F4</span>{" "}
+                  and press{" "}
+                  <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                    F4
+                  </span>{" "}
                   to enter,{" "}
-                  <span className="px-1 bg-gray-100 rounded">Escape</span> to go
-                  back.
+                  <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                    Escape
+                  </span>{" "}
+                  to go back.
                 </p>
               </div>
             </div>
           )}
 
           {activeTab === "About" && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">About Textrux</h3>
+            <div className="space-y-4 dark:text-gray-100">
+              <h3 className="text-lg font-medium dark:text-gray-100">
+                About Textrux
+              </h3>
 
               <p>
                 Textrux (Text Structures) is a content-driven-formatting grid
@@ -495,7 +531,7 @@ export const AppModal: React.FC<CombinedProps> = ({
                   href="https://github.com/Textrux/website"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   the Textrux GitHub repository
                 </a>{" "}

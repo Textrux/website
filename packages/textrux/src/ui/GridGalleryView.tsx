@@ -241,9 +241,9 @@ export default function GridGalleryView(props: GridGalleryProps) {
       return;
     }
 
-    console.log(
-      `Auto-save: Saving ${gallery.grids.length} grids to localStorage`
-    );
+    // console.log(
+    //   `Auto-save: Saving ${gallery.grids.length} grids to localStorage`
+    // );
 
     // Save the active grid index
     LocalStorageManager.saveActiveGridIndex(gallery.activeGridIndex);

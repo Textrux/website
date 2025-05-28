@@ -483,6 +483,36 @@ export function GridView({
   }
   const [cutCells, setCutCells] = useState<CutCell[] | null>(null);
 
+  /** For block dragging logic */
+  const [isDraggingBlock, setIsDraggingBlock] = useState(false);
+  const [draggedBlock, setDraggedBlock] = useState<Block | null>(null);
+  const [dragStartPosition, setDragStartPosition] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [dragCurrentPosition, setDragCurrentPosition] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [dragPreviousPosition, setDragPreviousPosition] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [dragOriginalBlockData, setDragOriginalBlockData] = useState<Array<{
+    row: number;
+    col: number;
+    text: string;
+  }> | null>(null);
+  const [dragOriginalGridState, setDragOriginalGridState] = useState<Array<{
+    row: number;
+    col: number;
+    text: string;
+  }> | null>(null);
+  const [isFirstBlockMove, setIsFirstBlockMove] = useState(false);
+  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+  const longPressTimeoutRef = useRef<number | undefined>(undefined);
+  const isDragEligibleRef = useRef(false);
+
   // Because the parent might not have loaded from local storage:
   // optionally do it here once on mount
   useEffect(() => {
@@ -593,6 +623,460 @@ export function GridView({
     anchorCol: 1,
   });
 
+  // Block dragging helper functions
+  const startBlockDrag = useCallback(
+    (r: number, c: number) => {
+      const blocks = blockListRef.current;
+      if (!blocks.length) return false;
+
+      // Find block that contains the clicked cell
+      const targetBlock = blocks.find((b) => isCellInBlockCanvas(b, r, c));
+      if (!targetBlock) return false;
+
+      // Store original block data for undo/redo
+      const originalData: Array<{ row: number; col: number; text: string }> =
+        [];
+      for (const pt of targetBlock.canvasPoints) {
+        const txt = grid.getCellRaw(pt.row, pt.col);
+        originalData.push({ row: pt.row, col: pt.col, text: txt });
+      }
+
+      // Store complete grid state for restoration during dragging
+      const originalGridState: Array<{
+        row: number;
+        col: number;
+        text: string;
+      }> = [];
+
+      const allFilledCells = grid.getFilledCells();
+      for (const cell of allFilledCells) {
+        originalGridState.push({
+          row: cell.row,
+          col: cell.col,
+          text: cell.value,
+        });
+      }
+
+      // Don't clear the original block position yet - wait until first move
+
+      setIsDraggingBlock(true);
+      setDraggedBlock(targetBlock);
+      setDragStartPosition({ row: r, col: c });
+      setDragCurrentPosition({ row: r, col: c });
+      setDragPreviousPosition(null);
+      setDragOriginalBlockData(originalData);
+      setDragOriginalGridState(originalGridState);
+      setIsFirstBlockMove(true);
+
+      // Change cursor for visual feedback
+      if (gridContainerRef.current) {
+        gridContainerRef.current.classList.add("block-dragging");
+      }
+
+      return true;
+    },
+    [grid]
+  );
+
+  const startSelectionDrag = useCallback(
+    (r: number, c: number) => {
+      // Get the selected cells data
+      const { startRow, endRow, startCol, endCol } = selectionRange;
+
+      const originalData: Array<{ row: number; col: number; text: string }> =
+        [];
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const txt = grid.getCellRaw(row, col);
+          originalData.push({ row, col, text: txt });
+        }
+      }
+
+      // Store complete grid state for restoration during dragging
+      const originalGridState: Array<{
+        row: number;
+        col: number;
+        text: string;
+      }> = [];
+
+      const allFilledCells = grid.getFilledCells();
+      for (const cell of allFilledCells) {
+        originalGridState.push({
+          row: cell.row,
+          col: cell.col,
+          text: cell.value,
+        });
+      }
+
+      // Create a fake block object for the selection
+      const selectionBlock = {
+        topRow: startRow,
+        bottomRow: endRow,
+        leftCol: startCol,
+        rightCol: endCol,
+        canvasPoints: originalData.map((item) => ({
+          row: item.row,
+          col: item.col,
+        })),
+      };
+
+      setIsDraggingBlock(true);
+      setIsDraggingSelection(true);
+      setDraggedBlock(selectionBlock as any); // Cast to Block type
+      setDragStartPosition({ row: r, col: c });
+      setDragCurrentPosition({ row: r, col: c });
+      setDragPreviousPosition(null);
+      setDragOriginalBlockData(originalData);
+      setDragOriginalGridState(originalGridState);
+      setIsFirstBlockMove(true);
+
+      // Change cursor for visual feedback
+      if (gridContainerRef.current) {
+        gridContainerRef.current.classList.add("block-dragging");
+      }
+
+      return true;
+    },
+    [grid, selectionRange]
+  );
+
+  const updateBlockDrag = useCallback(
+    (r: number, c: number) => {
+      if (
+        !isDraggingBlock ||
+        !draggedBlock ||
+        !dragStartPosition ||
+        !dragOriginalGridState ||
+        !dragOriginalBlockData
+      )
+        return;
+
+      const dR = r - dragStartPosition.row;
+      const dC = c - dragStartPosition.col;
+
+      // If no movement from start position, don't do anything
+      if (dR === 0 && dC === 0) {
+        return;
+      }
+
+      // Check if the new position would be valid
+      const newTop = draggedBlock.topRow + dR;
+      const newBot = draggedBlock.bottomRow + dR;
+      const newLeft = draggedBlock.leftCol + dC;
+      const newRight = draggedBlock.rightCol + dC;
+
+      if (
+        newTop < 1 ||
+        newBot > grid.rowCount ||
+        newLeft < 1 ||
+        newRight > grid.columnCount
+      ) {
+        return; // Invalid position
+      }
+
+      // Check for R1C1 lock
+      for (const pt of draggedBlock.canvasPoints) {
+        const newR = pt.row + dR;
+        const newC = pt.col + dC;
+        if (newR === 1 && newC === 1) {
+          const r1c1Val = grid.getCellRaw(1, 1);
+          if (r1c1Val.trim().startsWith("^")) {
+            return; // locked => skip move
+          }
+        }
+      }
+
+      // Clear the entire grid first
+      grid.clearAllCells(true);
+
+      // Restore the original grid state (this includes all cells except the moving block)
+      const blockCellKeys = new Set(
+        dragOriginalBlockData.map((item) => `${item.row},${item.col}`)
+      );
+
+      for (const item of dragOriginalGridState) {
+        const cellKey = `${item.row},${item.col}`;
+        // Only restore cells that weren't part of the original block
+        if (!blockCellKeys.has(cellKey)) {
+          grid.setCellRaw(item.row, item.col, item.text);
+        }
+      }
+
+      // Place the block at the new position
+      for (const item of dragOriginalBlockData) {
+        const newR = item.row + dR;
+        const newC = item.col + dC;
+        if (
+          newR >= 1 &&
+          newR <= grid.rowCount &&
+          newC >= 1 &&
+          newC <= grid.columnCount
+        ) {
+          grid.setCellRaw(newR, newC, item.text);
+        }
+      }
+
+      // Mark that we've moved from the original position
+      if (isFirstBlockMove) {
+        setIsFirstBlockMove(false);
+      }
+
+      // Auto-scroll to keep the dragged block in view
+      const newBlockTop = draggedBlock.topRow + dR;
+      const newBlockBottom = draggedBlock.bottomRow + dR;
+      const newBlockLeft = draggedBlock.leftCol + dC;
+      const newBlockRight = draggedBlock.rightCol + dC;
+
+      // Scroll to ensure the block is visible
+      if (gridContainerRef.current) {
+        const container = gridContainerRef.current;
+        const containerRect = container.getBoundingClientRect();
+
+        // Calculate the pixel positions of the block
+        let blockTopPx = 0;
+        for (let i = 0; i < newBlockTop - 1; i++) {
+          blockTopPx += rowHeights[i] || baseRowHeight * zoom;
+        }
+
+        let blockBottomPx = blockTopPx;
+        for (let i = newBlockTop - 1; i < newBlockBottom; i++) {
+          blockBottomPx += rowHeights[i] || baseRowHeight * zoom;
+        }
+
+        let blockLeftPx = 0;
+        for (let i = 0; i < newBlockLeft - 1; i++) {
+          blockLeftPx += colWidths[i] || baseColWidth * zoom;
+        }
+
+        let blockRightPx = blockLeftPx;
+        for (let i = newBlockLeft - 1; i < newBlockRight; i++) {
+          blockRightPx += colWidths[i] || baseColWidth * zoom;
+        }
+
+        // Check if we need to scroll
+        const scrollTop = container.scrollTop;
+        const scrollLeft = container.scrollLeft;
+        const containerHeight = container.clientHeight;
+        const containerWidth = container.clientWidth;
+
+        let newScrollTop = scrollTop;
+        let newScrollLeft = scrollLeft;
+
+        // Vertical scrolling
+        if (blockTopPx < scrollTop) {
+          newScrollTop = blockTopPx;
+        } else if (blockBottomPx > scrollTop + containerHeight) {
+          newScrollTop = blockBottomPx - containerHeight;
+        }
+
+        // Horizontal scrolling
+        if (blockLeftPx < scrollLeft) {
+          newScrollLeft = blockLeftPx;
+        } else if (blockRightPx > scrollLeft + containerWidth) {
+          newScrollLeft = blockRightPx - containerWidth;
+        }
+
+        // Apply scrolling if needed
+        if (newScrollTop !== scrollTop || newScrollLeft !== scrollLeft) {
+          container.scrollTop = newScrollTop;
+          container.scrollLeft = newScrollLeft;
+        }
+      }
+
+      setDragPreviousPosition({ row: r, col: c });
+      setDragCurrentPosition({ row: r, col: c });
+      forceRefresh();
+    },
+    [
+      isDraggingBlock,
+      draggedBlock,
+      dragStartPosition,
+      dragOriginalBlockData,
+      dragOriginalGridState,
+      isFirstBlockMove,
+      grid,
+      forceRefresh,
+      rowHeights,
+      colWidths,
+      baseRowHeight,
+      baseColWidth,
+      zoom,
+    ]
+  );
+
+  const finishBlockDrag = useCallback(() => {
+    if (
+      !isDraggingBlock ||
+      !draggedBlock ||
+      !dragStartPosition ||
+      !dragCurrentPosition ||
+      !dragOriginalBlockData ||
+      !dragOriginalGridState
+    ) {
+      return;
+    }
+
+    const dR = dragCurrentPosition.row - dragStartPosition.row;
+    const dC = dragCurrentPosition.col - dragStartPosition.col;
+
+    // Only create a transaction if there was actual movement
+    if (dR !== 0 || dC !== 0) {
+      // Begin transaction for undo/redo - this will capture the original state
+      grid.beginTransaction();
+
+      // Clear the grid first
+      grid.clearAllCells(true);
+
+      // Restore original grid state excluding the moving block
+      const blockCellKeys = new Set(
+        dragOriginalBlockData.map((item) => `${item.row},${item.col}`)
+      );
+
+      for (const item of dragOriginalGridState) {
+        const cellKey = `${item.row},${item.col}`;
+        // Only restore cells that weren't part of the original block
+        if (!blockCellKeys.has(cellKey)) {
+          grid.setCellRaw(item.row, item.col, item.text);
+        }
+      }
+
+      // Update block position (only if it's a real block, not a selection)
+      if (!isDraggingSelection) {
+        draggedBlock.topRow += dR;
+        draggedBlock.bottomRow += dR;
+        draggedBlock.leftCol += dC;
+        draggedBlock.rightCol += dC;
+
+        // Update canvas points
+        for (let i = 0; i < draggedBlock.canvasPoints.length; i++) {
+          draggedBlock.canvasPoints[i].row += dR;
+          draggedBlock.canvasPoints[i].col += dC;
+        }
+      }
+
+      // Place block at new position
+      for (const item of dragOriginalBlockData) {
+        const newR = item.row + dR;
+        const newC = item.col + dC;
+        grid.setCellRaw(newR, newC, item.text);
+      }
+
+      // Update active cell position
+      const newActiveR = activeRow + dR;
+      const newActiveC = activeCol + dC;
+      setActiveRow(newActiveR);
+      setActiveCol(newActiveC);
+
+      if (isDraggingSelection) {
+        // Update selection range to the new position
+        const originalStartRow = draggedBlock.topRow - dR;
+        const originalEndRow = draggedBlock.bottomRow - dR;
+        const originalStartCol = draggedBlock.leftCol - dC;
+        const originalEndCol = draggedBlock.rightCol - dC;
+
+        setSelectionRange({
+          startRow: originalStartRow + dR,
+          endRow: originalEndRow + dR,
+          startCol: originalStartCol + dC,
+          endCol: originalEndCol + dC,
+        });
+      } else {
+        setSelectionRange({
+          startRow: newActiveR,
+          endRow: newActiveR,
+          startCol: newActiveC,
+          endCol: newActiveC,
+        });
+      }
+
+      scrollCellIntoView(
+        newActiveR,
+        newActiveC,
+        rowHeights,
+        colWidths,
+        gridContainerRef.current
+      );
+
+      // End transaction - this captures the final state for undo/redo
+      grid.endTransaction();
+    } else {
+      // No movement, just restore original state without creating a transaction
+      grid.clearAllCells(true);
+      for (const item of dragOriginalGridState) {
+        grid.setCellRaw(item.row, item.col, item.text);
+      }
+    }
+
+    // Reset drag state
+    setIsDraggingBlock(false);
+    setIsDraggingSelection(false);
+    setDraggedBlock(null);
+    setDragStartPosition(null);
+    setDragCurrentPosition(null);
+    setDragPreviousPosition(null);
+    setDragOriginalBlockData(null);
+    setDragOriginalGridState(null);
+    setIsFirstBlockMove(false);
+    isDragEligibleRef.current = false;
+
+    // Reset cursor
+    if (gridContainerRef.current) {
+      gridContainerRef.current.classList.remove("block-dragging");
+    }
+
+    forceRefresh();
+  }, [
+    isDraggingBlock,
+    isDraggingSelection,
+    draggedBlock,
+    dragStartPosition,
+    dragCurrentPosition,
+    dragOriginalBlockData,
+    dragOriginalGridState,
+    grid,
+    activeRow,
+    activeCol,
+    rowHeights,
+    colWidths,
+    forceRefresh,
+  ]);
+
+  const cancelBlockDrag = useCallback(() => {
+    if (!isDraggingBlock || !dragOriginalBlockData || !dragOriginalGridState)
+      return;
+
+    // Clear the grid and restore complete original state
+    grid.clearAllCells(true);
+    for (const item of dragOriginalGridState) {
+      grid.setCellRaw(item.row, item.col, item.text);
+    }
+
+    // Reset drag state
+    setIsDraggingBlock(false);
+    setIsDraggingSelection(false);
+    setDraggedBlock(null);
+    setDragStartPosition(null);
+    setDragCurrentPosition(null);
+    setDragPreviousPosition(null);
+    setDragOriginalBlockData(null);
+    setDragOriginalGridState(null);
+    setIsFirstBlockMove(false);
+    isDragEligibleRef.current = false;
+
+    // Reset cursor
+    if (gridContainerRef.current) {
+      gridContainerRef.current.classList.remove("block-dragging");
+    }
+
+    forceRefresh();
+  }, [
+    isDraggingBlock,
+    dragOriginalBlockData,
+    dragOriginalGridState,
+    grid,
+    forceRefresh,
+  ]);
+
   const handleCellMouseDown = useCallback(
     (r: number, c: number, e: React.MouseEvent) => {
       // if we're editing a different cell, commit it first
@@ -606,7 +1090,9 @@ export function GridView({
           grid.getCellValue(editingCell.row, editingCell.col) !== oldVal
         ) {
           // Update if changed
-          updateCellValue(editingCell.row, editingCell.col, oldVal);
+          grid.setCellRaw(editingCell.row, editingCell.col, oldVal);
+          notifyGridChange();
+          forceRefresh(); // Trigger parser/formatter
         }
       }
 
@@ -621,9 +1107,56 @@ export function GridView({
       }
 
       if (e.button === 0) {
-        dragSelectRef.current.active = true;
-        dragSelectRef.current.anchorRow = r;
-        dragSelectRef.current.anchorCol = c;
+        // Check if this cell is part of a block canvas for potential dragging
+        const blocks = blockListRef.current;
+        const isInBlockCanvas = blocks.some((b) =>
+          isCellInBlockCanvas(b, r, c)
+        );
+
+        // Always allow regular drag selection to start immediately
+        if (!isDraggingBlock) {
+          dragSelectRef.current.active = true;
+          dragSelectRef.current.anchorRow = r;
+          dragSelectRef.current.anchorCol = c;
+        }
+
+        // Check if we should enable drag functionality
+        const hasMultiCellSelection =
+          selectionRange.startRow !== selectionRange.endRow ||
+          selectionRange.startCol !== selectionRange.endCol;
+
+        const isInSelection =
+          r >= selectionRange.startRow &&
+          r <= selectionRange.endRow &&
+          c >= selectionRange.startCol &&
+          c <= selectionRange.endCol;
+
+        if ((hasMultiCellSelection && isInSelection) || isInBlockCanvas) {
+          isDragEligibleRef.current = true;
+
+          // Start long press timer for dragging
+          window.clearTimeout(longPressTimeoutRef.current);
+          longPressTimeoutRef.current = window.setTimeout(() => {
+            if (isDragEligibleRef.current && !isDraggingBlock) {
+              let success = false;
+
+              if (hasMultiCellSelection && isInSelection) {
+                // Drag selected cells
+                success = startSelectionDrag(r, c);
+              } else if (isInBlockCanvas) {
+                // Drag block canvas
+                success = startBlockDrag(r, c);
+              }
+
+              if (success) {
+                // Disable regular drag selection since we're now in drag mode
+                dragSelectRef.current.active = false;
+              }
+            }
+          }, 500); // 500ms long press
+        } else {
+          isDragEligibleRef.current = false;
+        }
 
         if (!e.shiftKey) {
           setActiveRow(r);
@@ -658,7 +1191,18 @@ export function GridView({
         }
       }
     },
-    [editingCell, editingValue, grid, forceRefresh]
+    [
+      editingCell,
+      editingValue,
+      grid,
+      isDraggingBlock,
+      startBlockDrag,
+      startSelectionDrag,
+      setCellSelection,
+      notifyGridChange,
+      forceRefresh,
+      selectionRange,
+    ]
   );
 
   const handleCellClick = (r: number, c: number) => {
@@ -838,7 +1382,35 @@ export function GridView({
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
-      if (!dragSelectRef.current.active) return;
+      // Handle block dragging
+      if (isDraggingBlock) {
+        e.preventDefault();
+        const container = gridContainerRef.current;
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left + container.scrollLeft;
+        const y = e.clientY - rect.top + container.scrollTop;
+
+        const hoveredRow = findRowByY(y, rowHeights);
+        const hoveredCol = findColByX(x, colWidths);
+
+        updateBlockDrag(hoveredRow, hoveredCol);
+        return;
+      }
+
+      // Cancel long press timer if user moves mouse during initial press and regular drag selection is active
+      if (
+        isDragEligibleRef.current &&
+        !isDraggingBlock &&
+        dragSelectRef.current.active
+      ) {
+        window.clearTimeout(longPressTimeoutRef.current);
+        isDragEligibleRef.current = false;
+      }
+
+      // Handle regular selection dragging (but not if we're in block drag mode)
+      if (!dragSelectRef.current.active || isDraggingBlock) return;
       e.preventDefault();
       const container = gridContainerRef.current;
       if (!container) return;
@@ -867,6 +1439,17 @@ export function GridView({
     }
     function onMouseUp(e: MouseEvent) {
       if (e.button === 0) {
+        // Cancel long press timer if mouse is released
+        window.clearTimeout(longPressTimeoutRef.current);
+        isDragEligibleRef.current = false;
+
+        // Handle block drag completion
+        if (isDraggingBlock) {
+          finishBlockDrag();
+          return;
+        }
+
+        // Handle regular selection
         dragSelectRef.current.active = false;
       }
     }
@@ -876,7 +1459,14 @@ export function GridView({
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [rowHeights, colWidths]);
+  }, [
+    rowHeights,
+    colWidths,
+    isDraggingBlock,
+    updateBlockDrag,
+    finishBlockDrag,
+    grid,
+  ]);
 
   // 1) Intermediary step: show the next elevated level
   const displayNextElevatedGrid = useCallback(() => {
@@ -1952,7 +2542,12 @@ export function GridView({
         enterEmbeddedGrid();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        exitEmbeddedGrid();
+        // Cancel block dragging if active
+        if (isDraggingBlock) {
+          cancelBlockDrag();
+        } else {
+          exitEmbeddedGrid();
+        }
       }
       // Copy/Cut/Paste
       else if ((e.key === "c" || e.key === "C") && e.ctrlKey) {
@@ -2009,6 +2604,8 @@ export function GridView({
       fullscreenEditing,
       discardFullscreenChanges,
       commitFullscreenChanges,
+      isDraggingBlock,
+      cancelBlockDrag,
     ]
   );
 
@@ -2369,7 +2966,7 @@ export function GridView({
       >
         {/* top-left corner cell */}
         <div
-          className="absolute top-0 left-0 bg-gray-200 border-b border-r border-gray-600 flex items-center justify-center z-10"
+          className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 border-b border-r border-gray-600 dark:border-gray-600 flex items-center justify-center z-10 dark:text-gray-100"
           style={{ width: 50, height: 30 }}
         >
           #

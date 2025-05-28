@@ -282,7 +282,7 @@ export function GridTabs(props: GridTabsProps) {
   };
 
   return (
-    <div className="relative flex items-center h-[35px] bg-gray-100 border-b border-gray-200 select-none">
+    <div className="relative flex items-center h-[35px] bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 select-none">
       {/* Tabs container */}
       <div
         ref={tabsContainerRef}
@@ -332,8 +332,8 @@ export function GridTabs(props: GridTabsProps) {
                     flex items-center px-3 py-1.5 rounded-t-lg border relative group
                     ${
                       isActive
-                        ? "bg-white border-gray-300 border-b-white shadow-sm"
-                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                        ? "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 border-b-white dark:border-b-gray-800 shadow-sm"
+                        : "bg-gray-50 dark:bg-gray-600 border-gray-200 dark:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-500"
                     }
                     ${isDragged ? "opacity-50" : ""}
                     ${isDraggedOver ? "z-10" : ""}
@@ -355,12 +355,12 @@ export function GridTabs(props: GridTabsProps) {
                           setDraftName("");
                         }
                       }}
-                      className="min-w-[24px] max-w-[384px] text-sm bg-transparent border-none focus:outline-none"
+                      className="min-w-[24px] max-w-[384px] text-sm bg-transparent border-none focus:outline-none dark:text-gray-100"
                       maxLength={128}
                     />
                   ) : (
                     <span
-                      className="text-sm text-gray-700 pr-5 max-w-[150px] overflow-hidden whitespace-nowrap text-ellipsis"
+                      className="text-sm text-gray-700 dark:text-gray-200 pr-5 max-w-[150px] overflow-hidden whitespace-nowrap text-ellipsis"
                       title={grid.name}
                     >
                       {grid.name}
@@ -377,7 +377,7 @@ export function GridTabs(props: GridTabsProps) {
                         );
                         if (confirmed) onDeleteGrid(i);
                       }}
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                       aria-label="Delete grid"
                     >
                       ×
@@ -400,7 +400,7 @@ export function GridTabs(props: GridTabsProps) {
       {/* Add new grid button */}
       <button
         onClick={onAddGrid}
-        className="px-3 py-1.5 mx-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors duration-150"
+        className="px-3 py-1.5 mx-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-150"
         title="Add new grid"
         aria-label="Add new grid"
       >

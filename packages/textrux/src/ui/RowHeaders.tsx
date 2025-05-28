@@ -49,7 +49,7 @@ export function RowHeaders({
   }, [rowHeights, grid.rowCount, gridContainerRef]);
 
   return (
-    <div className="absolute top-[30px] left-0 bottom-0 w-[50px] bg-gray-200 border-r border-gray-600 z-8 overflow-hidden">
+    <div className="absolute top-[30px] left-0 bottom-0 w-[50px] bg-gray-200 dark:bg-gray-700 border-r border-gray-600 dark:border-gray-600 z-8 overflow-hidden">
       <div
         className="relative"
         style={{
@@ -68,15 +68,15 @@ export function RowHeaders({
           const label = `R${r}`;
           const labelElement = (
             <>
-              <span className="text-black">R</span>
-              {r}
+              <span className="text-black dark:text-gray-100">R</span>
+              <span className="dark:text-gray-100">{r}</span>
             </>
           );
 
           return (
             <div
               key={r}
-              className="absolute left-0 flex items-center justify-center border-b border-gray-300 bg-gray-100 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
+              className="absolute left-0 flex items-center justify-center border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
               style={{
                 top: topPx,
                 width: 50,

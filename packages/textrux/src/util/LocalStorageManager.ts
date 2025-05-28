@@ -8,7 +8,7 @@ export class LocalStorageManager {
   static saveGalleryIndexes(grids: GridModel[]) {
     // Just store the numeric indexes:
     const indexes = grids.map((g) => (Number.isFinite(g.index) ? g.index : 0));
-    console.log("Saving gallery indexes to localStorage:", indexes);
+    // console.log("Saving gallery indexes to localStorage:", indexes);
 
     // Fix: Ensure we're not saving an empty array even if there are grids
     if (indexes.length === 0 && grids.length > 0) {
@@ -25,7 +25,7 @@ export class LocalStorageManager {
 
     // Verify it was saved correctly
     const saved = localStorage.getItem("galleryIndexes");
-    console.log("Verification - saved galleryIndexes:", saved);
+    // console.log("Verification - saved galleryIndexes:", saved);
   }
 
   static loadGalleryIndexes(): number[] {
@@ -39,7 +39,7 @@ export class LocalStorageManager {
 
     try {
       const arr = JSON.parse(raw);
-      console.log("Parsed galleryIndexes:", arr);
+      // console.log("Parsed galleryIndexes:", arr);
 
       // Make sure arr is actually an array
       if (!Array.isArray(arr)) {
@@ -49,7 +49,7 @@ export class LocalStorageManager {
 
       // Filter out anything that's not a valid finite number:
       const numericArr = arr.filter((x: any) => Number.isFinite(x));
-      console.log("Filtered numeric galleryIndexes:", numericArr);
+      // console.log("Filtered numeric galleryIndexes:", numericArr);
 
       // Make sure we haven't filtered out all values
       if (numericArr.length === 0 && arr.length > 0) {
@@ -63,7 +63,7 @@ export class LocalStorageManager {
           .filter((x) => x > 0);
 
         if (recovered.length > 0) {
-          console.log("Recovered indexes:", recovered);
+          // console.log("Recovered indexes:", recovered);
           return recovered;
         }
       }
@@ -98,13 +98,13 @@ export class LocalStorageManager {
     }
 
     // Log what we're saving to help debug
-    console.log(
-      `Saving grid ${grid.index} to localStorage`,
-      "zoom:",
-      grid.zoomLevel,
-      "delimiter:",
-      grid.delimiter
-    );
+    // console.log(
+    //   `Saving grid ${grid.index} to localStorage`,
+    //   "zoom:",
+    //   grid.zoomLevel,
+    //   "delimiter:",
+    //   grid.delimiter
+    // );
 
     const key = `grid_${grid.index}_state`;
     const json = JSON.stringify(grid.toJSONState());

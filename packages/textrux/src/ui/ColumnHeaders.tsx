@@ -51,7 +51,7 @@ export function ColumnHeaders({
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
 
   return (
-    <div className="absolute top-0 left-[50px] right-0 h-[30px] bg-gray-200 border-b border-gray-600 z-9 overflow-hidden">
+    <div className="absolute top-0 left-[50px] right-0 h-[30px] bg-gray-200 dark:bg-gray-700 border-b border-gray-600 dark:border-gray-600 z-9 overflow-hidden">
       <div
         className="relative"
         style={{
@@ -69,15 +69,15 @@ export function ColumnHeaders({
           const label = `C${c}`;
           const labelElement = (
             <>
-              <span className="text-black">C</span>
-              {c}
+              <span className="text-black dark:text-gray-100">C</span>
+              <span className="dark:text-gray-100">{c}</span>
             </>
           );
 
           return (
             <div
               key={c}
-              className="absolute top-0 flex items-center justify-center border-r border-gray-300 bg-gray-100 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
+              className="absolute top-0 flex items-center justify-center border-r border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 text-xs font-bold overflow-hidden text-ellipsis whitespace-nowrap"
               style={{
                 left: x,
                 width: w,

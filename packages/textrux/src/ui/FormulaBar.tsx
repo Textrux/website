@@ -44,9 +44,9 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   }, [address]);
 
   return (
-    <div className="w-full h-12 bg-gray-300 flex items-center px-2 z-50 border-b border-gray-400">
+    <div className="w-full h-12 bg-gray-300 dark:bg-gray-700 flex items-center px-2 z-50 border-b border-gray-400 dark:border-gray-600">
       <div
-        className="mr-2 text-right font-bold overflow-hidden whitespace-nowrap"
+        className="mr-2 text-right font-bold overflow-hidden whitespace-nowrap dark:text-gray-100"
         style={addressStyle}
         title={address}
       >
@@ -54,8 +54,10 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
       </div>
 
       <input
-        className={`flex-1 h-8 text-sm px-2 border rounded ${
-          disabled ? "bg-gray-200 cursor-not-allowed" : "bg-white"
+        className={`flex-1 h-8 text-sm px-2 border rounded dark:border-gray-600 ${
+          disabled
+            ? "bg-gray-200 dark:bg-gray-600 cursor-not-allowed dark:text-gray-400"
+            : "bg-white dark:bg-gray-800 dark:text-gray-100"
         }`}
         type="text"
         value={formulaText}
@@ -69,7 +71,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
         src={GearIcon}
         alt="Settings"
         title="Settings"
-        className="ml-2 cursor-pointer"
+        className="ml-2 cursor-pointer dark:filter dark:invert"
         style={{ width: "24px", height: "24px" }}
         onClick={onGearClick}
       />

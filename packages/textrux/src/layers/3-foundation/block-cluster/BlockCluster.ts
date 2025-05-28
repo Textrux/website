@@ -171,7 +171,7 @@ export default class BlockCluster {
       clusterBlocks.forEach((b) => used.add(b));
     }
 
-    console.log("blockClusters", blockClusters);
+    // console.log("blockClusters", blockClusters);
 
     return blockClusters;
   }

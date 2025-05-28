@@ -254,7 +254,7 @@ export function CellView(props: CellViewProps) {
       {isEditing ? (
         <textarea
           ref={textareaRef}
-          className="w-full h-full p-1 bg-white outline-none resize-none"
+          className="w-full h-full p-1 bg-white outline-none resize-none dark:bg-gray-800 dark:text-gray-100"
           value={sharedEditingValue}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -267,11 +267,16 @@ export function CellView(props: CellViewProps) {
             overflowY: "auto",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            // Ensure text is visible in dark mode
+            color: "inherit",
+            backgroundColor: "inherit",
           }}
           autoFocus={focusTarget === "cell"}
         />
       ) : (
-        <div className="w-full h-full px-1 whitespace-pre-wrap">{value}</div>
+        <div className="w-full h-full px-1 whitespace-pre-wrap dark:text-gray-100">
+          {value}
+        </div>
       )}
     </div>
   );
