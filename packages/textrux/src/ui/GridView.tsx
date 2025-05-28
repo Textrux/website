@@ -41,6 +41,11 @@ import {
   scrollCellIntoView,
   scrollToCell,
 } from "../util/GridHelper";
+import {
+  ReferenceUpdater,
+  CellMove,
+  RangeMove,
+} from "../util/ReferenceUpdater";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -557,6 +562,14 @@ export function GridView({
   /** For block movement logic */
   const blockListRef = useRef<Block[]>([]);
 
+  /** Reference updater for maintaining formula references */
+  const referenceUpdaterRef = useRef<ReferenceUpdater | null>(null);
+
+  // Initialize reference updater
+  useEffect(() => {
+    referenceUpdaterRef.current = new ReferenceUpdater(grid);
+  }, [grid]);
+
   /** For cut/copy/paste logic */
   const [clipboardData, setClipboardData] = useState<string[][] | null>(null);
   const [isCutMode, setIsCutMode] = useState(false);
@@ -597,6 +610,31 @@ export function GridView({
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const longPressTimeoutRef = useRef<number | undefined>(undefined);
   const isDragEligibleRef = useRef(false);
+
+  /** For reference handle logic */
+  const [showReferenceHandle, setShowReferenceHandle] = useState(false);
+  const [referenceHandlePosition, setReferenceHandlePosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [isHoveringHandle, setIsHoveringHandle] = useState(false);
+  const [isDraggingReference, setIsDraggingReference] = useState(false);
+  const [referenceSourceRange, setReferenceSourceRange] =
+    useState<SelectionRange | null>(null);
+  const [referenceDragStartPos, setReferenceDragStartPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [referenceDragCurrentPos, setReferenceDragCurrentPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [referenceTargetPosition, setReferenceTargetPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const hideHandleTimeoutRef = useRef<number | undefined>(undefined);
+  const showHandleTimeoutRef = useRef<number | undefined>(undefined);
 
   // Because the parent might not have loaded from local storage:
   // optionally do it here once on mount
@@ -1013,6 +1051,17 @@ export function GridView({
     // Always end the transaction that was started in startBlockDrag
     // Only create the final state if there was actual movement
     if (dR !== 0 || dC !== 0) {
+      // Update references before moving the block
+      if (referenceUpdaterRef.current) {
+        const cellMoves: CellMove[] = dragOriginalBlockData.map((item) => ({
+          fromRow: item.row,
+          fromCol: item.col,
+          toRow: item.row + dR,
+          toCol: item.col + dC,
+        }));
+        referenceUpdaterRef.current.updateReferencesForBlockMove(cellMoves);
+      }
+
       // Clear the grid first
       grid.clearAllCells(true);
 
@@ -1172,8 +1221,210 @@ export function GridView({
     forceRefresh,
   ]);
 
+  // Reference handle helper functions
+  const calculateReferenceHandlePosition = useCallback(
+    (range: SelectionRange) => {
+      const container = gridContainerRef.current;
+      if (!container) return null;
+
+      // Calculate the pixel position of the selection center
+      let startRowPx = 0;
+      for (let i = 0; i < range.startRow - 1; i++) {
+        startRowPx += rowHeights[i] || baseRowHeight * zoom;
+      }
+
+      let endRowPx = startRowPx;
+      for (let i = range.startRow - 1; i < range.endRow; i++) {
+        endRowPx += rowHeights[i] || baseRowHeight * zoom;
+      }
+
+      let startColPx = 0;
+      for (let i = 0; i < range.startCol - 1; i++) {
+        startColPx += colWidths[i] || baseColWidth * zoom;
+      }
+
+      let endColPx = startColPx;
+      for (let i = range.startCol - 1; i < range.endCol; i++) {
+        endColPx += colWidths[i] || baseColWidth * zoom;
+      }
+
+      // Calculate center position within the grid
+      const centerX = (startColPx + endColPx) / 2;
+      const centerY = (startRowPx + endRowPx) / 2;
+
+      // Get scroll position
+      const scrollLeft = container.scrollLeft;
+      const scrollTop = container.scrollTop;
+
+      // Return position relative to the grid container viewport
+      return {
+        x: centerX - scrollLeft,
+        y: centerY - scrollTop,
+      };
+    },
+    [rowHeights, colWidths, baseRowHeight, baseColWidth, zoom]
+  );
+
+  const startReferenceCreation = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Clear any pending timeouts
+      if (hideHandleTimeoutRef.current) {
+        clearTimeout(hideHandleTimeoutRef.current);
+        hideHandleTimeoutRef.current = undefined;
+      }
+      if (showHandleTimeoutRef.current) {
+        clearTimeout(showHandleTimeoutRef.current);
+        showHandleTimeoutRef.current = undefined;
+      }
+
+      // Reset hovering state since we're starting to drag
+      setIsHoveringHandle(false);
+
+      setIsDraggingReference(true);
+      setReferenceSourceRange(selectionRange);
+
+      // Calculate the source position based on the selection center
+      const handlePos = calculateReferenceHandlePosition(selectionRange);
+      if (handlePos && gridContainerRef.current) {
+        const containerRect = gridContainerRef.current.getBoundingClientRect();
+        // Store absolute screen coordinates for the visual feedback
+        const absoluteX = containerRect.left + handlePos.x;
+        const absoluteY = containerRect.top + handlePos.y;
+
+        setReferenceDragStartPos({ x: absoluteX, y: absoluteY });
+        setReferenceDragCurrentPos({ x: e.clientX, y: e.clientY });
+      }
+
+      setShowReferenceHandle(false);
+
+      // Change cursor to indicate reference creation mode
+      if (gridContainerRef.current) {
+        gridContainerRef.current.classList.add("reference-dragging");
+      }
+    },
+    [selectionRange, calculateReferenceHandlePosition]
+  );
+
+  const updateReferenceCreation = useCallback(
+    (e: MouseEvent) => {
+      if (!isDraggingReference || !gridContainerRef.current) return;
+
+      // Update current drag position for visual feedback
+      setReferenceDragCurrentPos({ x: e.clientX, y: e.clientY });
+
+      const container = gridContainerRef.current;
+      const rect = container.getBoundingClientRect();
+
+      // Calculate position relative to the grid content
+      const x = e.clientX - rect.left + container.scrollLeft;
+      const y = e.clientY - rect.top + container.scrollTop;
+
+      const hoveredRow = findRowByY(y, rowHeights);
+      const hoveredCol = findColByX(x, colWidths);
+
+      // Calculate target cell center position
+      let targetRowPx = 0;
+      for (let i = 0; i < hoveredRow - 1; i++) {
+        targetRowPx += rowHeights[i] || baseRowHeight * zoom;
+      }
+      targetRowPx += (rowHeights[hoveredRow - 1] || baseRowHeight * zoom) / 2;
+
+      let targetColPx = 0;
+      for (let i = 0; i < hoveredCol - 1; i++) {
+        targetColPx += colWidths[i] || baseColWidth * zoom;
+      }
+      targetColPx += (colWidths[hoveredCol - 1] || baseColWidth * zoom) / 2;
+
+      // Convert to absolute screen coordinates for visual feedback
+      const targetAbsoluteX = rect.left + targetColPx - container.scrollLeft;
+      const targetAbsoluteY = rect.top + targetRowPx - container.scrollTop;
+
+      setReferenceTargetPosition({
+        x: targetAbsoluteX,
+        y: targetAbsoluteY,
+      });
+    },
+    [
+      isDraggingReference,
+      rowHeights,
+      colWidths,
+      baseRowHeight,
+      baseColWidth,
+      zoom,
+    ]
+  );
+
+  const finishReferenceCreation = useCallback(
+    (e: MouseEvent) => {
+      if (
+        !isDraggingReference ||
+        !referenceSourceRange ||
+        !gridContainerRef.current
+      ) {
+        return;
+      }
+
+      const container = gridContainerRef.current;
+      const rect = container.getBoundingClientRect();
+
+      // Calculate position relative to the grid content (same as existing mouse handlers)
+      const x = e.clientX - rect.left + container.scrollLeft;
+      const y = e.clientY - rect.top + container.scrollTop;
+
+      const targetRow = findRowByY(y, rowHeights);
+      const targetCol = findColByX(x, colWidths);
+
+      // Create the reference formula
+      let referenceFormula = "";
+      if (
+        referenceSourceRange.startRow === referenceSourceRange.endRow &&
+        referenceSourceRange.startCol === referenceSourceRange.endCol
+      ) {
+        // Single cell reference
+        referenceFormula = `=R${referenceSourceRange.startRow}C${referenceSourceRange.startCol}`;
+      } else {
+        // Range reference
+        referenceFormula = `=R${referenceSourceRange.startRow}C${referenceSourceRange.startCol}:R${referenceSourceRange.endRow}C${referenceSourceRange.endCol}`;
+      }
+
+      // Set the formula in the target cell
+      grid.setCellRaw(targetRow, targetCol, referenceFormula);
+
+      // Reset reference creation state
+      setIsDraggingReference(false);
+      setReferenceSourceRange(null);
+      setReferenceDragStartPos(null);
+      setReferenceDragCurrentPos(null);
+      setReferenceTargetPosition(null);
+
+      // Reset cursor
+      if (gridContainerRef.current) {
+        gridContainerRef.current.classList.remove("reference-dragging");
+      }
+
+      forceRefresh();
+    },
+    [
+      isDraggingReference,
+      referenceSourceRange,
+      rowHeights,
+      colWidths,
+      grid,
+      forceRefresh,
+    ]
+  );
+
   const handleCellMouseDown = useCallback(
     (r: number, c: number, e: React.MouseEvent) => {
+      // Clear any pending show timeout since user is clicking (likely to drag)
+      if (showHandleTimeoutRef.current) {
+        clearTimeout(showHandleTimeoutRef.current);
+        showHandleTimeoutRef.current = undefined;
+      }
+
       // if we're editing a different cell, commit it first
       if (editingCell && (editingCell.row !== r || editingCell.col !== c)) {
         const oldVal = editingValue;
@@ -1494,6 +1745,13 @@ export function GridView({
         return;
       }
 
+      // Handle reference creation dragging
+      if (isDraggingReference) {
+        e.preventDefault();
+        updateReferenceCreation(e);
+        return;
+      }
+
       // Cancel long press timer if user moves mouse during initial press and regular drag selection is active
       if (
         isDragEligibleRef.current &&
@@ -1538,6 +1796,12 @@ export function GridView({
         window.clearTimeout(longPressTimeoutRef.current);
         isDragEligibleRef.current = false;
 
+        // Handle reference creation completion
+        if (isDraggingReference) {
+          finishReferenceCreation(e);
+          return;
+        }
+
         // Handle block drag completion
         if (isDraggingBlock) {
           finishBlockDrag();
@@ -1558,7 +1822,10 @@ export function GridView({
     rowHeights,
     colWidths,
     isDraggingBlock,
+    isDraggingReference,
     updateBlockDrag,
+    updateReferenceCreation,
+    finishReferenceCreation,
     finishBlockDrag,
     grid,
   ]);
@@ -1831,6 +2098,18 @@ export function GridView({
         buffer.push({ row: pt.row, col: pt.col, text: txt });
         grid.setCellRaw(pt.row, pt.col, "");
       }
+
+      // Update references before moving the block
+      if (referenceUpdaterRef.current) {
+        const cellMoves: CellMove[] = oldCells.map((pt) => ({
+          fromRow: pt.row,
+          fromCol: pt.col,
+          toRow: pt.row + dR,
+          toCol: pt.col + dC,
+        }));
+        referenceUpdaterRef.current.updateReferencesForBlockMove(cellMoves);
+      }
+
       targetBlock.topRow += dR;
       targetBlock.bottomRow += dR;
       targetBlock.leftCol += dC;
@@ -2476,6 +2755,21 @@ export function GridView({
       // If "Cut" mode was active and pasting to a different range, clear original cells
       // --------------------------------------
       if (isCutMode && cutCells && cutRange) {
+        // Update references for cut/paste operation
+        if (referenceUpdaterRef.current && cutRange) {
+          const rangeMove: RangeMove = {
+            fromStartRow: cutRange.startRow,
+            fromStartCol: cutRange.startCol,
+            fromEndRow: cutRange.endRow,
+            fromEndCol: cutRange.endCol,
+            toStartRow: startRow,
+            toStartCol: startCol,
+            toEndRow: startRow + (cutRange.endRow - cutRange.startRow),
+            toEndCol: startCol + (cutRange.endCol - cutRange.startCol),
+          };
+          referenceUpdaterRef.current.updateReferencesForRangeMove(rangeMove);
+        }
+
         for (const cell of cutCells) {
           const cellKey = `R${cell.row}C${cell.col}`;
 
@@ -3122,6 +3416,18 @@ export function GridView({
     [rowHeights, colWidths]
   );
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideHandleTimeoutRef.current) {
+        clearTimeout(hideHandleTimeoutRef.current);
+      }
+      if (showHandleTimeoutRef.current) {
+        clearTimeout(showHandleTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div
       className={`relative overflow-hidden ${className}`}
@@ -3213,6 +3519,108 @@ export function GridView({
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
           onKeyDown={handleContainerKeyDown}
+          onMouseMove={(e) => {
+            // Don't show reference handle if we're dragging something
+            if (
+              isDraggingBlock ||
+              isDraggingReference ||
+              dragSelectRef.current.active
+            ) {
+              setShowReferenceHandle(false);
+              // Clear any pending show/hide timeouts
+              if (showHandleTimeoutRef.current) {
+                clearTimeout(showHandleTimeoutRef.current);
+                showHandleTimeoutRef.current = undefined;
+              }
+              if (hideHandleTimeoutRef.current) {
+                clearTimeout(hideHandleTimeoutRef.current);
+                hideHandleTimeoutRef.current = undefined;
+              }
+              return;
+            }
+
+            const container = gridContainerRef.current;
+            if (!container) return;
+
+            // Check if we're hovering over the reference handle or its close vicinity
+            const target = e.target as HTMLElement;
+            if (
+              target.classList.contains("reference-handle") ||
+              target.closest(".reference-handle") ||
+              isHoveringHandle
+            ) {
+              // Clear any pending hide timeout and keep handle visible
+              if (hideHandleTimeoutRef.current) {
+                clearTimeout(hideHandleTimeoutRef.current);
+                hideHandleTimeoutRef.current = undefined;
+              }
+              return;
+            }
+
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left + container.scrollLeft;
+            const y = e.clientY - rect.top + container.scrollTop;
+
+            const hoveredRow = findRowByY(y, rowHeights);
+            const hoveredCol = findColByX(x, colWidths);
+
+            // Check if mouse is over the current selection
+            const isOverSelection =
+              hoveredRow >= selectionRange.startRow &&
+              hoveredRow <= selectionRange.endRow &&
+              hoveredCol >= selectionRange.startCol &&
+              hoveredCol <= selectionRange.endCol;
+
+            if (isOverSelection) {
+              // Clear any pending hide timeout
+              if (hideHandleTimeoutRef.current) {
+                clearTimeout(hideHandleTimeoutRef.current);
+                hideHandleTimeoutRef.current = undefined;
+              }
+
+              // Only start show timeout if handle is not already visible and no timeout is pending
+              if (!showReferenceHandle && !showHandleTimeoutRef.current) {
+                showHandleTimeoutRef.current = window.setTimeout(() => {
+                  const handlePos =
+                    calculateReferenceHandlePosition(selectionRange);
+                  if (handlePos) {
+                    setReferenceHandlePosition(handlePos);
+                    setShowReferenceHandle(true);
+                  }
+                  showHandleTimeoutRef.current = undefined;
+                }, 500); // 500ms delay before showing
+              }
+            } else {
+              // Clear any pending show timeout
+              if (showHandleTimeoutRef.current) {
+                clearTimeout(showHandleTimeoutRef.current);
+                showHandleTimeoutRef.current = undefined;
+              }
+
+              // Only hide if we're not hovering over the handle
+              if (!isHoveringHandle && !hideHandleTimeoutRef.current) {
+                hideHandleTimeoutRef.current = window.setTimeout(() => {
+                  setShowReferenceHandle(false);
+                  hideHandleTimeoutRef.current = undefined;
+                }, 100); // 100ms delay before hiding
+              }
+            }
+          }}
+          onMouseLeave={() => {
+            // Clear any pending show timeout
+            if (showHandleTimeoutRef.current) {
+              clearTimeout(showHandleTimeoutRef.current);
+              showHandleTimeoutRef.current = undefined;
+            }
+
+            // Use the same timeout mechanism for mouse leave, but only if not hovering over handle
+            if (!isHoveringHandle && !hideHandleTimeoutRef.current) {
+              hideHandleTimeoutRef.current = window.setTimeout(() => {
+                setShowReferenceHandle(false);
+                hideHandleTimeoutRef.current = undefined;
+              }, 150); // Slightly longer delay for mouse leave
+            }
+          }}
           tabIndex={0}
         >
           <div
@@ -3350,6 +3758,97 @@ export function GridView({
         isVisible={showMinimap}
         position={minimapPosition}
       />
+
+      {/* Reference Handle */}
+      {showReferenceHandle && referenceHandlePosition && (
+        <div
+          className="absolute z-50 w-3 h-3 bg-blue-500 rounded-full reference-handle hover:bg-blue-600"
+          style={{
+            // Position relative to the grid container
+            left: `calc(50px + ${referenceHandlePosition.x}px - 6px)`, // 50px for row headers, -6px to center
+            top: `calc(3rem + 30px + ${referenceHandlePosition.y}px - 6px)`, // 3rem for formula bar, 30px for column headers, -6px to center
+            pointerEvents: "auto",
+          }}
+          onMouseDown={startReferenceCreation}
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+            setIsHoveringHandle(true);
+            // Clear any pending hide timeout when hovering over the handle
+            if (hideHandleTimeoutRef.current) {
+              clearTimeout(hideHandleTimeoutRef.current);
+              hideHandleTimeoutRef.current = undefined;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+            setIsHoveringHandle(false);
+            // Don't set timeout on mouse leave from handle - let the parent container handle it
+          }}
+          onMouseMove={(e) => {
+            e.stopPropagation();
+            setIsHoveringHandle(true);
+            // Ensure no timeout is set while hovering over the handle
+            if (hideHandleTimeoutRef.current) {
+              clearTimeout(hideHandleTimeoutRef.current);
+              hideHandleTimeoutRef.current = undefined;
+            }
+          }}
+          title="Drag to create a reference to this cell/range"
+        />
+      )}
+
+      {/* Reference Creation Visual Feedback */}
+      {isDraggingReference &&
+        referenceDragStartPos &&
+        referenceDragCurrentPos && (
+          <>
+            {/* Source dot - positioned at absolute screen coordinates */}
+            <div
+              className="fixed z-50 w-3 h-3 bg-blue-500 rounded-full reference-source-dot"
+              style={{
+                left: referenceDragStartPos.x - 6,
+                top: referenceDragStartPos.y - 6,
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Target dot - positioned at absolute screen coordinates */}
+            {referenceTargetPosition && (
+              <div
+                className="fixed z-50 w-3 h-3 bg-green-500 rounded-full reference-target-dot"
+                style={{
+                  left: referenceTargetPosition.x - 6,
+                  top: referenceTargetPosition.y - 6,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+
+            {/* Connection line - use fixed positioning for proper overlay */}
+            {referenceTargetPosition && (
+              <svg
+                className="fixed z-40 reference-line"
+                style={{
+                  left: 0,
+                  top: 0,
+                  width: "100vw",
+                  height: "100vh",
+                  pointerEvents: "none",
+                }}
+              >
+                <line
+                  x1={referenceDragStartPos.x}
+                  y1={referenceDragStartPos.y}
+                  x2={referenceTargetPosition.x}
+                  y2={referenceTargetPosition.y}
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
+                />
+              </svg>
+            )}
+          </>
+        )}
     </div>
   );
 }
