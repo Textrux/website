@@ -11,3 +11,6 @@ export type { SelectionRange } from "./ui/GridView";
 
 export { fromCSV, toCSV } from "./util/CSV";
 export { fromTSV, toTSV } from "./util/TSV";
+
+// Export examples for use in other packages
+export { examples, type ExampleData } from "./examples";

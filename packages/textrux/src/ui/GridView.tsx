@@ -2749,34 +2749,35 @@ export function GridView({
   }
 
   function loadExample(ex) {
-    fetch(ex.file)
-      .then((res) => res.text())
-      .then((content) => {
-        const delim = content.includes("\t") ? "\t" : ",";
-        const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
+    try {
+      // Content is now directly available, no need to fetch
+      const content = ex.content;
+      const delim = content.includes("\t") ? "\t" : ",";
+      const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
 
-        const neededRows = arr.length;
-        const neededCols = Math.max(...arr.map((row) => row.length), 0);
+      const neededRows = arr.length;
+      const neededCols = Math.max(...arr.map((row) => row.length), 0);
 
-        grid.resizeRows(Math.max(grid.rowCount, neededRows));
-        grid.resizeCols(Math.max(grid.columnCount, neededCols));
+      grid.resizeRows(Math.max(grid.rowCount, neededRows));
+      grid.resizeCols(Math.max(grid.columnCount, neededCols));
 
-        clearGrid();
+      clearGrid();
 
-        grid.beginTransaction();
+      grid.beginTransaction();
 
-        for (let r = 0; r < neededRows; r++) {
-          for (let c = 0; c < arr[r].length; c++) {
-            const val = arr[r][c].trim();
-            if (val) grid.setCellRaw(r + 1, c + 1, val);
-          }
+      for (let r = 0; r < neededRows; r++) {
+        for (let c = 0; c < arr[r].length; c++) {
+          const val = arr[r][c].trim();
+          if (val) grid.setCellRaw(r + 1, c + 1, val);
         }
+      }
 
-        grid.endTransaction();
+      grid.endTransaction();
 
-        forceRefresh();
-      })
-      .catch((err) => console.error("Failed to load example", err));
+      forceRefresh();
+    } catch (err) {
+      console.error("Failed to load example", err);
+    }
   }
 
   const onChangeDimensions = (newRowCount, newColCount) => {
