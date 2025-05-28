@@ -18,6 +18,7 @@ import { RowHeaders } from "./RowHeaders";
 import { GridCells } from "./GridCells";
 import { FormulaBar } from "./FormulaBar";
 import { AppModal } from "./modal/AppModal";
+import { Minimap } from "./minimap/Minimap";
 import { LocalStorageManager } from "../util/LocalStorageManager";
 import {
   arrayToGrid,
@@ -244,6 +245,90 @@ export function GridView({
 
   /** Modal for settings, CSV vs TSV, etc. */
   const [isModalOpen, setModalOpen] = useState(false);
+
+  /** Minimap visibility */
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [minimapPosition, setMinimapPosition] = useState({
+    bottom: 16,
+    right: 16,
+  });
+
+  // Calculate minimap position to avoid scrollbars
+  const calculateMinimapPosition = useCallback(() => {
+    const container = gridContainerRef.current;
+    if (!container) {
+      return { bottom: 16, right: 16 };
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const hasVerticalScrollbar =
+      container.scrollHeight > container.clientHeight;
+    const hasHorizontalScrollbar =
+      container.scrollWidth > container.clientWidth;
+
+    // Account for scrollbar width (typically 15-17px, we'll use 20px for safety)
+    const scrollbarWidth = 20;
+
+    let bottom = 16; // Base margin from bottom
+    let right = 16; // Base margin from right
+
+    // If there's a horizontal scrollbar, move up
+    if (hasHorizontalScrollbar) {
+      bottom += scrollbarWidth;
+    }
+
+    // If there's a vertical scrollbar, move left
+    if (hasVerticalScrollbar) {
+      right += scrollbarWidth;
+    }
+
+    // Also account for the scrubber at the bottom (35px height)
+    bottom += 35;
+
+    return { bottom, right };
+  }, []);
+
+  // Load minimap setting from localStorage
+  useEffect(() => {
+    if (autoLoadLocalStorage) {
+      const saved = localStorage.getItem("textrux-show-minimap");
+      if (saved !== null) {
+        setShowMinimap(JSON.parse(saved));
+      }
+    }
+  }, [autoLoadLocalStorage]);
+
+  // Save minimap setting to localStorage
+  useEffect(() => {
+    if (autoLoadLocalStorage) {
+      localStorage.setItem("textrux-show-minimap", JSON.stringify(showMinimap));
+    }
+  }, [showMinimap, autoLoadLocalStorage]);
+
+  // Update minimap position when container size changes
+  useEffect(() => {
+    const updateMinimapPosition = () => {
+      setMinimapPosition(calculateMinimapPosition());
+    };
+
+    const container = gridContainerRef.current;
+    if (container) {
+      // Update position initially
+      updateMinimapPosition();
+
+      // Create a ResizeObserver to watch for container size changes
+      const resizeObserver = new ResizeObserver(updateMinimapPosition);
+      resizeObserver.observe(container);
+
+      // Also listen for scroll events that might affect scrollbar visibility
+      container.addEventListener("scroll", updateMinimapPosition);
+
+      return () => {
+        resizeObserver.disconnect();
+        container.removeEventListener("scroll", updateMinimapPosition);
+      };
+    }
+  }, [calculateMinimapPosition]);
 
   // Whenever delimiter changes, store it
   useEffect(() => {
@@ -633,7 +718,10 @@ export function GridView({
       const targetBlock = blocks.find((b) => isCellInBlockCanvas(b, r, c));
       if (!targetBlock) return false;
 
-      // Store original block data for undo/redo
+      // BEGIN TRANSACTION - This captures the initial state for undo/redo
+      grid.beginTransaction();
+
+      // Store original block data for restoration during dragging
       const originalData: Array<{ row: number; col: number; text: string }> =
         [];
       for (const pt of targetBlock.canvasPoints) {
@@ -680,6 +768,9 @@ export function GridView({
 
   const startSelectionDrag = useCallback(
     (r: number, c: number) => {
+      // BEGIN TRANSACTION - This captures the initial state for undo/redo
+      grid.beginTransaction();
+
       // Get the selected cells data
       const { startRow, endRow, startCol, endCol } = selectionRange;
 
@@ -919,11 +1010,9 @@ export function GridView({
     const dR = dragCurrentPosition.row - dragStartPosition.row;
     const dC = dragCurrentPosition.col - dragStartPosition.col;
 
-    // Only create a transaction if there was actual movement
+    // Always end the transaction that was started in startBlockDrag
+    // Only create the final state if there was actual movement
     if (dR !== 0 || dC !== 0) {
-      // Begin transaction for undo/redo - this will capture the original state
-      grid.beginTransaction();
-
       // Clear the grid first
       grid.clearAllCells(true);
 
@@ -1000,11 +1089,14 @@ export function GridView({
       // End transaction - this captures the final state for undo/redo
       grid.endTransaction();
     } else {
-      // No movement, just restore original state without creating a transaction
+      // No movement, just restore original state and end the transaction
       grid.clearAllCells(true);
       for (const item of dragOriginalGridState) {
         grid.setCellRaw(item.row, item.col, item.text);
       }
+
+      // End the transaction even though no change occurred
+      grid.endTransaction();
     }
 
     // Reset drag state
@@ -1050,6 +1142,9 @@ export function GridView({
     for (const item of dragOriginalGridState) {
       grid.setCellRaw(item.row, item.col, item.text);
     }
+
+    // End the transaction that was started in startBlockDrag
+    grid.endTransaction();
 
     // Reset drag state
     setIsDraggingBlock(false);
@@ -2909,6 +3004,124 @@ export function GridView({
     }
   }, [grid, rowHeights, colWidths]);
 
+  // Calculate viewport bounds for minimap
+  const calculateViewportBounds = useCallback(() => {
+    const container = gridContainerRef.current;
+    if (!container) {
+      return { top: 1, left: 1, bottom: 10, right: 10 };
+    }
+
+    const scrollTop = container.scrollTop;
+    const scrollLeft = container.scrollLeft;
+    const containerHeight = container.clientHeight;
+    const containerWidth = container.clientWidth;
+
+    // Find which rows and columns are visible
+    let topRow = 1;
+    let leftCol = 1;
+    let bottomRow = 1;
+    let rightCol = 1;
+
+    // Calculate top row
+    let currentHeight = 0;
+    for (let i = 0; i < rowHeights.length; i++) {
+      if (currentHeight + rowHeights[i] > scrollTop) {
+        topRow = i + 1;
+        break;
+      }
+      currentHeight += rowHeights[i];
+    }
+
+    // Calculate bottom row
+    currentHeight = 0;
+    for (let i = 0; i < rowHeights.length; i++) {
+      currentHeight += rowHeights[i];
+      if (currentHeight >= scrollTop + containerHeight) {
+        bottomRow = i + 1;
+        break;
+      }
+    }
+    if (bottomRow === 1) bottomRow = rowHeights.length;
+
+    // Calculate left column
+    let currentWidth = 0;
+    for (let i = 0; i < colWidths.length; i++) {
+      if (currentWidth + colWidths[i] > scrollLeft) {
+        leftCol = i + 1;
+        break;
+      }
+      currentWidth += colWidths[i];
+    }
+
+    // Calculate right column
+    currentWidth = 0;
+    for (let i = 0; i < colWidths.length; i++) {
+      currentWidth += colWidths[i];
+      if (currentWidth >= scrollLeft + containerWidth) {
+        rightCol = i + 1;
+        break;
+      }
+    }
+    if (rightCol === 1) rightCol = colWidths.length;
+
+    return {
+      top: topRow,
+      left: leftCol,
+      bottom: bottomRow,
+      right: rightCol,
+    };
+  }, [rowHeights, colWidths]);
+
+  // Calculate grid bounds that encompass all blocks
+  const calculateGridBounds = useCallback(() => {
+    const blocks = blockListRef.current;
+    if (blocks.length === 0) {
+      return { minRow: 1, maxRow: 10, minCol: 1, maxCol: 10 };
+    }
+
+    let minRow = Infinity;
+    let maxRow = -Infinity;
+    let minCol = Infinity;
+    let maxCol = -Infinity;
+
+    blocks.forEach((block) => {
+      minRow = Math.min(minRow, block.topRow);
+      maxRow = Math.max(maxRow, block.bottomRow);
+      minCol = Math.min(minCol, block.leftCol);
+      maxCol = Math.max(maxCol, block.rightCol);
+    });
+
+    return { minRow, maxRow, minCol, maxCol };
+  }, []);
+
+  // Handle viewport change from minimap
+  const handleMinimapViewportChange = useCallback(
+    (newBounds: {
+      top: number;
+      left: number;
+      bottom: number;
+      right: number;
+    }) => {
+      const container = gridContainerRef.current;
+      if (!container) return;
+
+      // Calculate scroll position to center the viewport on the new bounds
+      const targetRow = Math.floor((newBounds.top + newBounds.bottom) / 2);
+      const targetCol = Math.floor((newBounds.left + newBounds.right) / 2);
+
+      const scrollTop = calculateScrollPosition(targetRow, rowHeights);
+      const scrollLeft = calculateScrollPosition(targetCol, colWidths);
+
+      // Adjust to center the viewport
+      const containerHeight = container.clientHeight;
+      const containerWidth = container.clientWidth;
+
+      container.scrollTop = Math.max(0, scrollTop - containerHeight / 2);
+      container.scrollLeft = Math.max(0, scrollLeft - containerWidth / 2);
+    },
+    [rowHeights, colWidths]
+  );
+
   return (
     <div
       className={`relative overflow-hidden ${className}`}
@@ -3061,6 +3274,8 @@ export function GridView({
         rowCount={grid.rowCount}
         colCount={grid.columnCount}
         onChangeDimensions={onChangeDimensions}
+        showMinimap={showMinimap}
+        setShowMinimap={setShowMinimap}
       />
 
       {fullscreenEditing && (
@@ -3125,6 +3340,16 @@ export function GridView({
           </div>
         </div>
       )}
+
+      {/* Minimap */}
+      <Minimap
+        blocks={blockListRef.current}
+        viewportBounds={calculateViewportBounds()}
+        gridBounds={calculateGridBounds()}
+        onViewportChange={handleMinimapViewportChange}
+        isVisible={showMinimap}
+        position={minimapPosition}
+      />
     </div>
   );
 }

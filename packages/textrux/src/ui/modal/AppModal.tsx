@@ -22,6 +22,10 @@ export interface AppModalExtraProps {
   colCount: number; // The grid's current column count
 
   onChangeDimensions: (newRowCount: number, newColCount: number) => void;
+
+  // Minimap settings
+  showMinimap: boolean;
+  setShowMinimap: (show: boolean) => void;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -39,6 +43,8 @@ export const AppModal: React.FC<CombinedProps> = ({
   rowCount,
   colCount,
   onChangeDimensions,
+  showMinimap,
+  setShowMinimap,
 }) => {
   // Keep a local copy of the row/col so we only commit changes on "Save"
   const [localRowCount, setLocalRowCount] = useState(rowCount);
@@ -171,6 +177,27 @@ export const AppModal: React.FC<CombinedProps> = ({
                   <option value="tab">Tab-Separated Values (TSV)</option>
                   <option value=",">Comma-Separated Values (CSV)</option>
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-medium dark:text-gray-200">
+                  Display Options
+                </div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={showMinimap}
+                    onChange={(e) => setShowMinimap(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                  />
+                  <span className="text-sm dark:text-gray-200">
+                    Show Minimap
+                  </span>
+                </label>
+                <div className="text-xs text-gray-500 dark:text-gray-400 ml-6">
+                  Display a minimap in the bottom-right corner showing blocks
+                  and viewport position
+                </div>
               </div>
 
               <div className="space-y-2">
