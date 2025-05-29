@@ -37,6 +37,9 @@ interface GridCellsProps {
 
   // 1) The style map from parseAndFormatGrid
   styleMap: Record<string, string[]>;
+
+  // Auto-resize functionality
+  autoResizeAfterEdit?: (row: number, col: number, content: string) => void;
 }
 
 export function GridCells({
@@ -58,6 +61,7 @@ export function GridCells({
   sharedEditingValue,
   setSharedEditingValue,
   styleMap,
+  autoResizeAfterEdit,
 }: GridCellsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 

@@ -46,6 +46,8 @@ import {
   CellMove,
   RangeMove,
 } from "../util/ReferenceUpdater";
+import { SizingMode, GridSizingSettings } from "../util/LocalStorageManager";
+import { CellFormat } from "../layers/3-foundation/CellFormat";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -95,6 +97,11 @@ export function GridView({
   const [currentDelimiter, setCurrentDelimiter] = useState(
     grid.delimiter || "tab"
   );
+
+  // Sizing settings state
+  const [sizingMode, setSizingMode] = useState<SizingMode>("grid");
+  const [gridSizingSettings, setGridSizingSettings] =
+    useState<GridSizingSettings | null>(null);
 
   // This is a helper function to notify of grid changes
   const notifyGridChange = useCallback(() => {
@@ -1713,6 +1720,9 @@ export function GridView({
       if (!opts?.escape) {
         grid.setCellRaw(r, c, newValue);
         measureAndExpand(r, c, newValue);
+
+        // Auto-resize will be handled separately to avoid dependency ordering
+        // autoResizeAfterEdit(r, c, newValue);
       }
       setEditingCell(null);
       setEditingValue("");
@@ -3428,6 +3438,177 @@ export function GridView({
     };
   }, []);
 
+  // Load sizing settings from localStorage
+  useEffect(() => {
+    if (autoLoadLocalStorage) {
+      const settings = LocalStorageManager.loadGridSizing(grid.index);
+      setSizingMode(settings.sizingMode);
+      setGridSizingSettings(settings);
+    }
+  }, [autoLoadLocalStorage, grid.index]);
+
+  // Save sizing settings to localStorage
+  useEffect(() => {
+    if (autoLoadLocalStorage && gridSizingSettings) {
+      LocalStorageManager.saveGridSizing(grid.index, {
+        ...gridSizingSettings,
+        sizingMode,
+      });
+    }
+  }, [sizingMode, gridSizingSettings, autoLoadLocalStorage, grid.index]);
+
+  // Column resize handler
+  const handleColumnResize = useCallback(
+    (columnIndex: number, newWidth: number) => {
+      if (sizingMode === "grid") {
+        // Update grid-wide column width
+        setColWidths((prev) => {
+          const newWidths = [...prev];
+          newWidths[columnIndex - 1] = newWidth;
+          return newWidths;
+        });
+      } else {
+        // Update cell-specific formats
+        setGridSizingSettings((prev) => {
+          if (!prev) return prev;
+          const newSettings = { ...prev };
+
+          // Update all cells in this column
+          for (let row = 1; row <= grid.rowCount; row++) {
+            const cellKey = `R${row}C${columnIndex}`;
+            newSettings.cellFormats[cellKey] = {
+              ...newSettings.cellFormats[cellKey],
+              width: newWidth,
+              lastWidthSource: "manual",
+            };
+          }
+
+          return newSettings;
+        });
+      }
+    },
+    [sizingMode, grid.rowCount]
+  );
+
+  // Row resize handler
+  const handleRowResize = useCallback(
+    (rowIndex: number, newHeight: number) => {
+      if (sizingMode === "grid") {
+        // Update grid-wide row height
+        setRowHeights((prev) => {
+          const newHeights = [...prev];
+          newHeights[rowIndex - 1] = newHeight;
+          return newHeights;
+        });
+      } else {
+        // Update cell-specific formats
+        setGridSizingSettings((prev) => {
+          if (!prev) return prev;
+          const newSettings = { ...prev };
+
+          // Update all cells in this row
+          for (let col = 1; col <= grid.columnCount; col++) {
+            const cellKey = `R${rowIndex}C${col}`;
+            newSettings.cellFormats[cellKey] = {
+              ...newSettings.cellFormats[cellKey],
+              height: newHeight,
+              lastHeightSource: "manual",
+            };
+          }
+
+          return newSettings;
+        });
+      }
+    },
+    [sizingMode, grid.columnCount]
+  );
+
+  // Auto-resize handlers
+  const handleColumnAutoResize = useCallback(
+    (columnIndex: number) => {
+      // Calculate optimal width based on content
+      let maxWidth = baseColWidth * zoom;
+
+      for (let row = 1; row <= grid.rowCount; row++) {
+        const content = grid.getCellRaw(row, columnIndex);
+        if (content) {
+          // Estimate width based on content length and font size
+          const estimatedWidth = Math.min(
+            content.length * fontSize * 0.6 + 20,
+            6 * baseColWidth * zoom
+          );
+          maxWidth = Math.max(maxWidth, estimatedWidth);
+        }
+      }
+
+      handleColumnResize(columnIndex, maxWidth);
+    },
+    [baseColWidth, zoom, grid, fontSize, handleColumnResize]
+  );
+
+  const handleRowAutoResize = useCallback(
+    (rowIndex: number) => {
+      // Calculate optimal height based on content
+      let maxHeight = baseRowHeight * zoom;
+
+      for (let col = 1; col <= grid.columnCount; col++) {
+        const content = grid.getCellRaw(rowIndex, col);
+        if (content) {
+          // Estimate height based on line breaks and wrapping
+          const lines = content.split("\n").length;
+          const estimatedHeight = Math.min(
+            lines * fontSize * 1.2 + 8,
+            6 * baseRowHeight * zoom
+          );
+          maxHeight = Math.max(maxHeight, estimatedHeight);
+        }
+      }
+
+      handleRowResize(rowIndex, maxHeight);
+    },
+    [baseRowHeight, zoom, grid, fontSize, handleRowResize]
+  );
+
+  // Auto-resize after editing
+  const autoResizeAfterEdit = useCallback(
+    (row: number, col: number, content: string) => {
+      if (!content) return;
+
+      // Auto-resize column
+      const estimatedWidth = Math.min(
+        content.length * fontSize * 0.6 + 20,
+        6 * baseColWidth * zoom
+      );
+
+      if (estimatedWidth > colWidths[col - 1]) {
+        handleColumnResize(col, estimatedWidth);
+      }
+
+      // Auto-resize row if content has line breaks
+      const lines = content.split("\n").length;
+      if (lines > 1) {
+        const estimatedHeight = Math.min(
+          lines * fontSize * 1.2 + 8,
+          6 * baseRowHeight * zoom
+        );
+
+        if (estimatedHeight > rowHeights[row - 1]) {
+          handleRowResize(row, estimatedHeight);
+        }
+      }
+    },
+    [
+      fontSize,
+      baseColWidth,
+      baseRowHeight,
+      zoom,
+      colWidths,
+      rowHeights,
+      handleColumnResize,
+      handleRowResize,
+    ]
+  );
+
   return (
     <div
       className={`relative overflow-hidden ${className}`}
@@ -3499,6 +3680,8 @@ export function GridView({
           fontSize={baseFontSize * zoom}
           version={version}
           gridContainerRef={gridContainerRef}
+          onColumnResize={handleColumnResize}
+          onColumnAutoResize={handleColumnAutoResize}
         />
 
         <RowHeaders
@@ -3508,6 +3691,8 @@ export function GridView({
           fontSize={baseFontSize * zoom}
           version={version}
           gridContainerRef={gridContainerRef}
+          onRowResize={handleRowResize}
+          onRowAutoResize={handleRowAutoResize}
         />
 
         <div
@@ -3684,6 +3869,8 @@ export function GridView({
         onChangeDimensions={onChangeDimensions}
         showMinimap={showMinimap}
         setShowMinimap={setShowMinimap}
+        sizingMode={sizingMode}
+        setSizingMode={setSizingMode}
       />
 
       {fullscreenEditing && (

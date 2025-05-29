@@ -31,6 +31,11 @@ export function GridTabs(props: GridTabsProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
 
+  // Hover delay state for delete buttons
+  const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
+  const [showDeleteButton, setShowDeleteButton] = useState<number | null>(null);
+  const hoverTimeoutRef = useRef<number | undefined>(undefined);
+
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -61,8 +66,58 @@ export function GridTabs(props: GridTabsProps) {
       if (container) {
         container.removeEventListener("mousedown", preventSelection);
       }
+      // Clean up hover timeout
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
     };
   }, []);
+
+  const handleTabMouseEnter = (index: number) => {
+    if (editingIndex === index) return;
+
+    setHoveredTabIndex(index);
+
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Start 1-second timer to show delete button
+    hoverTimeoutRef.current = window.setTimeout(() => {
+      setShowDeleteButton(index);
+    }, 1000);
+  };
+
+  const handleTabMouseLeave = (index: number) => {
+    setHoveredTabIndex(null);
+    setShowDeleteButton(null);
+
+    // Clear the timeout if mouse leaves before 1 second
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = undefined;
+    }
+  };
+
+  const handleTabClick = (index: number, event: React.MouseEvent) => {
+    // Check if click is in the delete button area (right side of tab)
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const clickX = event.clientX;
+    const deleteButtonArea = rect.right - 20; // 20px from right edge
+
+    // If clicking in delete button area before button is visible, just select the tab (or do nothing if already active)
+    if (clickX >= deleteButtonArea && showDeleteButton !== index) {
+      if (index !== activeIndex) {
+        onSelect(index);
+      }
+      return;
+    }
+
+    // Normal tab selection
+    onSelect(index);
+  };
 
   const handleDoubleClick = (index: number) => {
     setEditingIndex(index);
@@ -321,8 +376,10 @@ export function GridTabs(props: GridTabsProps) {
                   )}
 
                 <div
-                  onClick={() => onSelect(i)}
+                  onClick={(e) => handleTabClick(i, e)}
                   onDoubleClick={() => handleDoubleClick(i)}
+                  onMouseEnter={() => handleTabMouseEnter(i)}
+                  onMouseLeave={() => handleTabMouseLeave(i)}
                   draggable={editingIndex !== i}
                   onDragStart={(e) => handleDragStart(i, e)}
                   onDragOver={(e) => handleDragOver(i, e)}
@@ -367,8 +424,8 @@ export function GridTabs(props: GridTabsProps) {
                     </span>
                   )}
 
-                  {/* Compact delete button positioned on the far right - hidden during rename and until hover */}
-                  {editingIndex !== i && (
+                  {/* Compact delete button positioned on the far right - only visible after 1 second hover */}
+                  {editingIndex !== i && showDeleteButton === i && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -377,7 +434,7 @@ export function GridTabs(props: GridTabsProps) {
                         );
                         if (confirmed) onDeleteGrid(i);
                       }}
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xs transition-opacity duration-150"
                       aria-label="Delete grid"
                     >
                       ×

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { examples, type ExampleData } from "../../examples";
+import { SizingMode } from "../../util/LocalStorageManager";
 
 interface AppModalProps {
   isOpen: boolean;
@@ -26,6 +27,10 @@ export interface AppModalExtraProps {
   // Minimap settings
   showMinimap: boolean;
   setShowMinimap: (show: boolean) => void;
+
+  // Sizing settings
+  sizingMode: SizingMode;
+  setSizingMode: (mode: SizingMode) => void;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -45,6 +50,8 @@ export const AppModal: React.FC<CombinedProps> = ({
   onChangeDimensions,
   showMinimap,
   setShowMinimap,
+  sizingMode,
+  setSizingMode,
 }) => {
   // Keep a local copy of the row/col so we only commit changes on "Save"
   const [localRowCount, setLocalRowCount] = useState(rowCount);
@@ -197,6 +204,27 @@ export const AppModal: React.FC<CombinedProps> = ({
                 <div className="text-xs text-gray-500 dark:text-gray-400 ml-6">
                   Display a minimap in the bottom-right corner showing blocks
                   and viewport position
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-medium dark:text-gray-200">
+                  Cell Sizing
+                </div>
+                <select
+                  value={sizingMode}
+                  onChange={(e) => setSizingMode(e.target.value as SizingMode)}
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+                >
+                  <option value="grid">By Grid (like Excel)</option>
+                  <option value="cell">By Individual Cell</option>
+                </select>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <strong>By Grid:</strong> Row/column sizes stay fixed when
+                  blocks move around
+                  <br />
+                  <strong>By Cell:</strong> Each cell remembers its own size
+                  when moved
                 </div>
               </div>
 
@@ -440,6 +468,13 @@ export const AppModal: React.FC<CombinedProps> = ({
                     </span>
                   </li>
                   <li>
+                    <strong>Paste Reference:</strong> After copying cells, press{" "}
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+Shift+V
+                    </span>{" "}
+                    to create a formula reference instead of pasting values
+                  </li>
+                  <li>
                     <strong>Move block:</strong> Select a cell in its canvas,
                     then press{" "}
                     <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
@@ -458,6 +493,39 @@ export const AppModal: React.FC<CombinedProps> = ({
                     <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
                       Ctrl+Shift+~
                     </span>
+                  </li>
+                  <li>
+                    <strong>Save grid:</strong>{" "}
+                    <span className="px-1 bg-gray-100 dark:bg-gray-600 rounded">
+                      Ctrl+S
+                    </span>{" "}
+                    saves the current grid to a file (works anywhere on the
+                    page)
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <div className="font-medium mb-1 dark:text-gray-200">
+                  Cell References
+                </div>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <strong>Visual Reference Creation:</strong> Hover over a
+                    selected cell/range for 500ms to see a blue circle appear
+                  </li>
+                  <li>
+                    <strong>Drag References:</strong> Click and drag from the
+                    blue circle to another cell to create a reference formula
+                    (=R1C2 format)
+                  </li>
+                  <li>
+                    <strong>Double-click Handle:</strong> Double-click the blue
+                    circle to enter edit mode for the cell
+                  </li>
+                  <li>
+                    <strong>Auto-updating:</strong> When you move blocks or
+                    cells, all formulas that reference them update automatically
                   </li>
                 </ul>
               </div>

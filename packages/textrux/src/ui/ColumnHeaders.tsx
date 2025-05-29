@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Grid from "../layers/1-substrate/GridModel";
 
 export function ColumnHeaders({
@@ -10,6 +10,8 @@ export function ColumnHeaders({
   fontSize,
   version,
   gridContainerRef,
+  onColumnResize,
+  onColumnAutoResize,
 }: {
   grid: Grid;
   rowHeights: number[];
@@ -17,9 +19,16 @@ export function ColumnHeaders({
   fontSize: number;
   version: number;
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
+  onColumnResize?: (columnIndex: number, newWidth: number) => void;
+  onColumnAutoResize?: (columnIndex: number) => void;
 }) {
   const [visibleCols, setVisibleCols] = useState({ startCol: 1, endCol: 1 });
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizingColumn, setResizingColumn] = useState<number | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = gridContainerRef.current;
@@ -48,17 +57,125 @@ export function ColumnHeaders({
     };
   }, [colWidths, grid.columnCount, gridContainerRef]);
 
+  // Handle column resizing
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, columnIndex: number) => {
+      const rect = headerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const x = e.clientX - rect.left + scrollLeft;
+      const columnStart = sumUpTo(colWidths, columnIndex - 1);
+      const columnEnd = columnStart + colWidths[columnIndex - 1];
+
+      // Check if we're near the right edge of the column (resize handle)
+      const isNearRightEdge = Math.abs(x - columnEnd) <= 5;
+
+      if (isNearRightEdge) {
+        e.preventDefault();
+        setIsResizing(true);
+        setResizingColumn(columnIndex);
+        setResizeStartX(e.clientX);
+        setResizeStartWidth(colWidths[columnIndex - 1]);
+      }
+    },
+    [colWidths, scrollLeft]
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!headerRef.current) return;
+
+      const rect = headerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left + scrollLeft;
+
+      // Find which column we're over and if we're near a resize handle
+      let nearResizeHandle = false;
+      for (let i = visibleCols.startCol; i <= visibleCols.endCol; i++) {
+        const columnStart = sumUpTo(colWidths, i - 1);
+        const columnEnd = columnStart + colWidths[i - 1];
+
+        if (Math.abs(x - columnEnd) <= 5) {
+          nearResizeHandle = true;
+          break;
+        }
+      }
+
+      // Update cursor
+      if (headerRef.current) {
+        headerRef.current.style.cursor = nearResizeHandle
+          ? "col-resize"
+          : "default";
+      }
+    },
+    [colWidths, scrollLeft, visibleCols]
+  );
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent, columnIndex: number) => {
+      const rect = headerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const x = e.clientX - rect.left + scrollLeft;
+      const columnStart = sumUpTo(colWidths, columnIndex - 1);
+      const columnEnd = columnStart + colWidths[columnIndex - 1];
+
+      // Check if we're near the right edge of the column (resize handle)
+      const isNearRightEdge = Math.abs(x - columnEnd) <= 5;
+
+      if (isNearRightEdge && onColumnAutoResize) {
+        e.preventDefault();
+        onColumnAutoResize(columnIndex);
+      }
+    },
+    [colWidths, scrollLeft, onColumnAutoResize]
+  );
+
+  // Global mouse events for resizing
+  useEffect(() => {
+    if (!isResizing || resizingColumn === null) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartX;
+      const newWidth = Math.max(20, resizeStartWidth + deltaX); // Minimum width of 20px
+
+      if (onColumnResize) {
+        onColumnResize(resizingColumn, newWidth);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsResizing(false);
+      setResizingColumn(null);
+    };
+
+    document.addEventListener("mousemove", handleGlobalMouseMove);
+    document.addEventListener("mouseup", handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleGlobalMouseMove);
+      document.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [
+    isResizing,
+    resizingColumn,
+    resizeStartX,
+    resizeStartWidth,
+    onColumnResize,
+  ]);
+
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
 
   return (
     <div className="absolute top-0 left-[50px] right-0 h-[30px] bg-gray-200 dark:bg-gray-700 border-b border-gray-600 dark:border-gray-600 z-9 overflow-hidden">
       <div
+        ref={headerRef}
         className="relative"
         style={{
           width: totalWidth,
           height: 30,
           transform: `translateX(-${scrollLeft}px)`,
         }}
+        onMouseMove={handleMouseMove}
       >
         {Array.from({
           length: visibleCols.endCol - visibleCols.startCol + 1,
@@ -83,8 +200,11 @@ export function ColumnHeaders({
                 width: w,
                 height: 30,
                 fontSize,
+                userSelect: "none",
               }}
               title={label}
+              onMouseDown={(e) => handleMouseDown(e, c)}
+              onDoubleClick={(e) => handleDoubleClick(e, c)}
             >
               {labelElement}
             </div>

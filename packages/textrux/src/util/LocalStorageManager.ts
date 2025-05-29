@@ -1,4 +1,14 @@
 import GridModel from "../layers/1-substrate/GridModel";
+import { CellFormat } from "../layers/3-foundation/CellFormat";
+
+export type SizingMode = "grid" | "cell";
+
+export interface GridSizingSettings {
+  sizingMode: SizingMode; // "grid" or "cell"
+  rowHeights: number[]; // Heights for each row when in "grid" mode
+  colWidths: number[]; // Widths for each column when in "grid" mode
+  cellFormats: Record<string, CellFormat>; // Cell-specific formats when in "cell" mode
+}
 
 export class LocalStorageManager {
   static saveActiveGridIndex(activeIndex: number) {
@@ -128,5 +138,56 @@ export class LocalStorageManager {
   static deleteGrid(grid: GridModel) {
     const key = `grid_${grid.index}_state`;
     localStorage.removeItem(key);
+
+    // Also delete sizing settings
+    const sizingKey = `grid_${grid.index}_sizing`;
+    localStorage.removeItem(sizingKey);
+  }
+
+  // New methods for sizing settings
+  static saveGridSizing(gridIndex: number, settings: GridSizingSettings) {
+    const key = `grid_${gridIndex}_sizing`;
+    const json = JSON.stringify(settings);
+    localStorage.setItem(key, json);
+  }
+
+  static loadGridSizing(gridIndex: number): GridSizingSettings | null {
+    const key = `grid_${gridIndex}_sizing`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw);
+      // Convert plain objects back to CellFormat instances
+      if (parsed.cellFormats) {
+        const convertedFormats: Record<string, CellFormat> = {};
+        for (const [cellKey, formatData] of Object.entries(
+          parsed.cellFormats
+        )) {
+          convertedFormats[cellKey] = new CellFormat(
+            formatData as Partial<CellFormat>
+          );
+        }
+        parsed.cellFormats = convertedFormats;
+      }
+      return parsed;
+    } catch (err) {
+      console.warn("Failed to parse grid sizing settings:", err);
+      return null;
+    }
+  }
+
+  static getDefaultGridSizing(
+    rowCount: number,
+    colCount: number,
+    baseRowHeight: number,
+    baseColWidth: number
+  ): GridSizingSettings {
+    return {
+      sizingMode: "grid",
+      rowHeights: Array(rowCount).fill(baseRowHeight),
+      colWidths: Array(colCount).fill(baseColWidth),
+      cellFormats: {},
+    };
   }
 }
