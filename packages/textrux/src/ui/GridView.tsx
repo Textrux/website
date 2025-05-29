@@ -47,7 +47,7 @@ import {
   RangeMove,
 } from "../util/ReferenceUpdater";
 import { SizingMode, GridSizingSettings } from "../util/LocalStorageManager";
-import { CellFormat } from "../layers/3-foundation/CellFormat";
+import { CellFormat } from "../style/CellFormat";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -440,7 +440,11 @@ export function GridView({
 
       // Find block cluster if we're in a block
       const blockCluster = block
-        ? blockClusters.find((bc) => bc.blocks.includes(block))
+        ? blockClusters.find((bc) =>
+            bc.blockSubclusters.some((subcluster) =>
+              subcluster.blocks.includes(block)
+            )
+          )
         : null;
 
       // Check if we're on a filled cell
@@ -479,10 +483,13 @@ export function GridView({
         return;
       }
 
-      // If we're in a block cluster with multiple blocks
+      // If we're in a block cluster with multiple blocks across subclusters
       if (
         blockCluster &&
-        blockCluster.blocks.length > 1 &&
+        blockCluster.blockSubclusters.reduce(
+          (total, subcluster) => total + subcluster.blocks.length,
+          0
+        ) > 1 &&
         ctrlAStageRef.current <= 2
       ) {
         // Select block cluster canvas

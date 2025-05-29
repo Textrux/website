@@ -14,3 +14,8 @@ export { fromTSV, toTSV } from "./util/TSV";
 
 // Export examples for use in other packages
 export { examples, type ExampleData } from "./examples";
+
+// Export parsing and demo functions
+export { parseAndFormatGrid } from "./layers/1-substrate/GridParser";
+export { demonstrateTraitParsing } from "./demo/TraitParsingDemo";
+export { default as testCellClusterTraitParsing } from "./test-trait-parsing";

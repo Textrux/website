@@ -3,11 +3,13 @@ import Container from "../3-foundation/Container";
 import Block from "../3-foundation/block/Block";
 import CellCluster from "../3-foundation/cell-cluster/CellCluster";
 import BlockJoin from "../3-foundation/block-join/BlockJoin";
+import BlockSubcluster from "../3-foundation/block-subcluster/BlockSubcluster";
 import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
 import { CellFormat } from "../../style/CellFormat";
 
 // Import trait parsers
 import { BlockTraitParser } from "../3-foundation/block/BlockTraitParser";
+import { BlockSubclusterTraitParser } from "../3-foundation/block-subcluster/BlockSubclusterTraitParser";
 import { BlockClusterTraitParser } from "../3-foundation/block-cluster/BlockClusterTraitParser";
 import { BlockJoinTraitParser } from "../3-foundation/block-join/BlockJoinTraitParser";
 import { CellClusterTraitParser } from "../3-foundation/cell-cluster/CellClusterTraitParser";
@@ -24,8 +26,8 @@ interface FormatMap {
 
 /**
  * Scan the grid for non-empty cells => create containers => finalize blocks =>
- * produce a style map. Then also compute BlockJoins => BlockClusters and add
- * locked/linked formatting. Finally, identify "empty cluster" cells as well as
+ * produce a style map. Then also compute BlockJoins => BlockSubclusters => BlockClusters
+ * and add locked/linked formatting. Finally, identify "empty cluster" cells as well as
  * "canvas-empty" cells.
  *
  * Returns:
@@ -173,11 +175,16 @@ export function parseAndFormatGrid(grid: GridModel): {
     }
   }
 
-  // 4) BlockJoins => BlockClusters => locked/linked
+  // 4) BlockJoins => BlockSubclusters => BlockClusters => locked/linked
   const blockJoins = BlockJoin.populateBlockJoins(blocks);
-  const blockClusters = BlockCluster.populateBlockClusters(
+  const blockSubclusters = BlockSubcluster.populateBlockSubclusters(
     blocks,
     blockJoins,
+    grid.rowCount,
+    grid.columnCount
+  );
+  const blockClusters = BlockCluster.populateBlockClusters(
+    blockSubclusters,
     grid.rowCount,
     grid.columnCount
   );
@@ -186,6 +193,7 @@ export function parseAndFormatGrid(grid: GridModel): {
 
   // 5) Parse traits for all foundation elements
   const blockTraitParser = new BlockTraitParser(grid);
+  const blockSubclusterTraitParser = new BlockSubclusterTraitParser(grid);
   const blockClusterTraitParser = new BlockClusterTraitParser(grid);
   const blockJoinTraitParser = new BlockJoinTraitParser(grid);
   const cellClusterTraitParser = new CellClusterTraitParser(grid);
@@ -207,22 +215,47 @@ export function parseAndFormatGrid(grid: GridModel): {
     blockJoin.traits = blockJoinTraitParser.parseTraits(blockJoin);
   }
 
+  // Parse traits for block subclusters
+  for (const blockSubcluster of blockSubclusters) {
+    blockSubcluster.traits =
+      blockSubclusterTraitParser.parseTraits(blockSubcluster);
+  }
+
   // Parse traits for block clusters
   for (const blockCluster of blockClusters) {
     blockCluster.traits = blockClusterTraitParser.parseTraits(blockCluster);
   }
 
-  // 6) Mark locked/linked cells from blockClusters
-  for (const bc of blockClusters) {
-    for (const pt of bc.linkedPoints) {
-      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.linkedFormat);
+  // 6) Mark locked/linked cells from blockSubclusters
+  for (const bsc of blockSubclusters) {
+    for (const pt of bsc.linkedPoints) {
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bsc.linkedFormat);
     }
-    for (const pt of bc.lockedPoints) {
-      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.lockedFormat);
+    for (const pt of bsc.lockedPoints) {
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bsc.lockedFormat);
     }
   }
 
-  // 7) Finally, apply formatting for canvas, border, frame for each block
+  // 7) Apply formatting for canvas, perimeter, buffer for each block cluster
+  for (const bc of blockClusters) {
+    for (const pt of bc.canvasPoints) {
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.canvasFormat);
+    }
+    for (const pt of bc.perimeterPoints) {
+      addFormatAndClass(
+        styleMap,
+        formatMap,
+        pt.row,
+        pt.col,
+        bc.perimeterFormat
+      );
+    }
+    for (const pt of bc.bufferPoints) {
+      addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.bufferFormat);
+    }
+  }
+
+  // 8) Finally, apply formatting for canvas, border, frame for each block
   for (const b of blocks) {
     for (const pt of b.canvasPoints) {
       addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.canvasFormat);

@@ -2,29 +2,29 @@ import Block from "../block/Block";
 import BlockJoin from "../block-join/BlockJoin";
 import GridHelper from "../../../util/GridHelper";
 import { CellFormat } from "../../../style/CellFormat";
-import { BlockClusterTraits } from "../block-cluster/BlockClusterTraits";
+import { BlockClusterTraits } from "./BlockClusterTraits";
+import BlockSubcluster from "../block-subcluster/BlockSubcluster";
 
 /**
- * A BlockCluster is a group of Blocks that are connected (via their BlockJoins).
+ * A BlockCluster is a group of BlockSubclusters where their perimeters overlap.
+ * It represents a higher-level grouping based on spatial proximity and rectangular overlap.
  * It stores:
- *   - the individual blocks in the cluster
- *   - the joins among them
- *   - a simple bounding rectangle around all their canvas points
- *   - any "linked" or "locked" overlap points gathered from joins
+ *   - the individual block subclusters in the cluster
+ *   - its own canvas, perimeter, and buffer areas
+ *   - formatting for the cluster as a whole
  */
 export default class BlockCluster {
-  /** The blocks in this cluster. */
-  blocks: Block[];
-
-  /** The joins (links/locks) among those blocks. */
-  blockJoins: BlockJoin[];
+  /** The block subclusters in this cluster. */
+  blockSubclusters: BlockSubcluster[];
 
   /**
-   * A simple bounding rectangle around all the blocks' canvas points:
-   *   top, left, bottom, right
+   * The combined canvas area of all subclusters
    */
   clusterCanvas: { top: number; left: number; bottom: number; right: number };
 
+  /**
+   * The perimeter around the cluster (expanded from canvas)
+   */
   clusterPerimeter: {
     top: number;
     left: number;
@@ -32,6 +32,9 @@ export default class BlockCluster {
     right: number;
   };
 
+  /**
+   * The buffer area around the cluster (expanded further from perimeter)
+   */
   clusterBuffer: {
     top: number;
     left: number;
@@ -39,37 +42,29 @@ export default class BlockCluster {
     right: number;
   };
 
-  /** All "linked" points (row,col) in this cluster. */
-  linkedPoints: Array<{ row: number; col: number }>;
+  /** Formatting for canvas cells */
+  canvasFormat: CellFormat;
 
-  /** All "locked" points (row,col) in this cluster. */
-  lockedPoints: Array<{ row: number; col: number }>;
+  /** Formatting for perimeter cells */
+  perimeterFormat: CellFormat;
 
-  /** Formatting for linked cells */
-  linkedFormat: CellFormat;
-
-  /** Formatting for locked cells */
-  lockedFormat: CellFormat;
+  /** Formatting for buffer cells */
+  bufferFormat: CellFormat;
 
   /** Traits for this block cluster */
   traits: BlockClusterTraits;
 
   constructor(
-    blocks: Block[],
-    blockJoins: BlockJoin[],
-    clusterCanvas: { top: number; left: number; bottom: number; right: number },
-    linkedPoints: Array<{ row: number; col: number }>,
-    lockedPoints: Array<{ row: number; col: number }>
+    blockSubclusters: BlockSubcluster[],
+    clusterCanvas: { top: number; left: number; bottom: number; right: number }
   ) {
-    this.blocks = blocks;
-    this.blockJoins = blockJoins;
+    this.blockSubclusters = blockSubclusters;
     this.clusterCanvas = clusterCanvas;
-    this.linkedPoints = linkedPoints;
-    this.lockedPoints = lockedPoints;
 
     // Initialize with default formats
-    this.linkedFormat = CellFormat.fromCssClass("linked-cell");
-    this.lockedFormat = CellFormat.fromCssClass("locked-cell");
+    this.canvasFormat = CellFormat.fromCssClass("cluster-canvas");
+    this.perimeterFormat = CellFormat.fromCssClass("cluster-perimeter");
+    this.bufferFormat = CellFormat.fromCssClass("cluster-buffer");
 
     // Initialize traits with placeholder values - will be populated later
     this.traits = this.initializeTraits();
@@ -86,92 +81,82 @@ export default class BlockCluster {
   }
 
   /**
-   * Set custom formatting for this block cluster's cells
+   * Set custom formatting for this block cluster's areas
    */
-  setCustomFormatting(linkedFormat?: CellFormat, lockedFormat?: CellFormat) {
-    if (linkedFormat) this.linkedFormat = linkedFormat;
-    if (lockedFormat) this.lockedFormat = lockedFormat;
+  setCustomFormatting(
+    canvasFormat?: CellFormat,
+    perimeterFormat?: CellFormat,
+    bufferFormat?: CellFormat
+  ) {
+    if (canvasFormat) this.canvasFormat = canvasFormat;
+    if (perimeterFormat) this.perimeterFormat = perimeterFormat;
+    if (bufferFormat) this.bufferFormat = bufferFormat;
   }
 
   /**
-   * Static method to traverse all blocks, connect them via their BlockJoins,
-   * and produce one BlockCluster per connected group.
+   * Static method to group BlockSubclusters into BlockClusters based on overlapping perimeters.
+   * BlockSubclusters whose perimeters overlap will be grouped into the same BlockCluster.
    */
   static populateBlockClusters(
-    blockList: Block[],
-    allJoins: BlockJoin[],
+    blockSubclusters: BlockSubcluster[],
     rowCount: number,
     colCount: number
   ): BlockCluster[] {
-    const used = new Set<Block>();
+    const used = new Set<BlockSubcluster>();
     const blockClusters: BlockCluster[] = [];
 
     function gatherCluster(
-      currentBlock: Block,
-      clusterBlocks: Block[],
-      clusterJoins: BlockJoin[]
+      currentSubcluster: BlockSubcluster,
+      clusterSubclusters: BlockSubcluster[]
     ) {
-      // If we already have this block in clusterBlocks, do nothing
-      if (clusterBlocks.includes(currentBlock)) return;
-      clusterBlocks.push(currentBlock);
+      // If we already have this subcluster in clusterSubclusters, do nothing
+      if (clusterSubclusters.includes(currentSubcluster)) return;
+      clusterSubclusters.push(currentSubcluster);
 
-      // Find joins that involve currentBlock
-      const relevantJoins = allJoins.filter((jn) =>
-        jn.blocks.includes(currentBlock)
-      );
-      for (const join of relevantJoins) {
-        // If we haven't recorded this join in clusterJoins, add it
-        if (!clusterJoins.includes(join)) {
-          clusterJoins.push(join);
-        }
-        // Then follow the other block in this join
-        const other =
-          join.blocks[0] === currentBlock ? join.blocks[1] : join.blocks[0];
-        if (!clusterBlocks.includes(other)) {
-          gatherCluster(other, clusterBlocks, clusterJoins);
+      // Find other subclusters whose perimeters overlap with current subcluster's perimeter
+      const currentPerimeter = currentSubcluster.clusterPerimeter;
+
+      for (const otherSubcluster of blockSubclusters) {
+        if (clusterSubclusters.includes(otherSubcluster)) continue;
+
+        const otherPerimeter = otherSubcluster.clusterPerimeter;
+
+        // Check if perimeters overlap (rectangularly)
+        if (rectanglesOverlap(currentPerimeter, otherPerimeter)) {
+          gatherCluster(otherSubcluster, clusterSubclusters);
         }
       }
     }
 
-    for (const block of blockList) {
-      if (used.has(block)) continue;
+    for (const subcluster of blockSubclusters) {
+      if (used.has(subcluster)) continue;
 
-      const clusterBlocks: Block[] = [];
-      const clusterJoins: BlockJoin[] = [];
-      gatherCluster(block, clusterBlocks, clusterJoins);
+      const clusterSubclusters: BlockSubcluster[] = [];
+      gatherCluster(subcluster, clusterSubclusters);
 
-      // Collect all canvas points for bounding box
-      const allCanvas = clusterBlocks.flatMap((b) => b.canvasPoints);
-      const minR = Math.min(...allCanvas.map((pt) => pt.row));
-      const maxR = Math.max(...allCanvas.map((pt) => pt.row));
-      const minC = Math.min(...allCanvas.map((pt) => pt.col));
-      const maxC = Math.max(...allCanvas.map((pt) => pt.col));
-
-      // Collect and deduplicate all linked/locked points
-      const linkedAll = clusterJoins.flatMap((jn) => jn.linkedPoints);
-      const lockedAll = clusterJoins.flatMap((jn) => jn.lockedPoints);
-      const mergedLinked = GridHelper.deduplicatePoints(linkedAll);
-      const mergedLocked = GridHelper.deduplicatePoints(lockedAll);
+      // Calculate the combined canvas area
+      const allCanvasRects = clusterSubclusters.map((sc) => sc.clusterCanvas);
+      const minR = Math.min(...allCanvasRects.map((rect) => rect.top));
+      const maxR = Math.max(...allCanvasRects.map((rect) => rect.bottom));
+      const minC = Math.min(...allCanvasRects.map((rect) => rect.left));
+      const maxC = Math.max(...allCanvasRects.map((rect) => rect.right));
 
       // Construct the BlockCluster
-      const cluster = new BlockCluster(
-        clusterBlocks,
-        clusterJoins,
-        { top: minR, left: minC, bottom: maxR, right: maxC },
-        mergedLinked,
-        mergedLocked
-      );
+      const cluster = new BlockCluster(clusterSubclusters, {
+        top: minR,
+        left: minC,
+        bottom: maxR,
+        right: maxC,
+      });
 
       cluster.clusterPerimeter = cluster.expandOutline(rowCount, colCount, 2);
       cluster.clusterBuffer = cluster.expandOutline(rowCount, colCount, 4);
 
       blockClusters.push(cluster);
 
-      // Mark these blocks as used so we don't reprocess them
-      clusterBlocks.forEach((b) => used.add(b));
+      // Mark these subclusters as used so we don't reprocess them
+      clusterSubclusters.forEach((sc) => used.add(sc));
     }
-
-    // console.log("blockClusters", blockClusters);
 
     return blockClusters;
   }
@@ -188,4 +173,90 @@ export default class BlockCluster {
       right: Math.min(colCount, this.clusterCanvas.right + expandBy),
     };
   }
+
+  /**
+   * Get all canvas points for this cluster (union of all subcluster canvas points)
+   */
+  get canvasPoints(): Array<{ row: number; col: number }> {
+    const points: Array<{ row: number; col: number }> = [];
+    for (let r = this.clusterCanvas.top; r <= this.clusterCanvas.bottom; r++) {
+      for (
+        let c = this.clusterCanvas.left;
+        c <= this.clusterCanvas.right;
+        c++
+      ) {
+        points.push({ row: r, col: c });
+      }
+    }
+    return GridHelper.deduplicatePoints(points);
+  }
+
+  /**
+   * Get all perimeter points for this cluster
+   */
+  get perimeterPoints(): Array<{ row: number; col: number }> {
+    const points: Array<{ row: number; col: number }> = [];
+
+    // Top and bottom edges
+    for (
+      let c = this.clusterPerimeter.left;
+      c <= this.clusterPerimeter.right;
+      c++
+    ) {
+      points.push({ row: this.clusterPerimeter.top, col: c });
+      points.push({ row: this.clusterPerimeter.bottom, col: c });
+    }
+
+    // Left and right edges
+    for (
+      let r = this.clusterPerimeter.top;
+      r <= this.clusterPerimeter.bottom;
+      r++
+    ) {
+      points.push({ row: r, col: this.clusterPerimeter.left });
+      points.push({ row: r, col: this.clusterPerimeter.right });
+    }
+
+    return GridHelper.deduplicatePoints(points).filter(
+      (p) => p.row > 0 && p.col > 0
+    );
+  }
+
+  /**
+   * Get all buffer points for this cluster
+   */
+  get bufferPoints(): Array<{ row: number; col: number }> {
+    const points: Array<{ row: number; col: number }> = [];
+
+    // Top and bottom edges
+    for (let c = this.clusterBuffer.left; c <= this.clusterBuffer.right; c++) {
+      points.push({ row: this.clusterBuffer.top, col: c });
+      points.push({ row: this.clusterBuffer.bottom, col: c });
+    }
+
+    // Left and right edges
+    for (let r = this.clusterBuffer.top; r <= this.clusterBuffer.bottom; r++) {
+      points.push({ row: r, col: this.clusterBuffer.left });
+      points.push({ row: r, col: this.clusterBuffer.right });
+    }
+
+    return GridHelper.deduplicatePoints(points).filter(
+      (p) => p.row > 0 && p.col > 0
+    );
+  }
+}
+
+/**
+ * Helper function to check if two rectangles overlap
+ */
+function rectanglesOverlap(
+  rect1: { top: number; left: number; bottom: number; right: number },
+  rect2: { top: number; left: number; bottom: number; right: number }
+): boolean {
+  return !(
+    rect1.right < rect2.left ||
+    rect2.right < rect1.left ||
+    rect1.bottom < rect2.top ||
+    rect2.bottom < rect1.top
+  );
 }

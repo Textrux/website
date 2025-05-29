@@ -160,38 +160,40 @@ export function demonstrateTraitParsing() {
     console.log("\n" + "─".repeat(50));
   });
 
-  // Show block cluster analysis if any
+  // Show block subcluster analysis
+  console.log("\n\n🔗 Block Subcluster Analysis:\n");
   if (grid.blockClusters && grid.blockClusters.length > 0) {
-    console.log("\n\n🌐 Block Cluster Analysis:\n");
-    grid.blockClusters.forEach((cluster, index) => {
-      console.log(`Block Cluster ${index + 1}:`);
-      console.log(`   Blocks: ${cluster.traits.base.blockCount}`);
-      console.log(
-        `   Organization: ${cluster.traits.composite.organizationBy}`
-      );
-      console.log(
-        `   Pattern: ${
-          cluster.traits.composite.isGrid
-            ? "Grid"
-            : cluster.traits.composite.isList
-            ? "List"
-            : cluster.traits.composite.isTree
-            ? "Tree"
-            : "Mixed"
-        }`
-      );
-      console.log(
-        `   Constructs: [${cluster.traits.derived.likelyConstructs.join(", ")}]`
-      );
-      console.log(
-        `   Primary Purpose: ${cluster.traits.derived.primaryPurpose}`
-      );
-      console.log(`   Complexity: ${cluster.traits.derived.complexity}`);
+    // Collect all subclusters from all clusters
+    const allSubclusters = grid.blockClusters.flatMap(
+      (cluster) => cluster.blockSubclusters
+    );
 
-      // Block joins analysis
-      if (cluster.blockJoins && cluster.blockJoins.length > 0) {
-        console.log(`\n   🔗 Block Joins (${cluster.blockJoins.length}):`);
-        cluster.blockJoins.forEach((join, joinIndex) => {
+    allSubclusters.forEach((subcluster, index) => {
+      console.log(`Block Subcluster ${index + 1}:`);
+      console.log(`   Blocks: ${subcluster.blocks.length}`);
+      console.log(
+        `   Position: R${subcluster.clusterCanvas.top}-${subcluster.clusterCanvas.bottom}, C${subcluster.clusterCanvas.left}-${subcluster.clusterCanvas.right}`
+      );
+      console.log(`   Block Joins: ${subcluster.blockJoins.length}`);
+      console.log(`   Linked Points: ${subcluster.linkedPoints.length}`);
+      console.log(`   Locked Points: ${subcluster.lockedPoints.length}`);
+
+      // Show individual blocks in this subcluster
+      if (subcluster.blocks.length > 1) {
+        console.log(`   📦 Blocks in Subcluster:`);
+        subcluster.blocks.forEach((block, blockIndex) => {
+          console.log(
+            `      Block ${blockIndex + 1}: R${block.topRow}-${
+              block.bottomRow
+            }, C${block.leftCol}-${block.rightCol}`
+          );
+        });
+      }
+
+      // Show block joins in this subcluster
+      if (subcluster.blockJoins.length > 0) {
+        console.log(`   🔗 Block Joins:`);
+        subcluster.blockJoins.forEach((join, joinIndex) => {
           console.log(`      Join ${joinIndex + 1}:`);
           console.log(`         Type: ${join.traits.base.connectionType}`);
           console.log(
@@ -199,21 +201,75 @@ export function demonstrateTraitParsing() {
               join.traits.base.connectionStrength * 100
             ).toFixed(1)}%`
           );
-          console.log(
-            `         Purpose: ${join.traits.derived.primaryPurpose}`
-          );
-          console.log(
-            `         Pattern: ${join.traits.derived.followsPattern}`
-          );
-          console.log(
-            `         Quality: ${join.traits.derived.connectionQuality}`
-          );
+          console.log(`         Linked Points: ${join.linkedPoints.length}`);
+          console.log(`         Locked Points: ${join.lockedPoints.length}`);
         });
       }
+
+      console.log("\n" + "─".repeat(30));
     });
   }
 
-  console.log("\n=== End Trait Parsing Demo ===");
+  // Show block cluster analysis
+  if (grid.blockClusters && grid.blockClusters.length > 0) {
+    console.log("\n\n🌐 Block Cluster Analysis:\n");
+    grid.blockClusters.forEach((cluster, index) => {
+      console.log(`Block Cluster ${index + 1}:`);
+      console.log(`   Subclusters: ${cluster.blockSubclusters.length}`);
+      console.log(
+        `   Position: R${cluster.clusterCanvas.top}-${cluster.clusterCanvas.bottom}, C${cluster.clusterCanvas.left}-${cluster.clusterCanvas.right}`
+      );
+
+      // Calculate total blocks across all subclusters
+      const totalBlocks = cluster.blockSubclusters.reduce(
+        (sum, subcluster) => sum + subcluster.blocks.length,
+        0
+      );
+      console.log(`   Total Blocks: ${totalBlocks}`);
+
+      // Show subclusters in this cluster
+      if (cluster.blockSubclusters.length > 1) {
+        console.log(`   🔗 Subclusters in Cluster:`);
+        cluster.blockSubclusters.forEach((subcluster, subIndex) => {
+          console.log(
+            `      Subcluster ${subIndex + 1}: ${
+              subcluster.blocks.length
+            } blocks, R${subcluster.clusterCanvas.top}-${
+              subcluster.clusterCanvas.bottom
+            }, C${subcluster.clusterCanvas.left}-${
+              subcluster.clusterCanvas.right
+            }`
+          );
+        });
+      }
+
+      console.log("\n" + "─".repeat(50));
+    });
+  }
+
+  // Summary statistics
+  console.log("\n\n📊 Summary Statistics:");
+  console.log(`Total Blocks: ${blockList.length}`);
+
+  if (grid.blockClusters) {
+    const totalSubclusters = grid.blockClusters.reduce(
+      (sum, cluster) => sum + cluster.blockSubclusters.length,
+      0
+    );
+    const totalJoins = grid.blockClusters.reduce(
+      (sum, cluster) =>
+        sum +
+        cluster.blockSubclusters.reduce(
+          (subSum, subcluster) => subSum + subcluster.blockJoins.length,
+          0
+        ),
+      0
+    );
+
+    console.log(`Total Block Subclusters: ${totalSubclusters}`);
+    console.log(`Total Block Clusters: ${grid.blockClusters.length}`);
+    console.log(`Total Block Joins: ${totalJoins}`);
+  }
 }
 
 // Export for use in other parts of the application

@@ -6,7 +6,7 @@ import {
 } from "../cell-cluster/CellClusterTraits";
 import { BlockType, BlockShape } from "../block/BlockTraits";
 
-// BlockCluster-specific enums (now for groups of BlockSubclusters)
+// BlockSubcluster-specific enums
 export enum ClusterTopology {
   Linear = "linear",
   Grid = "grid",
@@ -24,16 +24,15 @@ export enum ClusterDensity {
 }
 
 export enum ConnectionPattern {
-  Proximity = "proximity", // Close together spatially
-  Sequential = "sequential", // In sequence
-  Parallel = "parallel", // Side by side
-  Hierarchical = "hierarchical", // Nested arrangement
-  Grid = "grid", // Grid arrangement
-  Scattered = "scattered", // Random distribution
+  Sequential = "sequential",
+  Parallel = "parallel",
+  Hierarchical = "hierarchical",
+  Mesh = "mesh",
+  Hub = "hub",
 }
 
-// Base trait interfaces for BlockCluster
-export interface BlockClusterDimensionTraits {
+// Base trait interfaces for BlockSubcluster
+export interface BlockSubclusterDimensionTraits {
   blockCount: number;
   totalWidth: number;
   totalHeight: number;
@@ -46,7 +45,7 @@ export interface BlockClusterDimensionTraits {
   boundingBoxUtilization: number; // percentage of bounding box filled
 }
 
-export interface BlockClusterConnectionTraits {
+export interface BlockSubclusterConnectionTraits {
   joinCount: number;
   linkedJoinCount: number;
   lockedJoinCount: number;
@@ -57,7 +56,7 @@ export interface BlockClusterConnectionTraits {
   connectionDensity: number; // 0-1 score
 }
 
-export interface BlockClusterTopologyTraits {
+export interface BlockSubclusterTopologyTraits {
   topology: ClusterTopology;
   hasMainPath: boolean;
   pathLength: number;
@@ -67,96 +66,95 @@ export interface BlockClusterTopologyTraits {
   centralityScore: number; // how centralized the structure is
 }
 
-export interface BlockClusterDistributionTraits {
+export interface BlockSubclusterDistributionTraits {
   blockTypeDistribution: Record<BlockType, number>;
   spatialDistribution: string; // e.g., "uniform", "clustered", "edge-heavy"
   orientationConsistency: number; // 0-1 score of how consistent block orientations are
   alignmentScore: number; // 0-1 score of how well blocks align
 }
 
-// Main trait categories for BlockCluster (groups of BlockSubclusters)
-export interface BlockClusterBaseTraits {
+// Main trait categories for BlockSubcluster
+export interface BlockSubclusterBaseTraits {
   // Size and geometry
-  subclusterCount: number;
+  blockCount: number;
   totalArea: number;
-  averageSubclusterSize: number;
-  clusterDensity: number; // how tightly packed the subclusters are
+  averageBlockSize: number;
+  clusterDensity: number; // how tightly packed the blocks are
 
   // Spatial distribution
   clusterWidth: number;
   clusterHeight: number;
   clusterAspectRatio: number;
 
-  // Subcluster arrangement
-  subclustersInRow: number;
-  subclustersInColumn: number;
+  // Block arrangement
+  blocksInRow: number;
+  blocksInColumn: number;
   hasRegularSpacing: boolean;
   hasAlignment: boolean;
 
-  // Coverage
-  canvasArea: number;
-  perimeterArea: number;
-  bufferArea: number;
-  utilizationRatio: number; // occupied area / total area
+  // Connectivity
+  joinCount: number;
+  linkedPointCount: number;
+  lockedPointCount: number;
+  connectivityRatio: number; // (linked + locked) / total possible connections
 }
 
-export interface BlockClusterCompositeTraits {
-  // Subcluster relationships
+export interface BlockSubclusterCompositeTraits {
+  // Block relationships
   hasHierarchy: boolean;
   hasSequencing: boolean;
+  hasBranching: boolean;
   hasSymmetry: boolean;
-  hasOverlap: boolean;
 
-  // Spatial patterns
+  // Content coherence
+  hasUniformBlockTypes: boolean;
+  hasComplementaryBlocks: boolean;
+  hasMixedPurposes: boolean;
+
+  // Structural patterns
   isGrid: boolean;
-  isLinear: boolean;
-  isScattered: boolean;
-  isNested: boolean;
+  isTree: boolean;
+  isList: boolean;
+  isNetwork: boolean;
+  isFlow: boolean;
 
-  // Organization principles
-  organizationPattern: ConnectionPattern;
-  groupingStrength: number; // 0-1 how strongly grouped the subclusters appear
-  spatialCoherence: number; // 0-1 how coherent the spatial arrangement is
-
-  // Directional characteristics
+  // Directional flow
   hasDirectionalFlow: boolean;
   flowDirection: "horizontal" | "vertical" | "radial" | "mixed" | "none";
-  primaryOrientation:
-    | "horizontal"
-    | "vertical"
-    | "diagonal"
-    | "radial"
-    | "none";
+
+  // Organization principles
+  organizationBy: "position" | "content" | "function" | "hierarchy" | "mixed";
+  groupingStrength: number; // 0-1 how strongly grouped the blocks appear
 }
 
-export interface BlockClusterDerivedTraits {
+export interface BlockSubclusterDerivedTraits {
   // Construct identification
-  likelyConstructs: string[]; // ['layout', 'dashboard', 'workspace', 'document', etc.]
+  likelyConstructs: string[]; // ['spreadsheet', 'dashboard', 'form', 'report', etc.]
   confidence: number;
 
   // Functional classification
-  isLayoutStructure: boolean;
-  isContentStructure: boolean;
-  isNavigationStructure: boolean;
-  isDecorativeStructure: boolean;
+  isDataStructure: boolean;
+  isUserInterface: boolean;
+  isDocument: boolean;
+  isVisualization: boolean;
+  isNavigation: boolean;
 
   // Purpose inference
   primaryPurpose:
-    | "layout-organization"
-    | "content-grouping"
-    | "spatial-division"
-    | "visual-structure"
-    | "functional-grouping"
+    | "data-display"
+    | "data-entry"
+    | "calculation"
+    | "navigation"
+    | "decoration"
     | "mixed";
   complexity: "simple" | "moderate" | "complex" | "very-complex";
 
-  // Structural characteristics
-  structuralRole:
-    | "container"
-    | "organizer"
-    | "separator"
-    | "coordinator"
-    | "composite";
+  // User interaction hints
+  isInteractive: boolean;
+  isReadOnly: boolean;
+  requiresNavigation: boolean;
+
+  // Layout characteristics
   layoutStyle: "formal" | "informal" | "structured" | "organic";
   visualBalance: number; // 0-1 how well balanced the layout appears
 
@@ -166,9 +164,9 @@ export interface BlockClusterDerivedTraits {
   stabilityScore: number; // 0-1 how stable/complete the structure appears
 }
 
-// Main BlockClusterTraits interface
-export interface BlockClusterTraits {
-  base: BlockClusterBaseTraits;
-  composite: BlockClusterCompositeTraits;
-  derived: BlockClusterDerivedTraits;
+// Main BlockSubclusterTraits interface
+export interface BlockSubclusterTraits {
+  base: BlockSubclusterBaseTraits;
+  composite: BlockSubclusterCompositeTraits;
+  derived: BlockSubclusterDerivedTraits;
 }
