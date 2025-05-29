@@ -1,5 +1,5 @@
 import GridModel from "../layers/1-substrate/GridModel";
-import { CellFormat } from "../layers/3-foundation/CellFormat";
+import { CellFormat } from "../layers/3-foundation/cell/CellFormat";
 
 export type SizingMode = "grid" | "cell";
 

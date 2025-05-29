@@ -1,6 +1,7 @@
 import { CellFormat } from "../../../style/CellFormat";
 import { CellClusterTraits } from "./CellClusterTraits";
 import CellSubcluster from "../cell-subcluster/CellSubcluster";
+import { BaseConstruct } from "../../4-constructs/interfaces/ConstructInterfaces";
 
 export default class CellCluster {
   topRow: number;
@@ -17,7 +18,10 @@ export default class CellCluster {
   clusterEmptyFormat: CellFormat;
 
   /** Traits for this cell cluster */
-  traits: CellClusterTraits;
+  traits?: CellClusterTraits;
+
+  /** Identified constructs within this cell cluster */
+  constructs: BaseConstruct[];
 
   constructor(
     topRow: number,
@@ -38,8 +42,7 @@ export default class CellCluster {
     // Initialize with default format
     this.clusterEmptyFormat = CellFormat.fromCssClass("cluster-empty-cell");
 
-    // Initialize traits with placeholder values - will be populated later
-    this.traits = this.initializeTraits();
+    this.constructs = [];
   }
 
   private initializeTraits(): CellClusterTraits {
@@ -137,5 +140,52 @@ export default class CellCluster {
     }
 
     return component;
+  }
+
+  /**
+   * Add a construct to this cell cluster
+   */
+  addConstruct(construct: BaseConstruct): void {
+    this.constructs.push(construct);
+  }
+
+  /**
+   * Get all constructs of a specific type
+   */
+  getConstructsByType(type: string): BaseConstruct[] {
+    return this.constructs.filter((construct) => construct.type === type);
+  }
+
+  /**
+   * Get the highest confidence construct of a specific type
+   */
+  getBestConstruct(type: string): BaseConstruct | null {
+    const constructs = this.getConstructsByType(type);
+    if (constructs.length === 0) return null;
+
+    return constructs.reduce((best, current) =>
+      current.confidence > best.confidence ? current : best
+    );
+  }
+
+  /**
+   * Check if cluster contains any constructs of a specific type
+   */
+  hasConstructType(type: string): boolean {
+    return this.constructs.some((construct) => construct.type === type);
+  }
+
+  /**
+   * Get all construct types found in this cluster
+   */
+  getConstructTypes(): string[] {
+    return [...new Set(this.constructs.map((construct) => construct.type))];
+  }
+
+  /**
+   * Clear all constructs
+   */
+  clearConstructs(): void {
+    this.constructs = [];
   }
 }

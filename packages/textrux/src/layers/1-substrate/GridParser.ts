@@ -2,7 +2,7 @@ import GridModel from "./GridModel";
 import Container from "../3-foundation/Container";
 import Block from "../3-foundation/block/Block";
 import CellCluster from "../3-foundation/cell-cluster/CellCluster";
-import BlockJoin from "../3-foundation/block-join/BlockJoin";
+import BlockJoin from "../3-foundation/block-subcluster/block-join/BlockJoin";
 import BlockSubcluster from "../3-foundation/block-subcluster/BlockSubcluster";
 import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
 import { CellFormat } from "../../style/CellFormat";
@@ -11,8 +11,9 @@ import { CellFormat } from "../../style/CellFormat";
 import { BlockTraitParser } from "../3-foundation/block/BlockTraitParser";
 import { BlockSubclusterTraitParser } from "../3-foundation/block-subcluster/BlockSubclusterTraitParser";
 import { BlockClusterTraitParser } from "../3-foundation/block-cluster/BlockClusterTraitParser";
-import { BlockJoinTraitParser } from "../3-foundation/block-join/BlockJoinTraitParser";
+import { BlockJoinTraitParser } from "../3-foundation/block-subcluster/block-join/BlockJoinTraitParser";
 import { CellClusterTraitParser } from "../3-foundation/cell-cluster/CellClusterTraitParser";
+import { defaultConstructRegistry } from "../4-constructs/core/ConstructRegistry";
 
 /** Key = "R{row}C{col}" => array of class names */
 interface StyleMap {
@@ -224,6 +225,25 @@ export function parseAndFormatGrid(grid: GridModel): {
   // Parse traits for block clusters
   for (const blockCluster of blockClusters) {
     blockCluster.traits = blockClusterTraitParser.parseTraits(blockCluster);
+  }
+
+  // Parse constructs in cell clusters
+  const constructParsers = defaultConstructRegistry.getAllParsers();
+
+  for (const block of blocks) {
+    if (block.cellClusters) {
+      for (const cellCluster of block.cellClusters) {
+        if (cellCluster.traits) {
+          // Try each construct parser on this cell cluster
+          constructParsers.forEach((parser) => {
+            const constructs = parser.parseConstruct(cellCluster);
+            constructs.forEach((construct) => {
+              cellCluster.addConstruct(construct);
+            });
+          });
+        }
+      }
+    }
   }
 
   // 6) Mark locked/linked cells from blockSubclusters

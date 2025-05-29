@@ -1,6 +1,6 @@
-import GridHelper from "../../../util/GridHelper";
-import Block from "../block/Block";
-import { CellFormat } from "../../../style/CellFormat";
+import GridHelper from "../../../../util/GridHelper";
+import Block from "../../block/Block";
+import { CellFormat } from "../../../../style/CellFormat";
 import { BlockJoinTraits } from "./BlockJoinTraits";
 
 /**

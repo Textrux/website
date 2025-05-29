@@ -1,5 +1,5 @@
 import Block from "../block/Block";
-import BlockJoin from "../block-join/BlockJoin";
+import BlockJoin from "../block-subcluster/block-join/BlockJoin";
 import GridHelper from "../../../util/GridHelper";
 import { CellFormat } from "../../../style/CellFormat";
 import { BlockClusterTraits } from "./BlockClusterTraits";

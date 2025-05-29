@@ -5,8 +5,8 @@ import {
   BlockJoinCompositeTraits,
   BlockJoinDerivedTraits,
 } from "./BlockJoinTraits";
-import Block from "../block/Block";
-import GridModel from "../../1-substrate/GridModel";
+import Block from "../../block/Block";
+import GridModel from "../../../1-substrate/GridModel";
 
 /**
  * Parses and analyzes BlockJoin instances to populate their trait properties
