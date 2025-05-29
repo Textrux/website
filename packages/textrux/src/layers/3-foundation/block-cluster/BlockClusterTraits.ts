@@ -75,27 +75,93 @@ export interface BlockClusterDistributionTraits {
 
 // Main trait categories for BlockCluster
 export interface BlockClusterBaseTraits {
-  dimensions: BlockClusterDimensionTraits;
-  connections: BlockClusterConnectionTraits;
-  topology: BlockClusterTopologyTraits;
-  distribution: BlockClusterDistributionTraits;
+  // Size and geometry
+  blockCount: number;
+  totalArea: number;
+  averageBlockSize: number;
+  clusterDensity: number; // how tightly packed the blocks are
+
+  // Spatial distribution
+  clusterWidth: number;
+  clusterHeight: number;
+  clusterAspectRatio: number;
+
+  // Block arrangement
+  blocksInRow: number;
+  blocksInColumn: number;
+  hasRegularSpacing: boolean;
+  hasAlignment: boolean;
+
+  // Connectivity
+  joinCount: number;
+  linkedPointCount: number;
+  lockedPointCount: number;
+  connectivityRatio: number; // (linked + locked) / total possible connections
 }
 
 export interface BlockClusterCompositeTraits {
-  isWellConnected: boolean;
-  hasBalancedStructure: boolean;
-  structuralStability: number; // 0-1 score
-  visualCohesion: number; // 0-1 score of how unified the cluster appears
-  functionalIntegrity: number; // 0-1 score of how well the cluster serves its purpose
-  scalabilityScore: number; // 0-1 score of how well the cluster could grow
+  // Block relationships
+  hasHierarchy: boolean;
+  hasSequencing: boolean;
+  hasBranching: boolean;
+  hasSymmetry: boolean;
+
+  // Content coherence
+  hasUniformBlockTypes: boolean;
+  hasComplementaryBlocks: boolean;
+  hasMixedPurposes: boolean;
+
+  // Structural patterns
+  isGrid: boolean;
+  isTree: boolean;
+  isList: boolean;
+  isNetwork: boolean;
+  isFlow: boolean;
+
+  // Directional flow
+  hasDirectionalFlow: boolean;
+  flowDirection: "horizontal" | "vertical" | "radial" | "mixed" | "none";
+
+  // Organization principles
+  organizationBy: "position" | "content" | "function" | "hierarchy" | "mixed";
+  groupingStrength: number; // 0-1 how strongly grouped the blocks appear
 }
 
 export interface BlockClusterDerivedTraits {
-  primaryPurpose: string; // e.g., "layout", "navigation", "content", "decoration"
-  dominantFlow: Direction;
-  clusterRole: string; // e.g., "header", "sidebar", "main", "footer"
-  interactionPattern: string; // e.g., "sequential", "selective", "hierarchical"
-  visualHierarchy: number; // 0-1 score of how clear the hierarchy is
+  // Construct identification
+  likelyConstructs: string[]; // ['spreadsheet', 'dashboard', 'form', 'report', etc.]
+  confidence: number;
+
+  // Functional classification
+  isDataStructure: boolean;
+  isUserInterface: boolean;
+  isDocument: boolean;
+  isVisualization: boolean;
+  isNavigation: boolean;
+
+  // Purpose inference
+  primaryPurpose:
+    | "data-display"
+    | "data-entry"
+    | "calculation"
+    | "navigation"
+    | "decoration"
+    | "mixed";
+  complexity: "simple" | "moderate" | "complex" | "very-complex";
+
+  // User interaction hints
+  isInteractive: boolean;
+  isReadOnly: boolean;
+  requiresNavigation: boolean;
+
+  // Layout characteristics
+  layoutStyle: "formal" | "informal" | "structured" | "organic";
+  visualBalance: number; // 0-1 how well balanced the layout appears
+
+  // Evolution potential
+  isExtensible: boolean;
+  growthDirection: "horizontal" | "vertical" | "both" | "none";
+  stabilityScore: number; // 0-1 how stable/complete the structure appears
 }
 
 // Main BlockClusterTraits interface

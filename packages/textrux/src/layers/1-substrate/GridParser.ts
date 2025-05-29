@@ -6,6 +6,12 @@ import BlockJoin from "../3-foundation/block-join/BlockJoin";
 import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
 import { CellFormat } from "../../style/CellFormat";
 
+// Import trait parsers
+import { BlockTraitParser } from "../3-foundation/block/BlockTraitParser";
+import { BlockClusterTraitParser } from "../3-foundation/block-cluster/BlockClusterTraitParser";
+import { BlockJoinTraitParser } from "../3-foundation/block-join/BlockJoinTraitParser";
+import { CellClusterTraitParser } from "../3-foundation/cell-cluster/CellClusterTraitParser";
+
 /** Key = "R{row}C{col}" => array of class names */
 interface StyleMap {
   [key: string]: string[];
@@ -173,7 +179,35 @@ export function parseAndFormatGrid(grid: GridModel): {
 
   grid.blockClusters = blockClusters;
 
-  // 5) Mark locked/linked cells from blockClusters
+  // 5) Parse traits for all foundation elements
+  const blockTraitParser = new BlockTraitParser(grid);
+  const blockClusterTraitParser = new BlockClusterTraitParser(grid);
+  const blockJoinTraitParser = new BlockJoinTraitParser(grid);
+  const cellClusterTraitParser = new CellClusterTraitParser(grid);
+
+  // Parse traits for blocks and their cell clusters
+  for (const block of blocks) {
+    block.traits = blockTraitParser.parseTraits(block);
+
+    // Parse traits for cell clusters within each block
+    if (block.cellClusters) {
+      for (const cellCluster of block.cellClusters) {
+        cellCluster.traits = cellClusterTraitParser.parseTraits(cellCluster);
+      }
+    }
+  }
+
+  // Parse traits for block joins
+  for (const blockJoin of blockJoins) {
+    blockJoin.traits = blockJoinTraitParser.parseTraits(blockJoin);
+  }
+
+  // Parse traits for block clusters
+  for (const blockCluster of blockClusters) {
+    blockCluster.traits = blockClusterTraitParser.parseTraits(blockCluster);
+  }
+
+  // 6) Mark locked/linked cells from blockClusters
   for (const bc of blockClusters) {
     for (const pt of bc.linkedPoints) {
       addFormatAndClass(styleMap, formatMap, pt.row, pt.col, bc.linkedFormat);
@@ -183,7 +217,7 @@ export function parseAndFormatGrid(grid: GridModel): {
     }
   }
 
-  // 6) Finally, apply formatting for canvas, border, frame for each block
+  // 7) Finally, apply formatting for canvas, border, frame for each block
   for (const b of blocks) {
     for (const pt of b.canvasPoints) {
       addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.canvasFormat);

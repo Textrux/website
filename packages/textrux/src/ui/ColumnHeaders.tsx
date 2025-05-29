@@ -49,10 +49,16 @@ export function ColumnHeaders({
     }
 
     updateVisibleRange();
-    container.addEventListener("scroll", updateVisibleRange);
+
+    // Use a more frequent update for scroll events
+    const handleScroll = () => {
+      updateVisibleRange();
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", updateVisibleRange);
     return () => {
-      container.removeEventListener("scroll", updateVisibleRange);
+      container.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", updateVisibleRange);
     };
   }, [colWidths, grid.columnCount, gridContainerRef]);

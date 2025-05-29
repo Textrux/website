@@ -59,30 +59,98 @@ export interface BlockClusterTraits {
   cellClusterDistribution: string; // e.g., "uniform", "clustered", "scattered"
 }
 
-// Main trait categories for Block
+/**
+ * Base traits are fundamental geometric and spatial properties
+ */
 export interface BlockBaseTraits {
-  blockType: BlockType;
-  dimensions: BlockDimensionTraits;
-  boundary: BlockBoundaryTraits;
-  canvas: BlockCanvasTraits;
-  cellClusters: BlockClusterTraits;
+  // Geometric properties
+  width: number;
+  height: number;
+  area: number;
+  aspectRatio: number;
+
+  // Positional properties
+  topRow: number;
+  bottomRow: number;
+  leftCol: number;
+  rightCol: number;
+  centerRow: number;
+  centerCol: number;
+
+  // Density and fill properties
+  canvasCellCount: number;
+  totalBoundingCellCount: number;
+  fillDensity: number; // canvasCellCount / totalBoundingCellCount
+
+  // Shape characteristics
+  isSquare: boolean;
+  isRectangular: boolean;
+  isLinear: boolean; // width=1 or height=1
+  isHorizontalLine: boolean;
+  isVerticalLine: boolean;
+  isSingleCell: boolean;
 }
 
+/**
+ * Composite traits are derived from relationships and content analysis
+ */
 export interface BlockCompositeTraits {
-  isWellFormed: boolean;
-  hasSymmetricBoundary: boolean;
-  canvasToFrameRatio: number;
-  boundaryIntegrity: number; // 0-1 score of how complete the boundary is
-  canvasUtilization: number; // 0-1 score of how well the canvas space is used
-  structuralBalance: number; // 0-1 score of overall structural balance
+  // Content patterns
+  hasUniformContent: boolean;
+  hasNumericContent: boolean;
+  hasTextContent: boolean;
+  hasFormulas: boolean;
+  hasMixedContent: boolean;
+
+  // Structural patterns
+  hasHeaders: boolean;
+  hasFooters: boolean;
+  hasBorders: boolean;
+  hasPattern: boolean;
+
+  // Alignment and organization
+  contentAlignment: "left" | "right" | "center" | "mixed" | "none";
+  hasColumnStructure: boolean;
+  hasRowStructure: boolean;
+
+  // Data characteristics
+  dataTypes: string[]; // ['number', 'text', 'date', 'formula', etc.]
+  dominantDataType: string;
+
+  // Empty space analysis
+  hasSignificantWhitespace: boolean;
+  emptyToFilledRatio: number;
 }
 
+/**
+ * Derived traits are high-level interpretations and potential construct indicators
+ */
 export interface BlockDerivedTraits {
-  primaryFunction: string; // e.g., "container", "separator", "decorator"
-  visualWeight: number; // 0-1 score of visual prominence
-  dominantDirection: Direction;
-  anchorPoint: RootCellPosition;
-  growthPattern: DynamicCorePattern;
+  // Potential construct signatures
+  likelyConstructs: string[]; // ['table', 'tree', 'list', 'header', etc.]
+  confidence: number; // 0-1 confidence in primary construct identification
+
+  // Behavioral hints
+  isContainer: boolean;
+  isLeaf: boolean;
+  isHeader: boolean;
+  isFooter: boolean;
+  isData: boolean;
+  isNavigation: boolean;
+
+  // Directional orientation
+  primaryDirection: "horizontal" | "vertical" | "radial" | "none";
+  secondaryDirection: "horizontal" | "vertical" | "radial" | "none";
+
+  // Relationship indicators
+  isParent: boolean;
+  isChild: boolean;
+  isSibling: boolean;
+  nestingLevel: number;
+
+  // Content semantics
+  semanticRole: string; // 'title', 'data', 'summary', 'navigation', etc.
+  importance: number; // 0-1 relative importance score
 }
 
 // Main BlockTraits interface

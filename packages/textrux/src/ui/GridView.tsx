@@ -370,12 +370,12 @@ export function GridView({
         const topLeftCell = { row, col };
 
         // Log what we're saving
-        console.log(
-          "Saving scroll position:",
-          topLeftCell,
-          "for grid",
-          grid.index
-        );
+        // console.log(
+        //   "Saving scroll position:",
+        //   topLeftCell,
+        //   "for grid",
+        //   grid.index
+        // );
 
         // Save to the grid model and localStorage
         grid.topLeftCell = topLeftCell;
@@ -579,6 +579,7 @@ export function GridView({
 
   /** For cut/copy/paste logic */
   const [clipboardData, setClipboardData] = useState<string[][] | null>(null);
+  const [copiedRange, setCopiedRange] = useState<SelectionRange | null>(null);
   const [isCutMode, setIsCutMode] = useState(false);
   const [cutRange, setCutRange] = useState<SelectionRange | null>(null);
   interface CutCell {
@@ -2575,6 +2576,9 @@ export function GridView({
   const copySelection = useCallback(() => {
     const { startRow, endRow, startCol, endCol } = selectionRange;
 
+    // Store the copied range for reference pasting
+    setCopiedRange({ startRow, endRow, startCol, endCol });
+
     // Build a 2D array of the selected cells
     const rows = endRow - startRow + 1;
     const cols = endCol - startCol + 1;
@@ -2802,6 +2806,55 @@ export function GridView({
       console.error("Failed to paste from system clipboard:", err);
     }
   }, [selectionRange, grid, isCutMode, cutCells, cutRange, forceRefresh]);
+
+  const pasteReference = useCallback(() => {
+    if (!clipboardData || !copiedRange) {
+      console.log("No copied data to paste as reference");
+      return;
+    }
+
+    // Calculate the offset from the original copy range to the current selection
+    const sourceStartRow = copiedRange.startRow;
+    const sourceStartCol = copiedRange.startCol;
+    const targetStartRow = selectionRange.startRow;
+    const targetStartCol = selectionRange.startCol;
+
+    const rowOffset = targetStartRow - sourceStartRow;
+    const colOffset = targetStartCol - sourceStartCol;
+
+    // For each cell in the selection range, create a reference formula
+    const endRow = Math.min(
+      selectionRange.endRow,
+      selectionRange.startRow + (copiedRange.endRow - copiedRange.startRow)
+    );
+    const endCol = Math.min(
+      selectionRange.endCol,
+      selectionRange.startCol + (copiedRange.endCol - copiedRange.startCol)
+    );
+
+    grid.beginTransaction();
+
+    for (let r = selectionRange.startRow; r <= endRow; r++) {
+      for (let c = selectionRange.startCol; c <= endCol; c++) {
+        // Calculate the corresponding source cell
+        const sourceRow = r - rowOffset;
+        const sourceCol = c - colOffset;
+
+        // Create reference formula pointing to the source cell
+        const referenceFormula = `=R${sourceRow}C${sourceCol}`;
+
+        // Update the target cell with the reference formula
+        grid.setCellRaw(r, c, referenceFormula);
+      }
+    }
+
+    grid.endTransaction();
+    console.log(
+      `Pasted references from R${sourceStartRow}C${sourceStartCol}:R${copiedRange.endRow}C${copiedRange.endCol} to R${targetStartRow}C${targetStartCol}:R${endRow}C${endCol}`
+    );
+    forceRefresh();
+  }, [clipboardData, copiedRange, selectionRange, grid, forceRefresh]);
+
   // Main keydown
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -2957,9 +3010,15 @@ export function GridView({
         cutSelection();
       } else if ((e.key === "v" || e.key === "V") && e.ctrlKey) {
         e.preventDefault();
-        (async () => {
-          await pasteSelection();
-        })();
+        if (e.shiftKey) {
+          // Ctrl+Shift+V => Paste Reference
+          pasteReference();
+        } else {
+          // Ctrl+V => Regular paste
+          (async () => {
+            await pasteSelection();
+          })();
+        }
       } else if ((e.key === "a" || e.key === "A") && e.ctrlKey) {
         e.preventDefault();
         // Our new progressive function:
@@ -3005,6 +3064,7 @@ export function GridView({
       commitFullscreenChanges,
       isDraggingBlock,
       cancelBlockDrag,
+      pasteReference,
     ]
   );
 
@@ -3293,10 +3353,10 @@ export function GridView({
         colWidths
       );
 
-      console.log("Calculated scroll position for grid change:", {
-        scrollTop,
-        scrollLeft,
-      });
+      // console.log("Calculated scroll position for grid change:", {
+      //   scrollTop,
+      //   scrollLeft,
+      // });
 
       // Use requestAnimationFrame to ensure the DOM has updated
       requestAnimationFrame(() => {
@@ -3442,10 +3502,30 @@ export function GridView({
   useEffect(() => {
     if (autoLoadLocalStorage) {
       const settings = LocalStorageManager.loadGridSizing(grid.index);
-      setSizingMode(settings.sizingMode);
-      setGridSizingSettings(settings);
+      if (settings) {
+        setSizingMode(settings.sizingMode);
+        setGridSizingSettings(settings);
+      } else {
+        // Use default settings if none exist
+        const defaultSettings = LocalStorageManager.getDefaultGridSizing(
+          grid.rowCount,
+          grid.columnCount,
+          baseRowHeight * zoom,
+          baseColWidth * zoom
+        );
+        setSizingMode(defaultSettings.sizingMode);
+        setGridSizingSettings(defaultSettings);
+      }
     }
-  }, [autoLoadLocalStorage, grid.index]);
+  }, [
+    autoLoadLocalStorage,
+    grid.index,
+    grid.rowCount,
+    grid.columnCount,
+    baseRowHeight,
+    baseColWidth,
+    zoom,
+  ]);
 
   // Save sizing settings to localStorage
   useEffect(() => {
@@ -3957,6 +4037,11 @@ export function GridView({
             pointerEvents: "auto",
           }}
           onMouseDown={startReferenceCreation}
+          onDoubleClick={(e) => {
+            // Prevent double-click from triggering cell edit mode
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           onMouseEnter={(e) => {
             e.stopPropagation();
             setIsHoveringHandle(true);

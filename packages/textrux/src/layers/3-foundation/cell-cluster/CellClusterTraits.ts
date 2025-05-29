@@ -104,69 +104,159 @@ export interface SymmetryTraits {
   };
 }
 
-// Main trait categories
+/**
+ * Base traits for CellCluster - fundamental cell group properties
+ */
 export interface CellClusterBaseTraits {
-  isFilled: boolean;
+  // Size and geometry
   cellCount: number;
-  rowCount: number;
-  filledCount: number;
-  percentFilled: number;
-  columnCount: number;
-  contiguousSubclusterCount: number;
-  orientation: Orientation;
+  width: number;
+  height: number;
+  area: number;
   aspectRatio: number;
-  staticCorePattern?: string;
+  density: number; // non-empty cells / total cells
 
-  dimensions: {
-    perimeter: PerimeterTraits;
-    edges: {
-      leftEdge: EdgeTraits;
-      topEdge: EdgeTraits;
-      rightEdge: EdgeTraits;
-      bottomEdge: EdgeTraits;
-    };
-    rowDimensions: DimensionTraits;
-    columnDimensions: DimensionTraits;
-    quarterDimensions: {
-      topLeft: QuarterTraits;
-      topRight: QuarterTraits;
-      bottomRight: QuarterTraits;
-      bottomLeft: QuarterTraits;
-    };
-    cornerDimensions: {
-      topLeft: CornerTraits;
-      topRight: CornerTraits;
-      bottomRight: CornerTraits;
-      bottomLeft: CornerTraits;
-    };
-    diagonalDimensions: {
-      topLeftBottomRight: DiagonalTraits;
-      topRightBottomLeft: DiagonalTraits;
-    };
-    centerDimensions: {
-      centerCell: CenterCellTraits;
-      weightedCenterCell: WeightedCenterCellTraits;
-    };
-  };
+  // Content distribution
+  emptyCellCount: number;
+  nonEmptyCellCount: number;
+  fillRatio: number; // non-empty / total
+
+  // Shape characteristics
+  isRectangular: boolean;
+  isSquare: boolean;
+  isLinear: boolean;
+  isHorizontalStrip: boolean;
+  isVerticalStrip: boolean;
+  isSingleCell: boolean;
+
+  // Boundary properties
+  hasRegularBoundary: boolean;
+  isContiguous: boolean;
+  hasConcavity: boolean;
+
+  // Position within grid
+  topRow: number;
+  bottomRow: number;
+  leftCol: number;
+  rightCol: number;
+  centerRow: number;
+  centerCol: number;
 }
 
+/**
+ * Composite traits for CellCluster - content and pattern analysis
+ */
 export interface CellClusterCompositeTraits {
-  isRegular: boolean;
-  firstFilledPatternLeftEdge: FirstFilledPatternTraits;
-  firstFilledPatternRightEdge: FirstFilledPatternTraits;
-  firstFilledPatternTopEdge: FirstFilledPatternTraits;
-  firstFilledPatternBottomEdge: FirstFilledPatternTraits;
-  symmetry: SymmetryTraits;
+  // Content types and distribution
+  contentTypes: Set<string>; // 'text', 'number', 'formula', 'date', 'boolean'
+  hasUniformContent: boolean;
+  hasMixedContent: boolean;
+  dominantContentType: string;
+
+  // Data patterns
+  hasSequentialData: boolean;
+  hasRepeatingPattern: boolean;
+  hasHierarchicalStructure: boolean;
+  hasTabularStructure: boolean;
+
+  // Content quality
+  hasEmptySpaces: boolean;
+  hasInconsistentTypes: boolean;
+  dataQuality: number; // 0-1 score
+
+  // Functional patterns
+  isDataEntry: boolean;
+  isCalculation: boolean;
+  isLookupTable: boolean;
+  isHeader: boolean;
+  isLabel: boolean;
+
+  // Visual patterns
+  hasAlignment: boolean;
+  hasConsistentFormatting: boolean;
+  visualCoherence: number; // 0-1 score
+
+  // Relationship to grid
+  alignsWithGridStructure: boolean;
+  bridgesMultipleRegions: boolean;
+  isIsolated: boolean;
+
+  // Data flow characteristics
+  hasInputs: boolean;
+  hasOutputs: boolean;
+  isIntermediate: boolean;
+  participatesInCalculation: boolean;
 }
 
+/**
+ * Derived traits for CellCluster - high-level semantic understanding
+ */
 export interface CellClusterDerivedTraits {
-  rootCell: RootCellPosition;
-  dynamicCorePattern: DynamicCorePattern;
-  primaryDirection: Direction;
-  secondaryDirection: Direction;
+  // Purpose classification
+  primaryPurpose:
+    | "data-storage"
+    | "calculation"
+    | "display"
+    | "navigation"
+    | "decoration"
+    | "structure";
+  secondaryPurposes: string[];
+  confidence: number;
+
+  // Content semantics
+  likelyDataType:
+    | "financial"
+    | "personal"
+    | "scientific"
+    | "categorical"
+    | "temporal"
+    | "textual"
+    | "mixed";
+  semanticRole:
+    | "header"
+    | "data"
+    | "summary"
+    | "formula"
+    | "constant"
+    | "variable"
+    | "mixed";
+
+  // User interface elements
+  isInteractive: boolean;
+  isReadOnly: boolean;
+  requiresValidation: boolean;
+  hasConstraints: boolean;
+
+  // Construct indicators
+  indicatesConstruct: string[]; // 'table', 'form', 'list', 'calculation-block', etc.
+  constructConfidence: number;
+
+  // Business logic implications
+  hasBusinessLogic: boolean;
+  isRuleBasedInput: boolean;
+  isAuditableData: boolean;
+  requiresBackup: boolean;
+
+  // Evolution characteristics
+  isStable: boolean;
+  isGrowthPoint: boolean;
+  hasExtensionPotential: boolean;
+  changeFrequency: "static" | "occasional" | "frequent" | "dynamic";
+
+  // Quality and maintenance
+  dataIntegrity: number; // 0-1 score
+  maintainabilityScore: number; // 0-1 score
+  complexity: "simple" | "moderate" | "complex" | "very-complex";
+
+  // Performance implications
+  computationComplexity: number; // 0-1 score
+  updateFrequency: number; // 0-1 score representing how often this changes
+  cachingBenefit: number; // 0-1 score for caching potential
 }
 
-// Main CellClusterTraits interface
+/**
+ * Complete CellClusterTraits combining all categories
+ */
 export interface CellClusterTraits {
   base: CellClusterBaseTraits;
   composite: CellClusterCompositeTraits;

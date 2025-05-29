@@ -67,27 +67,102 @@ export interface BlockJoinCompatibilityTraits {
 
 // Main trait categories for BlockJoin
 export interface BlockJoinBaseTraits {
-  dimensions: BlockJoinDimensionTraits;
-  position: BlockJoinPositionTraits;
-  strength: BlockJoinStrengthTraits;
-  compatibility: BlockJoinCompatibilityTraits;
+  // Connection geometry
+  connectionType: "adjacent" | "overlapping" | "nested" | "bridged" | "distant";
+  connectionStrength: number; // 0-1 based on overlap/proximity
+
+  // Spatial metrics
+  overlapArea: number;
+  proximityDistance: number;
+  connectionPoints: number;
+
+  // Block relationship
+  relativeSizes: "equal" | "larger-first" | "smaller-first" | "varied";
+  relativePositions: "horizontal" | "vertical" | "diagonal" | "nested";
+
+  // Connection directionality
+  isDirectional: boolean;
+  direction: "bidirectional" | "first-to-second" | "second-to-first" | "none";
+
+  // Lock/Link distribution
+  linkedPointRatio: number; // linked / total connection points
+  lockedPointRatio: number; // locked / total connection points
+  connectionBalance: number; // how balanced the linked/locked distribution is
 }
 
 export interface BlockJoinCompositeTraits {
-  isWellFormed: boolean;
-  hasOptimalPlacement: boolean;
-  providesStructuralIntegrity: boolean;
-  enhancesFunctionality: boolean;
-  maintainsVisualContinuity: boolean;
-  overallQuality: number; // 0-1 score of join quality
+  // Relationship semantics
+  relationshipType:
+    | "parent-child"
+    | "sibling"
+    | "master-detail"
+    | "peer"
+    | "container-content"
+    | "sequence";
+  semanticStrength: number; // 0-1 how semantically meaningful the connection is
+
+  // Functional connection
+  isDataFlow: boolean;
+  isControlFlow: boolean;
+  isStructural: boolean;
+  isDecorative: boolean;
+
+  // Content relationship
+  hasContentCohesion: boolean;
+  hasComplementaryContent: boolean;
+  hasDataContinuity: boolean;
+
+  // Interaction patterns
+  impliesNavigation: boolean;
+  impliesSelection: boolean;
+  impliesHierarchy: boolean;
+  impliesSequence: boolean;
+
+  // Visual connection
+  hasVisualContinuity: boolean;
+  createsVisualFlow: boolean;
+  establishesBoundary: boolean;
+
+  // Stability indicators
+  connectionStability: "stable" | "flexible" | "dynamic" | "fragile";
+  resistanceToChange: number; // 0-1 how resistant to modification
 }
 
 export interface BlockJoinDerivedTraits {
-  primaryFunction: string; // e.g., "structural", "navigational", "visual", "functional"
-  joinRole: string; // e.g., "connector", "bridge", "anchor", "separator"
-  interactionType: string; // e.g., "passive", "active", "conditional"
-  visualImpact: number; // 0-1 score of visual prominence
-  functionalCriticality: number; // 0-1 score of functional importance
+  // Purpose classification
+  primaryPurpose:
+    | "organization"
+    | "navigation"
+    | "data-relationship"
+    | "visual-grouping"
+    | "functional-link";
+  secondaryPurposes: string[];
+
+  // Construct indicators
+  indicatesConstruct: string[]; // what higher-level constructs this join suggests
+  constructConfidence: number;
+
+  // User experience implications
+  affectsUsability: boolean;
+  improvesNavigation: boolean;
+  clarifiesStructure: boolean;
+  reducesComplexity: boolean;
+
+  // Design patterns
+  followsPattern: string; // 'master-detail', 'parent-child', 'sequential', etc.
+  patternStrength: number;
+
+  // Evolution indicators
+  isEvolutionPoint: boolean; // likely place for structural changes
+  extensibilityPotential: number; // 0-1 potential for adding more connections
+
+  // Quality metrics
+  connectionQuality: "excellent" | "good" | "adequate" | "poor";
+  improvementSuggestions: string[];
+
+  // Importance in overall structure
+  structuralImportance: number; // 0-1 how critical this connection is
+  redundancy: number; // 0-1 how redundant this connection is
 }
 
 // Main BlockJoinTraits interface
