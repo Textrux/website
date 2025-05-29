@@ -359,10 +359,12 @@ export class BlockClusterTraitParser {
       // Simplified type classification based on block traits
       if (block.traits) {
         const traits = block.traits;
-        if (traits.derived.isHeader) types.add("header");
-        if (traits.derived.isData) types.add("data");
-        if (traits.derived.isContainer) types.add("container");
-        if (traits.derived.isNavigation) types.add("navigation");
+        if (traits.derived.structuralRole === "container") types.add("header");
+        if (traits.derived.layoutPurpose === "content-block") types.add("data");
+        if (traits.derived.structuralRole === "container")
+          types.add("container");
+        if (traits.derived.layoutPurpose === "list-container")
+          types.add("navigation");
       } else {
         types.add("unknown");
       }

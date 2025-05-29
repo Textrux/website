@@ -97,6 +97,11 @@ export function parseAndFormatGrid(grid: GridModel): {
     // store them on the block if needed
     blk.cellClusters = cellClusters;
 
+    // Populate subclusters for each cell cluster
+    for (const cellCluster of cellClusters) {
+      cellCluster.populateSubclusters();
+    }
+
     // For each sub-lump bounding box => find "cluster-empty" cells
     const clusterEmptyCells: Array<{ row: number; col: number }> = [];
     for (const cluster of cellClusters) {

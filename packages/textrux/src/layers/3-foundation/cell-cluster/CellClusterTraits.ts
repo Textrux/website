@@ -151,18 +151,41 @@ export interface CellClusterCompositeTraits {
   contentTypes: Set<string>; // 'text', 'number', 'formula', 'date', 'boolean'
   hasUniformContent: boolean;
   hasMixedContent: boolean;
+  hasNumericContent: boolean;
+  hasTextContent: boolean;
+  hasFormulas: boolean;
   dominantContentType: string;
+
+  // Structural patterns within cluster
+  hasHeaders: boolean;
+  hasFooters: boolean;
+  hasBorders: boolean;
+  hasPattern: boolean;
+  hasColumnStructure: boolean;
+  hasRowStructure: boolean;
+
+  // Content alignment and organization
+  contentAlignment: "left" | "right" | "center" | "mixed" | "none";
+  hasConsistentAlignment: boolean;
+  alignmentPattern: string;
+
+  // Data characteristics
+  dataTypes: string[]; // ['number', 'text', 'date', 'formula', etc.]
+  dominantDataType: string;
+  dataConsistency: number; // 0-1 how consistent the data types are
 
   // Data patterns
   hasSequentialData: boolean;
   hasRepeatingPattern: boolean;
   hasHierarchicalStructure: boolean;
   hasTabularStructure: boolean;
+  hasCalculationPattern: boolean;
 
   // Content quality
   hasEmptySpaces: boolean;
   hasInconsistentTypes: boolean;
   dataQuality: number; // 0-1 score
+  completenessRatio: number; // filled cells / total cells
 
   // Functional patterns
   isDataEntry: boolean;
@@ -170,22 +193,27 @@ export interface CellClusterCompositeTraits {
   isLookupTable: boolean;
   isHeader: boolean;
   isLabel: boolean;
+  isContainer: boolean;
+  isNavigation: boolean;
 
   // Visual patterns
   hasAlignment: boolean;
   hasConsistentFormatting: boolean;
   visualCoherence: number; // 0-1 score
+  standsOutVisually: boolean;
 
   // Relationship to grid
   alignsWithGridStructure: boolean;
   bridgesMultipleRegions: boolean;
   isIsolated: boolean;
+  connectsToOtherClusters: boolean;
 
   // Data flow characteristics
   hasInputs: boolean;
   hasOutputs: boolean;
   isIntermediate: boolean;
   participatesInCalculation: boolean;
+  hasDataDependencies: boolean;
 }
 
 /**
@@ -219,39 +247,69 @@ export interface CellClusterDerivedTraits {
     | "formula"
     | "constant"
     | "variable"
+    | "title"
+    | "navigation"
+    | "footer"
     | "mixed";
+
+  // Behavioral hints (moved from BlockTraits)
+  isContainer: boolean;
+  isLeaf: boolean;
+  isHeader: boolean;
+  isFooter: boolean;
+  isData: boolean;
+  isNavigation: boolean;
+  isTitle: boolean;
+  isSummary: boolean;
+
+  // Directional orientation
+  primaryDirection: "horizontal" | "vertical" | "radial" | "none";
+  secondaryDirection: "horizontal" | "vertical" | "radial" | "none";
 
   // User interface elements
   isInteractive: boolean;
   isReadOnly: boolean;
   requiresValidation: boolean;
   hasConstraints: boolean;
+  isUserEditable: boolean;
 
   // Construct indicators
   indicatesConstruct: string[]; // 'table', 'form', 'list', 'calculation-block', etc.
   constructConfidence: number;
+  likelyConstructs: string[]; // Additional construct possibilities
+
+  // Content importance and hierarchy
+  importance: number; // 0-1 relative importance score
+  hierarchyLevel: number; // nesting depth
+  isParent: boolean;
+  isChild: boolean;
+  isSibling: boolean;
 
   // Business logic implications
   hasBusinessLogic: boolean;
   isRuleBasedInput: boolean;
   isAuditableData: boolean;
   requiresBackup: boolean;
+  hasValidationRules: boolean;
 
   // Evolution characteristics
   isStable: boolean;
   isGrowthPoint: boolean;
   hasExtensionPotential: boolean;
   changeFrequency: "static" | "occasional" | "frequent" | "dynamic";
+  isExpandable: boolean;
 
   // Quality and maintenance
   dataIntegrity: number; // 0-1 score
   maintainabilityScore: number; // 0-1 score
   complexity: "simple" | "moderate" | "complex" | "very-complex";
+  structuralIntegrity: number; // 0-1 score
 
   // Performance implications
   computationComplexity: number; // 0-1 score
   updateFrequency: number; // 0-1 score representing how often this changes
   cachingBenefit: number; // 0-1 score for caching potential
+  renderingCost: number; // 0-1 cost to display
 }
 
 /**

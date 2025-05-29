@@ -113,6 +113,9 @@ export class CellClusterTraitParser {
     const contentTypes = this.analyzeContentTypes(cellContents);
     const hasUniformContent = contentTypes.size <= 1;
     const hasMixedContent = contentTypes.size > 2;
+    const hasNumericContent = contentTypes.has("number");
+    const hasTextContent = contentTypes.has("text");
+    const hasFormulas = contentTypes.has("formula");
     const dominantContentType = this.getDominantContentType(
       cellContents,
       contentTypes
@@ -152,21 +155,73 @@ export class CellClusterTraitParser {
     const dataFlowCharacteristics = this.analyzeDataFlow(cellContents, cluster);
 
     return {
-      contentTypes,
+      // Content types and distribution
+      contentTypes: new Set(contentTypes),
       hasUniformContent,
       hasMixedContent,
+      hasNumericContent,
+      hasTextContent,
+      hasFormulas,
       dominantContentType,
+
+      // Structural patterns within cluster
+      hasHeaders: false, // Would need header detection logic
+      hasFooters: false, // Would need footer detection logic
+      hasBorders: false, // Would need border detection logic
+      hasPattern: false, // Would need pattern detection logic
+      hasColumnStructure: base.width > 1,
+      hasRowStructure: base.height > 1,
+
+      // Content alignment and organization
+      contentAlignment: "mixed", // Simplified
+      hasConsistentAlignment: false,
+      alignmentPattern: "none",
+
+      // Data characteristics
+      dataTypes: Array.from(new Set(contentTypes)),
+      dominantDataType: dominantContentType,
+      dataConsistency: hasUniformContent ? 1.0 : 0.5,
+
+      // Data patterns
       hasSequentialData,
-      hasRepeatingPattern,
+      hasRepeatingPattern: false, // Simplified
       hasHierarchicalStructure,
       hasTabularStructure,
-      hasEmptySpaces,
-      hasInconsistentTypes,
+      hasCalculationPattern: hasFormulas,
+
+      // Content quality
+      hasEmptySpaces: base.emptyCellCount > 0,
+      hasInconsistentTypes: hasMixedContent,
       dataQuality,
-      ...functionalPatterns,
-      ...visualPatterns,
-      ...gridRelationships,
-      ...dataFlowCharacteristics,
+      completenessRatio: base.fillRatio,
+
+      // Functional patterns
+      isDataEntry: functionalPatterns.isDataEntry,
+      isCalculation: functionalPatterns.isCalculation,
+      isLookupTable: functionalPatterns.isLookupTable,
+      isHeader: functionalPatterns.isHeader,
+      isLabel: functionalPatterns.isLabel,
+      isContainer: base.area > 4 && base.fillRatio < 0.7,
+      isNavigation: false, // Simplified
+
+      // Visual patterns
+      hasAlignment: base.isRectangular,
+      hasConsistentFormatting: hasUniformContent,
+      visualCoherence: hasUniformContent ? 0.8 : 0.4,
+      standsOutVisually: false, // Would need visual analysis
+
+      // Relationship to grid
+      alignsWithGridStructure: base.isRectangular,
+      bridgesMultipleRegions: false, // Simplified
+      isIsolated: true, // Simplified - would need cluster relationship analysis
+      connectsToOtherClusters: false, // Simplified
+
+      // Data flow characteristics
+      hasInputs: !hasFormulas,
+      hasOutputs: hasFormulas,
+      isIntermediate: hasFormulas && hasNumericContent,
+      participatesInCalculation: hasFormulas,
+      hasDataDependencies: hasFormulas,
     };
   }
 
@@ -231,18 +286,94 @@ export class CellClusterTraitParser {
     );
 
     return {
+      // Purpose classification
       primaryPurpose,
-      secondaryPurposes,
+      secondaryPurposes: [],
       confidence,
+
+      // Content semantics
       likelyDataType,
       semanticRole,
-      ...uiCharacteristics,
+
+      // Behavioral hints (moved from BlockTraits)
+      isContainer: base.area > 4 && base.fillRatio < 0.7,
+      isLeaf: base.isSingleCell,
+      isHeader: composite.isHeader,
+      isFooter: false, // Simplified
+      isData: composite.isDataEntry,
+      isNavigation: composite.isNavigation,
+      isTitle: false, // Simplified
+      isSummary: false, // Simplified
+
+      // Directional orientation
+      primaryDirection:
+        base.width > base.height
+          ? "horizontal"
+          : base.height > base.width
+          ? "vertical"
+          : "none",
+      secondaryDirection: "none",
+
+      // User interface elements
+      isInteractive: !composite.isCalculation,
+      isReadOnly: composite.isCalculation,
+      requiresValidation:
+        composite.isDataEntry && composite.dominantContentType === "number",
+      hasConstraints: composite.isLookupTable || composite.hasSequentialData,
+      isUserEditable: !composite.isCalculation,
+
+      // Construct indicators
       indicatesConstruct,
-      constructConfidence,
-      ...businessLogicTraits,
-      ...evolutionTraits,
-      ...qualityTraits,
-      ...performanceTraits,
+      constructConfidence: confidence,
+      likelyConstructs: indicatesConstruct,
+
+      // Content importance and hierarchy
+      importance: confidence,
+      hierarchyLevel: 0, // Simplified
+      isParent: base.area > 9,
+      isChild: base.area <= 4,
+      isSibling: base.area > 4 && base.area <= 9,
+
+      // Business logic implications
+      hasBusinessLogic: composite.hasFormulas,
+      isRuleBasedInput: false, // Simplified
+      isAuditableData: composite.isDataEntry,
+      requiresBackup: composite.isDataEntry,
+      hasValidationRules:
+        composite.isDataEntry && composite.dominantContentType === "number",
+
+      // Evolution characteristics
+      isStable: !composite.hasFormulas,
+      isGrowthPoint: base.area <= 4,
+      hasExtensionPotential: base.fillRatio < 0.8,
+      changeFrequency: composite.hasFormulas ? "frequent" : "static",
+      isExpandable: base.fillRatio < 0.8,
+
+      // Quality and maintenance
+      dataIntegrity: composite.dataQuality,
+      maintainabilityScore: Math.min(
+        0.7 +
+          (composite.hasConsistentFormatting ? 0.1 : 0) +
+          (composite.hasUniformContent ? 0.1 : 0),
+        1.0
+      ),
+      complexity: composite.hasFormulas ? "complex" : "simple",
+      structuralIntegrity: base.isRectangular ? 0.8 : 0.5,
+
+      // Performance implications
+      computationComplexity: composite.hasFormulas
+        ? composite.contentTypes.size / composite.contentTypes.size
+        : 0,
+      updateFrequency: composite.isDataEntry
+        ? 0.8
+        : composite.isCalculation
+        ? 0.9
+        : composite.isHeader
+        ? 0.1
+        : 0.3,
+      cachingBenefit:
+        composite.isCalculation && !composite.isDataEntry ? 0.8 : 0.3,
+      renderingCost: Math.min(base.area / 100, 1),
     };
   }
 

@@ -33,13 +33,31 @@ export function demonstrateTraitParsing() {
   grid.setCellRaw(11, 2, "• Item 2");
   grid.setCellRaw(12, 2, "• Item 3");
 
+  // Create a structure with multiple subclusters in one cluster area
+  // First subcluster: L-shaped pattern
+  grid.setCellRaw(15, 5, "A1");
+  grid.setCellRaw(15, 6, "A2");
+  grid.setCellRaw(16, 5, "A3");
+
+  // Second subcluster: separate connected component
+  grid.setCellRaw(15, 8, "B1");
+  grid.setCellRaw(16, 8, "B2");
+  grid.setCellRaw(16, 9, "B3");
+
+  // Third subcluster: isolated cells that should form a cluster together
+  grid.setCellRaw(18, 5, "C1");
+  grid.setCellRaw(18, 6, "C2");
+
+  // Another separate single cell subcluster
+  grid.setCellRaw(18, 8, "D1");
+
   // Parse the grid and extract foundation elements with traits
   const { blockList } = parseAndFormatGrid(grid);
 
-  console.log("=== Trait Parsing Demonstration ===\\n");
+  console.log("=== Trait Parsing Demonstration ===\n");
 
   blockList.forEach((block, index) => {
-    console.log(`\\n📦 Block ${index + 1}:`);
+    console.log(`\n📦 Block ${index + 1}:`);
     console.log(
       `   Position: R${block.topRow}-${block.bottomRow}, C${block.leftCol}-${block.rightCol}`
     );
@@ -47,52 +65,56 @@ export function demonstrateTraitParsing() {
       `   Size: ${block.traits.base.width}x${block.traits.base.height} (${block.traits.base.area} cells)`
     );
     console.log(
-      `   Fill Density: ${(block.traits.base.fillDensity * 100).toFixed(1)}%`
+      `   Fill Density: ${(block.traits.base.canvasFillDensity * 100).toFixed(
+        1
+      )}%`
+    );
+    console.log(`   Shape: ${block.traits.base.blockShape}`);
+
+    // Structural analysis (moved from content analysis)
+    console.log(`\n   🏗️ Structural Analysis:`);
+    console.log(
+      `      Cell Clusters: ${block.traits.composite.cellClusterCount}`
+    );
+    console.log(`      Layout: ${block.traits.composite.clusterLayout}`);
+    console.log(
+      `      Has Boundaries: ${block.traits.base.hasDefinedBoundary}`
     );
     console.log(
-      `   Shape: ${
-        block.traits.base.isRectangular ? "Rectangular" : "Irregular"
-      }`
+      `      Structural Complexity: ${(
+        block.traits.composite.structuralComplexity * 100
+      ).toFixed(1)}%`
     );
 
-    // Content analysis
-    console.log(`\\n   📄 Content Analysis:`);
-    console.log(`      Has Headers: ${block.traits.composite.hasHeaders}`);
-    console.log(`      Has Formulas: ${block.traits.composite.hasFormulas}`);
+    // Block purpose and role
+    console.log(`\n   🎯 Block Purpose:`);
     console.log(
-      `      Dominant Type: ${block.traits.composite.dominantDataType}`
+      `      Structural Role: ${block.traits.derived.structuralRole}`
+    );
+    console.log(`      Layout Purpose: ${block.traits.derived.layoutPurpose}`);
+    console.log(
+      `      Primary Orientation: ${block.traits.derived.primaryOrientation}`
     );
     console.log(
-      `      Content Alignment: ${block.traits.composite.contentAlignment}`
+      `      Spatial Importance: ${(
+        block.traits.derived.spatialImportance * 100
+      ).toFixed(1)}%`
     );
 
-    // Construct identification
-    console.log(`\\n   🏗️  Construct Analysis:`);
+    // Functional characteristics
+    console.log(`\n   ⚙️ Functional Traits:`);
+    console.log(`      Is Expandable: ${block.traits.derived.isExpandable}`);
+    console.log(`      Is Static: ${block.traits.derived.isStatic}`);
+    console.log(`      Complexity: ${block.traits.derived.complexity}`);
     console.log(
-      `      Likely Constructs: [${block.traits.derived.likelyConstructs.join(
+      `      Block Constructs: [${block.traits.derived.likelyBlockConstructs.join(
         ", "
       )}]`
-    );
-    console.log(
-      `      Confidence: ${(block.traits.derived.confidence * 100).toFixed(1)}%`
-    );
-    console.log(`      Semantic Role: ${block.traits.derived.semanticRole}`);
-    console.log(
-      `      Primary Direction: ${block.traits.derived.primaryDirection}`
-    );
-
-    // Behavioral hints
-    console.log(`\\n   🎯 Behavioral Traits:`);
-    console.log(`      Is Container: ${block.traits.derived.isContainer}`);
-    console.log(`      Is Header: ${block.traits.derived.isHeader}`);
-    console.log(`      Is Data: ${block.traits.derived.isData}`);
-    console.log(
-      `      Importance: ${(block.traits.derived.importance * 100).toFixed(1)}%`
     );
 
     // Cell clusters within the block
     if (block.cellClusters && block.cellClusters.length > 0) {
-      console.log(`\\n   🔗 Cell Clusters (${block.cellClusters.length}):`);
+      console.log(`\n   🔗 Cell Clusters (${block.cellClusters.length}):`);
       block.cellClusters.forEach((cluster, clusterIndex) => {
         console.log(`      Cluster ${clusterIndex + 1}:`);
         console.log(
@@ -112,15 +134,35 @@ export function demonstrateTraitParsing() {
             ", "
           )}]`
         );
+
+        // Show subclusters within this cell cluster
+        if (cluster.subclusters && cluster.subclusters.length > 0) {
+          console.log(
+            `         📍 Subclusters (${cluster.subclusters.length}):`
+          );
+          cluster.subclusters.forEach((subcluster, subIndex) => {
+            console.log(
+              `            ${subIndex + 1}. ${subcluster.toString()}`
+            );
+            console.log(
+              `               Density: ${(subcluster.density * 100).toFixed(
+                1
+              )}%`
+            );
+            console.log(
+              `               Perimeter: ${subcluster.getPerimeter()} cells`
+            );
+          });
+        }
       });
     }
 
-    console.log("\\n" + "─".repeat(50));
+    console.log("\n" + "─".repeat(50));
   });
 
   // Show block cluster analysis if any
   if (grid.blockClusters && grid.blockClusters.length > 0) {
-    console.log("\\n\\n🌐 Block Cluster Analysis:\\n");
+    console.log("\n\n🌐 Block Cluster Analysis:\n");
     grid.blockClusters.forEach((cluster, index) => {
       console.log(`Block Cluster ${index + 1}:`);
       console.log(`   Blocks: ${cluster.traits.base.blockCount}`);
@@ -148,7 +190,7 @@ export function demonstrateTraitParsing() {
 
       // Block joins analysis
       if (cluster.blockJoins && cluster.blockJoins.length > 0) {
-        console.log(`\\n   🔗 Block Joins (${cluster.blockJoins.length}):`);
+        console.log(`\n   🔗 Block Joins (${cluster.blockJoins.length}):`);
         cluster.blockJoins.forEach((join, joinIndex) => {
           console.log(`      Join ${joinIndex + 1}:`);
           console.log(`         Type: ${join.traits.base.connectionType}`);
@@ -171,8 +213,13 @@ export function demonstrateTraitParsing() {
     });
   }
 
-  console.log("\\n=== End Trait Parsing Demo ===");
+  console.log("\n=== End Trait Parsing Demo ===");
 }
 
 // Export for use in other parts of the application
 export default demonstrateTraitParsing;
+
+// Run the demo if this file is executed directly
+// if (typeof require !== "undefined" && require.main === module) {
+//   demonstrateTraitParsing();
+// }
