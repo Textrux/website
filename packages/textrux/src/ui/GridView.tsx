@@ -1922,9 +1922,12 @@ export function GridView({
     grid.selectedCell = { row: r, col: c };
     LocalStorageManager.saveGrid(grid);
 
-    setEditingCell(null);
-    setEditingValue("");
-    setFocusTarget(null);
+    // Only clear editing state if we're not clicking on the cell that's currently being edited
+    if (!editingCell || editingCell.row !== r || editingCell.col !== c) {
+      setEditingCell(null);
+      setEditingValue("");
+      setFocusTarget(null);
+    }
   };
 
   const handleCellDoubleClick = useCallback(
@@ -3290,15 +3293,25 @@ export function GridView({
       }
 
       if (editingCell) {
-        // If already editing, siphon typed chars into editingValue:
-        if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+        // When editing a cell, let the input field handle typing naturally
+        // Only intercept special navigation and control keys
+        if (e.key === "Enter") {
+          // Enter should commit the edit - let CellView handle this
+          return;
+        } else if (e.key === "Escape") {
+          // Escape should cancel the edit - let CellView handle this
+          return;
+        } else if (e.key === "Tab") {
+          // Tab should move to next cell - handle this here
           e.preventDefault();
-          setEditingValue((prev) => {
-            const newVal = prev + e.key;
-            measureAndExpand(activeRow, activeCol, newVal);
-            return newVal;
-          });
+          if (e.shiftKey) {
+            arrowNav("ArrowLeft");
+          } else {
+            arrowNav("ArrowRight");
+          }
+          return;
         }
+        // For all other keys (including regular typing), let the input field handle them
         return;
       }
 
