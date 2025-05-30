@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { examples, type ExampleData } from "../../examples";
-import { SizingMode } from "../../util/LocalStorageManager";
+import { SizingMode } from "../../layers/1-substrate/GridModel";
 
 interface AppModalProps {
   isOpen: boolean;

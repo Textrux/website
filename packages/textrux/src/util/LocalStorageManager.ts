@@ -1,14 +1,8 @@
-import GridModel from "../layers/1-substrate/GridModel";
-import { CellFormat } from "../layers/3-foundation/cell/CellFormat";
-
-export type SizingMode = "grid" | "cell";
-
-export interface GridSizingSettings {
-  sizingMode: SizingMode; // "grid" or "cell"
-  rowHeights: number[]; // Heights for each row when in "grid" mode
-  colWidths: number[]; // Widths for each column when in "grid" mode
-  cellFormats: Record<string, CellFormat>; // Cell-specific formats when in "cell" mode
-}
+import GridModel, {
+  SizingMode,
+  GridSizingSettings,
+} from "../layers/1-substrate/GridModel";
+import { CellFormat } from "../style/CellFormat";
 
 export class LocalStorageManager {
   static saveActiveGridIndex(activeIndex: number) {
@@ -139,38 +133,88 @@ export class LocalStorageManager {
     const key = `grid_${grid.index}_state`;
     localStorage.removeItem(key);
 
-    // Also delete sizing settings
-    const sizingKey = `grid_${grid.index}_sizing`;
-    localStorage.removeItem(sizingKey);
+    // Also clean up any old separate sizing settings
+    const oldSizingKey = `grid_${grid.index}_sizing`;
+    localStorage.removeItem(oldSizingKey);
   }
 
-  // New methods for sizing settings
+  // Updated methods for sizing settings - now integrated into main grid state
   static saveGridSizing(gridIndex: number, settings: GridSizingSettings) {
-    const key = `grid_${gridIndex}_sizing`;
-    const json = JSON.stringify(settings);
-    localStorage.setItem(key, json);
+    // Load the existing grid state
+    const key = `grid_${gridIndex}_state`;
+    const raw = localStorage.getItem(key);
+
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        // Add sizing settings to the existing state
+        parsed.sizingSettings = settings;
+        localStorage.setItem(key, JSON.stringify(parsed));
+      } catch (err) {
+        console.warn("Failed to update grid state with sizing settings:", err);
+      }
+    } else {
+      // If no existing state, create minimal state with just sizing settings
+      const minimalState = {
+        sizingSettings: settings,
+      };
+      localStorage.setItem(key, JSON.stringify(minimalState));
+    }
+
+    // Clean up old separate sizing key if it exists
+    const oldSizingKey = `grid_${gridIndex}_sizing`;
+    localStorage.removeItem(oldSizingKey);
   }
 
   static loadGridSizing(gridIndex: number): GridSizingSettings | null {
-    const key = `grid_${gridIndex}_sizing`;
+    const key = `grid_${gridIndex}_state`;
     const raw = localStorage.getItem(key);
-    if (!raw) return null;
+
+    if (!raw) {
+      // Check for old separate sizing key as fallback
+      const oldSizingKey = `grid_${gridIndex}_sizing`;
+      const oldRaw = localStorage.getItem(oldSizingKey);
+      if (oldRaw) {
+        try {
+          const parsed = JSON.parse(oldRaw);
+          // Convert plain objects back to CellFormat instances
+          if (parsed.cellFormats) {
+            const convertedFormats: Record<string, CellFormat> = {};
+            for (const [cellKey, formatData] of Object.entries(
+              parsed.cellFormats
+            )) {
+              convertedFormats[cellKey] = new CellFormat(
+                formatData as Partial<CellFormat>
+              );
+            }
+            parsed.cellFormats = convertedFormats;
+          }
+          return parsed;
+        } catch (err) {
+          console.warn("Failed to parse old grid sizing settings:", err);
+        }
+      }
+      return null;
+    }
 
     try {
       const parsed = JSON.parse(raw);
+      if (!parsed.sizingSettings) return null;
+
       // Convert plain objects back to CellFormat instances
-      if (parsed.cellFormats) {
+      const settings = parsed.sizingSettings;
+      if (settings.cellFormats) {
         const convertedFormats: Record<string, CellFormat> = {};
         for (const [cellKey, formatData] of Object.entries(
-          parsed.cellFormats
+          settings.cellFormats
         )) {
           convertedFormats[cellKey] = new CellFormat(
             formatData as Partial<CellFormat>
           );
         }
-        parsed.cellFormats = convertedFormats;
+        settings.cellFormats = convertedFormats;
       }
-      return parsed;
+      return settings;
     } catch (err) {
       console.warn("Failed to parse grid sizing settings:", err);
       return null;

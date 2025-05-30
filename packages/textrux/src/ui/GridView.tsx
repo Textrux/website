@@ -46,7 +46,10 @@ import {
   CellMove,
   RangeMove,
 } from "../util/ReferenceUpdater";
-import { SizingMode, GridSizingSettings } from "../util/LocalStorageManager";
+import {
+  SizingMode,
+  GridSizingSettings,
+} from "../layers/1-substrate/GridModel";
 import { CellFormat } from "../style/CellFormat";
 
 /** The row/col selection range in the spreadsheet. */
@@ -99,19 +102,92 @@ export function GridView({
   );
 
   // Sizing settings state
-  const [sizingMode, setSizingMode] = useState<SizingMode>("grid");
+  const [sizingModeState, setSizingModeState] = useState<SizingMode>("grid");
   const [gridSizingSettings, setGridSizingSettings] =
     useState<GridSizingSettings | null>(null);
 
+  // Use the state value for the current sizing mode
+  const sizingMode = sizingModeState;
+
   // This is a helper function to notify of grid changes
   const notifyGridChange = useCallback(() => {
+    console.log("notifyGridChange called");
+    console.log("Current grid.sizingSettings:", grid.sizingSettings);
+
     if (onGridChange) {
+      console.log("Calling onGridChange with grid");
       onGridChange(grid);
     } else if (autoLoadLocalStorage) {
+      console.log("Calling LocalStorageManager.saveGrid");
       // Fall back to direct localStorage save if no callback is provided
       LocalStorageManager.saveGrid(grid);
+      console.log("LocalStorageManager.saveGrid completed");
+    } else {
+      console.log("No action taken in notifyGridChange");
     }
   }, [grid, onGridChange, autoLoadLocalStorage]);
+
+  // Create a custom setSizingMode that also saves to localStorage
+  const setSizingMode = useCallback(
+    (mode: SizingMode) => {
+      console.log(`setSizingMode called with mode: ${mode}`);
+      console.log(`Current sizingModeState: ${sizingModeState}`);
+      console.log(`Current gridSizingSettings:`, gridSizingSettings);
+      console.log(`autoLoadLocalStorage: ${autoLoadLocalStorage}`);
+
+      setSizingModeState(mode);
+
+      // Immediately save to localStorage with integrated approach
+      if (true || autoLoadLocalStorage) {
+        // Get current settings or create defaults if they don't exist
+        let currentSettings = gridSizingSettings;
+        if (!currentSettings) {
+          console.log("Creating default sizing settings...");
+          currentSettings = LocalStorageManager.getDefaultGridSizing(
+            grid.rowCount,
+            grid.columnCount,
+            baseRowHeight * zoom,
+            baseColWidth * zoom
+          );
+          setGridSizingSettings(currentSettings);
+        }
+
+        const updatedSettings = {
+          ...currentSettings,
+          sizingMode: mode,
+        };
+
+        console.log(
+          `Saving sizing mode change to localStorage: ${mode}`,
+          updatedSettings
+        );
+
+        // Update the grid model's sizing settings
+        grid.sizingSettings = updatedSettings;
+        console.log(`Updated grid.sizingSettings:`, grid.sizingSettings);
+
+        // Save using the integrated approach (saves to grid_X_state)
+        notifyGridChange();
+        console.log("Called notifyGridChange()");
+
+        // Update local state to match
+        setGridSizingSettings(updatedSettings);
+        console.log("Updated local gridSizingSettings state");
+      } else {
+        console.log("autoLoadLocalStorage is false, skipping save");
+      }
+    },
+    [
+      autoLoadLocalStorage,
+      gridSizingSettings,
+      grid,
+      baseRowHeight,
+      baseColWidth,
+      zoom,
+      notifyGridChange,
+      sizingModeState,
+    ]
+  );
 
   // Handle zoom change
   const handleZoomChange = useCallback(
@@ -3510,7 +3586,7 @@ export function GridView({
     if (autoLoadLocalStorage) {
       const settings = LocalStorageManager.loadGridSizing(grid.index);
       if (settings) {
-        setSizingMode(settings.sizingMode);
+        setSizingModeState(settings.sizingMode);
         setGridSizingSettings(settings);
       } else {
         // Use default settings if none exist
@@ -3520,7 +3596,7 @@ export function GridView({
           baseRowHeight * zoom,
           baseColWidth * zoom
         );
-        setSizingMode(defaultSettings.sizingMode);
+        setSizingModeState(defaultSettings.sizingMode);
         setGridSizingSettings(defaultSettings);
       }
     }
@@ -3534,15 +3610,39 @@ export function GridView({
     zoom,
   ]);
 
-  // Save sizing settings to localStorage
+  // Sync React state with grid model's sizing settings when grid changes
+  // This handles the case where autoLoadLocalStorage is false but the grid
+  // has sizing settings loaded from its persisted state
   useEffect(() => {
-    if (autoLoadLocalStorage && gridSizingSettings) {
-      LocalStorageManager.saveGridSizing(grid.index, {
-        ...gridSizingSettings,
-        sizingMode,
-      });
+    if (grid.sizingSettings) {
+      console.log("Syncing sizing state from grid model:", grid.sizingSettings);
+      setSizingModeState(grid.sizingSettings.sizingMode);
+      setGridSizingSettings(grid.sizingSettings);
+    } else if (!autoLoadLocalStorage) {
+      // If no settings exist and autoLoadLocalStorage is false, create defaults
+      const defaultSettings = LocalStorageManager.getDefaultGridSizing(
+        grid.rowCount,
+        grid.columnCount,
+        baseRowHeight * zoom,
+        baseColWidth * zoom
+      );
+      console.log(
+        "Creating default sizing settings for grid:",
+        defaultSettings
+      );
+      setSizingModeState(defaultSettings.sizingMode);
+      setGridSizingSettings(defaultSettings);
+      // Also set it on the grid model so it's available next time
+      grid.sizingSettings = defaultSettings;
     }
-  }, [sizingMode, gridSizingSettings, autoLoadLocalStorage, grid.index]);
+  }, [
+    grid,
+    grid.sizingSettings,
+    autoLoadLocalStorage,
+    baseRowHeight,
+    baseColWidth,
+    zoom,
+  ]);
 
   // Column resize handler
   const handleColumnResize = useCallback(
@@ -3563,11 +3663,13 @@ export function GridView({
           // Update all cells in this column
           for (let row = 1; row <= grid.rowCount; row++) {
             const cellKey = `R${row}C${columnIndex}`;
-            newSettings.cellFormats[cellKey] = {
-              ...newSettings.cellFormats[cellKey],
+            const existingFormat =
+              newSettings.cellFormats[cellKey] || new CellFormat();
+            newSettings.cellFormats[cellKey] = new CellFormat({
+              ...existingFormat,
               width: newWidth,
               lastWidthSource: "manual",
-            };
+            });
           }
 
           return newSettings;
@@ -3596,11 +3698,13 @@ export function GridView({
           // Update all cells in this row
           for (let col = 1; col <= grid.columnCount; col++) {
             const cellKey = `R${rowIndex}C${col}`;
-            newSettings.cellFormats[cellKey] = {
-              ...newSettings.cellFormats[cellKey],
+            const existingFormat =
+              newSettings.cellFormats[cellKey] || new CellFormat();
+            newSettings.cellFormats[cellKey] = new CellFormat({
+              ...existingFormat,
               height: newHeight,
               lastHeightSource: "manual",
-            };
+            });
           }
 
           return newSettings;

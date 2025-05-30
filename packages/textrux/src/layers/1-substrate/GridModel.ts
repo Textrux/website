@@ -2,6 +2,16 @@ import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
 import { CellFormat } from "../../style/CellFormat";
 import { Parser } from "expr-eval";
 
+// Add sizing types
+export type SizingMode = "grid" | "cell";
+
+export interface GridSizingSettings {
+  sizingMode: SizingMode; // "grid" or "cell"
+  rowHeights: number[]; // Heights for each row when in "grid" mode
+  colWidths: number[]; // Widths for each column when in "grid" mode
+  cellFormats: Record<string, CellFormat>; // Cell-specific formats when in "cell" mode
+}
+
 export default class GridModel {
   public name: string;
   public id: string;
@@ -46,7 +56,12 @@ export default class GridModel {
    */
   public topLeftCell: { row: number; col: number };
 
-  // A simple flag for whether we’re batching changes:
+  /**
+   * Grid sizing settings (replaces separate localStorage storage)
+   */
+  public sizingSettings?: GridSizingSettings;
+
+  // A simple flag for whether we're batching changes:
   private inTransaction = false;
 
   /**
@@ -98,6 +113,14 @@ export default class GridModel {
     this.selectedCell = { row: 1, col: 1 };
     this.topLeftCell = { row: 1, col: 1 };
 
+    // Initialize default sizing settings
+    this.sizingSettings = {
+      sizingMode: "grid",
+      rowHeights: Array(rowCount).fill(25), // Default row height
+      colWidths: Array(columnCount).fill(100), // Default column width
+      cellFormats: {},
+    };
+
     this.contentsMap = {};
     this.formatsMap = {};
     this.formulas = {};
@@ -117,6 +140,15 @@ export default class GridModel {
       delimiter: this.delimiter,
       selectedCell: { ...this.selectedCell },
       topLeftCell: { ...this.topLeftCell },
+      // Include sizing settings in the main state
+      sizingSettings: this.sizingSettings
+        ? {
+            sizingMode: this.sizingSettings.sizingMode,
+            rowHeights: [...this.sizingSettings.rowHeights],
+            colWidths: [...this.sizingSettings.colWidths],
+            cellFormats: { ...this.sizingSettings.cellFormats },
+          }
+        : undefined,
       // Stash all non-empty cells:
       cells: this.getFilledCells(),
     };
@@ -191,6 +223,31 @@ export default class GridModel {
           typeof cell.value === "string"
         ) {
           this.setCellRaw(cell.row, cell.col, cell.value, true);
+        }
+      }
+    }
+
+    // Load sizing settings
+    if (state.sizingSettings) {
+      this.sizingSettings = {
+        sizingMode: state.sizingSettings.sizingMode || "grid",
+        rowHeights: Array.isArray(state.sizingSettings.rowHeights)
+          ? [...state.sizingSettings.rowHeights]
+          : [],
+        colWidths: Array.isArray(state.sizingSettings.colWidths)
+          ? [...state.sizingSettings.colWidths]
+          : [],
+        cellFormats: {},
+      };
+
+      // Convert plain objects back to CellFormat instances
+      if (state.sizingSettings.cellFormats) {
+        for (const [cellKey, formatData] of Object.entries(
+          state.sizingSettings.cellFormats
+        )) {
+          this.sizingSettings.cellFormats[cellKey] = new CellFormat(
+            formatData as Partial<CellFormat>
+          );
         }
       }
     }
@@ -372,7 +429,7 @@ export default class GridModel {
   }
 
   /**
-   * Begin a “transaction” so that multiple cell changes
+   * Begin a "transaction" so that multiple cell changes
    * become a single undo step.
    */
   public beginTransaction(): void {
