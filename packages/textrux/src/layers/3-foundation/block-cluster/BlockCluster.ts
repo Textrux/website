@@ -96,6 +96,7 @@ export default class BlockCluster {
   /**
    * Static method to group BlockSubclusters into BlockClusters based on overlapping perimeters.
    * BlockSubclusters whose perimeters overlap will be grouped into the same BlockCluster.
+   * Uses a two-stage recursive merging approach similar to getContainers for efficiency and completeness.
    */
   static populateBlockClusters(
     blockSubclusters: BlockSubcluster[],
@@ -141,21 +142,90 @@ export default class BlockCluster {
       const minC = Math.min(...allCanvasRects.map((rect) => rect.left));
       const maxC = Math.max(...allCanvasRects.map((rect) => rect.right));
 
-      // Construct the BlockCluster
-      const cluster = new BlockCluster(clusterSubclusters, {
+      // Construct the temporary cluster
+      const tempCluster = new BlockCluster(clusterSubclusters, {
         top: minR,
         left: minC,
         bottom: maxR,
         right: maxC,
       });
 
-      cluster.clusterPerimeter = cluster.expandOutline(rowCount, colCount, 2);
-      cluster.clusterBuffer = cluster.expandOutline(rowCount, colCount, 4);
+      tempCluster.clusterPerimeter = tempCluster.expandOutline(
+        rowCount,
+        colCount,
+        2
+      );
+      tempCluster.clusterBuffer = tempCluster.expandOutline(
+        rowCount,
+        colCount,
+        4
+      );
 
-      blockClusters.push(cluster);
+      // Stage 2: Check if this new cluster's perimeter overlaps with existing clusters
+      // and merge recursively (similar to getContainers approach)
+      let merged = true;
+      while (merged) {
+        merged = false;
+        const currentPerimeter = tempCluster.clusterPerimeter;
+
+        for (let i = blockClusters.length - 1; i >= 0; i--) {
+          const existingCluster = blockClusters[i];
+          const existingPerimeter = existingCluster.clusterPerimeter;
+
+          if (rectanglesOverlap(currentPerimeter, existingPerimeter)) {
+            // Merge existing cluster into temp cluster
+            blockClusters.splice(i, 1);
+
+            // Combine subclusters
+            tempCluster.blockSubclusters.push(
+              ...existingCluster.blockSubclusters
+            );
+
+            // Recalculate combined canvas area
+            const allMergedCanvasRects = tempCluster.blockSubclusters.map(
+              (sc) => sc.clusterCanvas
+            );
+            const newMinR = Math.min(
+              ...allMergedCanvasRects.map((rect) => rect.top)
+            );
+            const newMaxR = Math.max(
+              ...allMergedCanvasRects.map((rect) => rect.bottom)
+            );
+            const newMinC = Math.min(
+              ...allMergedCanvasRects.map((rect) => rect.left)
+            );
+            const newMaxC = Math.max(
+              ...allMergedCanvasRects.map((rect) => rect.right)
+            );
+
+            tempCluster.clusterCanvas = {
+              top: newMinR,
+              left: newMinC,
+              bottom: newMaxR,
+              right: newMaxC,
+            };
+
+            // Recalculate perimeter and buffer with new canvas
+            tempCluster.clusterPerimeter = tempCluster.expandOutline(
+              rowCount,
+              colCount,
+              2
+            );
+            tempCluster.clusterBuffer = tempCluster.expandOutline(
+              rowCount,
+              colCount,
+              4
+            );
+
+            merged = true;
+          }
+        }
+      }
+
+      blockClusters.push(tempCluster);
 
       // Mark these subclusters as used so we don't reprocess them
-      clusterSubclusters.forEach((sc) => used.add(sc));
+      tempCluster.blockSubclusters.forEach((sc) => used.add(sc));
     }
 
     return blockClusters;
