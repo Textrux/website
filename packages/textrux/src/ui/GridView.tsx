@@ -111,19 +111,19 @@ export function GridView({
 
   // This is a helper function to notify of grid changes
   const notifyGridChange = useCallback(() => {
-    console.log("notifyGridChange called");
-    console.log("Current grid.sizingSettings:", grid.sizingSettings);
+    // console.log("notifyGridChange called");
+    // console.log("Current grid.sizingSettings:", grid.sizingSettings);
 
     if (onGridChange) {
-      console.log("Calling onGridChange with grid");
+      // console.log("Calling onGridChange with grid");
       onGridChange(grid);
     } else if (autoLoadLocalStorage) {
-      console.log("Calling LocalStorageManager.saveGrid");
+      // console.log("Calling LocalStorageManager.saveGrid");
       // Fall back to direct localStorage save if no callback is provided
       LocalStorageManager.saveGrid(grid);
-      console.log("LocalStorageManager.saveGrid completed");
+      // console.log("LocalStorageManager.saveGrid completed");
     } else {
-      console.log("No action taken in notifyGridChange");
+      // console.log("No action taken in notifyGridChange");
     }
   }, [grid, onGridChange, autoLoadLocalStorage]);
 
@@ -3421,10 +3421,10 @@ export function GridView({
   useEffect(() => {
     // Only run this effect if we have a grid with a saved topLeftCell
     if (grid && grid.topLeftCell && gridContainerRef.current) {
-      console.log(
-        "Grid changed, restoring scroll position to:",
-        grid.topLeftCell
-      );
+      // console.log(
+      //   "Grid changed, restoring scroll position to:",
+      //   grid.topLeftCell
+      // );
 
       // Calculate scroll position based on the current rowHeights and colWidths
       const scrollTop = calculateScrollPosition(

@@ -69,7 +69,7 @@ export function ColumnHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const x = e.clientX - rect.left + scrollLeft;
+      const x = e.clientX - rect.left;
       const columnStart = sumUpTo(colWidths, columnIndex - 1);
       const columnEnd = columnStart + colWidths[columnIndex - 1];
 
@@ -84,7 +84,7 @@ export function ColumnHeaders({
         setResizeStartWidth(colWidths[columnIndex - 1]);
       }
     },
-    [colWidths, scrollLeft]
+    [colWidths]
   );
 
   const handleMouseMove = useCallback(
@@ -92,7 +92,7 @@ export function ColumnHeaders({
       if (!headerRef.current) return;
 
       const rect = headerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left + scrollLeft;
+      const x = e.clientX - rect.left;
 
       // Find which column we're over and if we're near a resize handle
       let nearResizeHandle = false;
@@ -113,7 +113,7 @@ export function ColumnHeaders({
           : "default";
       }
     },
-    [colWidths, scrollLeft, visibleCols]
+    [colWidths, visibleCols]
   );
 
   const handleDoubleClick = useCallback(
@@ -121,7 +121,7 @@ export function ColumnHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const x = e.clientX - rect.left + scrollLeft;
+      const x = e.clientX - rect.left;
       const columnStart = sumUpTo(colWidths, columnIndex - 1);
       const columnEnd = columnStart + colWidths[columnIndex - 1];
 
@@ -133,7 +133,7 @@ export function ColumnHeaders({
         onColumnAutoResize(columnIndex);
       }
     },
-    [colWidths, scrollLeft, onColumnAutoResize]
+    [colWidths, onColumnAutoResize]
   );
 
   // Global mouse events for resizing

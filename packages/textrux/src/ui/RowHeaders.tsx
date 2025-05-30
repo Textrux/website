@@ -69,7 +69,7 @@ export function RowHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const y = e.clientY - rect.top + scrollTop;
+      const y = e.clientY - rect.top;
       const rowStart = sumUpTo(rowHeights, rowIndex - 1);
       const rowEnd = rowStart + rowHeights[rowIndex - 1];
 
@@ -84,7 +84,7 @@ export function RowHeaders({
         setResizeStartHeight(rowHeights[rowIndex - 1]);
       }
     },
-    [rowHeights, scrollTop]
+    [rowHeights]
   );
 
   const handleMouseMove = useCallback(
@@ -92,7 +92,7 @@ export function RowHeaders({
       if (!headerRef.current) return;
 
       const rect = headerRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top + scrollTop;
+      const y = e.clientY - rect.top;
 
       // Find which row we're over and if we're near a resize handle
       let nearResizeHandle = false;
@@ -113,7 +113,7 @@ export function RowHeaders({
           : "default";
       }
     },
-    [rowHeights, scrollTop, visibleRows]
+    [rowHeights, visibleRows]
   );
 
   const handleDoubleClick = useCallback(
@@ -121,7 +121,7 @@ export function RowHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const y = e.clientY - rect.top + scrollTop;
+      const y = e.clientY - rect.top;
       const rowStart = sumUpTo(rowHeights, rowIndex - 1);
       const rowEnd = rowStart + rowHeights[rowIndex - 1];
 
@@ -133,7 +133,7 @@ export function RowHeaders({
         onRowAutoResize(rowIndex);
       }
     },
-    [rowHeights, scrollTop, onRowAutoResize]
+    [rowHeights, onRowAutoResize]
   );
 
   // Global mouse events for resizing
