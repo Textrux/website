@@ -5,8 +5,12 @@ import { GridTabs } from "./GridTabs";
 import { GridView } from "./GridView";
 import { GridGroupTabs } from "./GridGroupTabs";
 import { LocalStorageManager } from "../util/LocalStorageManager";
-import { fromCSV } from "../util/CSV";
-import { fromTSV } from "../util/TSV";
+import { fromCSV, toCSV } from "../util/CSV";
+import { fromTSV, toTSV } from "../util/TSV";
+
+// Default sizing constants
+const DEFAULT_ROW_HEIGHT = 24;
+const DEFAULT_COL_WIDTH = 100;
 
 export interface GridGalleryProps {
   autoLoadLocalStorage?: boolean;
@@ -28,6 +32,70 @@ export default function GridGalleryView(props: GridGalleryProps) {
     gal.nextGridIndex = 1;
     return gal;
   });
+
+  // Add document-level Ctrl+S handler to catch save command anywhere in the app
+  useEffect(() => {
+    const handleDocumentKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "s" || e.key === "S") && e.ctrlKey) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Save the currently active grid
+        const activeGrid = gallery.grids[gallery.activeGridIndex];
+        if (activeGrid) {
+          // Use the same logic as saveGridToFile from GridView.tsx
+          const filledCells = activeGrid.getFilledCells();
+          if (filledCells.length === 0) return;
+
+          let maxRowUsed = 0,
+            maxColUsed = 0;
+          for (const { row, col } of filledCells) {
+            maxRowUsed = Math.max(maxRowUsed, row);
+            maxColUsed = Math.max(maxColUsed, col);
+          }
+
+          const arr = Array.from({ length: maxRowUsed }, () =>
+            Array(maxColUsed).fill("")
+          );
+          for (const { row, col, value } of filledCells) {
+            arr[row - 1][col - 1] = value;
+          }
+
+          const delimiter = activeGrid.delimiter || "tab";
+          const text = delimiter === "tab" ? toTSV(arr) : toCSV(arr);
+
+          const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+
+          // Generate the timestamped filename
+          const now = new Date();
+          const timestamp = now
+            .toISOString()
+            .replace(/[-T:]/g, "")
+            .split(".")[0];
+          const fileExtension = delimiter === "tab" ? "tsv" : "csv";
+          const fileName = `${activeGrid.name}___${timestamp}.${fileExtension}`;
+
+          const link = Object.assign(document.createElement("a"), {
+            href: URL.createObjectURL(blob),
+            download: fileName,
+          });
+          link.click();
+          URL.revokeObjectURL(link.href);
+
+          console.log(
+            `Saved grid "${activeGrid.name}" as ${
+              delimiter === "tab" ? "TSV" : "CSV"
+            }`
+          );
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown, true);
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown, true);
+    };
+  }, [gallery.grids, gallery.activeGridIndex]);
 
   // Single unified effect to load data once on mount
   useEffect(() => {
@@ -63,6 +131,18 @@ export default function GridGalleryView(props: GridGalleryProps) {
             newGal.nextGridIndex++
           );
           grid.name = `Grid ${i + 1}`;
+          grid.zoomLevel = 1.0;
+          grid.delimiter = "tab";
+
+          // Create proper sizing settings with default base sizes
+          const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+            defaultRows,
+            defaultCols,
+            DEFAULT_ROW_HEIGHT,
+            DEFAULT_COL_WIDTH
+          );
+          grid.sizingSettings = sizingSettings;
+
           newGal.grids.push(grid);
         }
         newGal.activeGridIndex = 0;
@@ -91,6 +171,16 @@ export default function GridGalleryView(props: GridGalleryProps) {
           // Set default values for zoom and delimiter
           grid.zoomLevel = 1.0;
           grid.delimiter = "tab";
+
+          // Create proper sizing settings with default base sizes
+          const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+            defaultRows,
+            defaultCols,
+            DEFAULT_ROW_HEIGHT,
+            DEFAULT_COL_WIDTH
+          );
+          grid.sizingSettings = sizingSettings;
+
           newGal.grids.push(grid);
         }
         newGal.activeGridIndex = 0;
@@ -124,6 +214,16 @@ export default function GridGalleryView(props: GridGalleryProps) {
           // Set default values for zoom and delimiter
           grid.zoomLevel = 1.0;
           grid.delimiter = "tab";
+
+          // Create proper sizing settings with default base sizes
+          const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+            defaultRows,
+            defaultCols,
+            DEFAULT_ROW_HEIGHT,
+            DEFAULT_COL_WIDTH
+          );
+          grid.sizingSettings = sizingSettings;
+
           loadedGal.grids.push(grid);
 
           // Save the new grid immediately to ensure it persists
@@ -160,6 +260,16 @@ export default function GridGalleryView(props: GridGalleryProps) {
         // Ensure the grid has a name
         if (!g.name || g.name.trim() === "") {
           g.name = `Grid ${idx}`;
+        }
+
+        // Ensure the grid has proper sizing settings with base sizes
+        if (!g.sizingSettings) {
+          g.sizingSettings = LocalStorageManager.getDefaultGridSizing(
+            g.rowCount,
+            g.columnCount,
+            DEFAULT_ROW_HEIGHT,
+            DEFAULT_COL_WIDTH
+          );
         }
 
         // If the grid couldn't be loaded, it might be corrupted
@@ -210,6 +320,16 @@ export default function GridGalleryView(props: GridGalleryProps) {
           grid.name = `Grid ${i + 1}`;
           grid.zoomLevel = 1.0;
           grid.delimiter = "tab";
+
+          // Create proper sizing settings with default base sizes
+          const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+            defaultRows,
+            defaultCols,
+            DEFAULT_ROW_HEIGHT,
+            DEFAULT_COL_WIDTH
+          );
+          grid.sizingSettings = sizingSettings;
+
           newGal.grids.push(grid);
         }
 
@@ -318,6 +438,14 @@ export default function GridGalleryView(props: GridGalleryProps) {
     defaultGrid.zoomLevel = 1.0;
     defaultGrid.delimiter = "tab";
 
+    // Set the sizing settings on the new grid
+    defaultGrid.sizingSettings = LocalStorageManager.getDefaultGridSizing(
+      defaultRows,
+      defaultCols,
+      DEFAULT_ROW_HEIGHT,
+      DEFAULT_COL_WIDTH
+    );
+
     // Add the grid to the gallery
     newGal.grids = [defaultGrid];
     newGal.activeGridIndex = 0;
@@ -326,6 +454,10 @@ export default function GridGalleryView(props: GridGalleryProps) {
     LocalStorageManager.saveGrid(defaultGrid);
     LocalStorageManager.saveGalleryIndexes(newGal.grids);
     LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+
+    console.log(
+      `Reset to single grid with preserved default sizes: row=${DEFAULT_ROW_HEIGHT}, col=${DEFAULT_COL_WIDTH}`
+    );
 
     // Update the state
     setGallery(newGal);
@@ -391,6 +523,17 @@ export default function GridGalleryView(props: GridGalleryProps) {
       newGrid.zoomLevel = 1.0;
       newGrid.delimiter = "tab";
 
+      // Create proper sizing settings with the saved default sizes
+      const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+        defaultRows,
+        defaultCols,
+        DEFAULT_ROW_HEIGHT,
+        DEFAULT_COL_WIDTH
+      );
+
+      // Set the sizing settings on the new grid
+      newGrid.sizingSettings = sizingSettings;
+
       newGal.grids.push(newGrid);
 
       // Set the new grid as active
@@ -400,6 +543,10 @@ export default function GridGalleryView(props: GridGalleryProps) {
       LocalStorageManager.saveGrid(newGrid);
       LocalStorageManager.saveGalleryIndexes(newGal.grids);
       LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+
+      console.log(
+        `Created new grid with default sizes: row=${DEFAULT_ROW_HEIGHT}, col=${DEFAULT_COL_WIDTH}`
+      );
 
       return newGal;
     });
@@ -571,8 +718,8 @@ export default function GridGalleryView(props: GridGalleryProps) {
             key={`grid-${activeGrid.index}`}
             grid={activeGrid}
             autoLoadLocalStorage={false}
-            baseRowHeight={24}
-            baseColWidth={60}
+            baseRowHeight={DEFAULT_ROW_HEIGHT}
+            baseColWidth={DEFAULT_COL_WIDTH}
             baseFontSize={14}
             onGridChange={onGridChange}
             onLoadFileToNewGrid={loadFileToNewGrid}

@@ -31,6 +31,10 @@ export interface AppModalExtraProps {
   // Sizing settings
   sizingMode: SizingMode;
   setSizingMode: (mode: SizingMode) => void;
+
+  // Base sizing for display only
+  baseRowHeight: number;
+  baseColWidth: number;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -52,18 +56,26 @@ export const AppModal: React.FC<CombinedProps> = ({
   setShowMinimap,
   sizingMode,
   setSizingMode,
+  baseRowHeight,
+  baseColWidth,
 }) => {
   // Keep a local copy of the row/col so we only commit changes on "Save"
   const [localRowCount, setLocalRowCount] = useState(rowCount);
   const [localColCount, setLocalColCount] = useState(colCount);
 
-  // If the modal re-opens, reset local fields to current grid counts:
+  // Keep local copies of default sizes - these will be updated when the modal opens
+  const [localBaseRowHeight, setLocalBaseRowHeight] = useState(baseRowHeight);
+  const [localBaseColWidth, setLocalBaseColWidth] = useState(baseColWidth);
+
+  // If the modal re-opens, reset local fields to current grid values:
   useEffect(() => {
     if (isOpen) {
       setLocalRowCount(rowCount);
       setLocalColCount(colCount);
+      setLocalBaseRowHeight(baseRowHeight);
+      setLocalBaseColWidth(baseColWidth);
     }
-  }, [isOpen, rowCount, colCount]);
+  }, [isOpen, rowCount, colCount, baseRowHeight, baseColWidth]);
 
   const [activeTab, setActiveTab] = useState<
     "Settings" | "Examples" | "Instructions" | "About"

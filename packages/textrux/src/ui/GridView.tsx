@@ -74,6 +74,10 @@ export interface GridViewProps {
   onGridChange?: (grid: GridModel) => void;
   onLoadFileToNewGrid?: (file: File) => void;
   clearAllGrids?: () => void; // Function to reset all grids to defaults
+  handleChangeDefaultSizes?: (
+    newRowHeight: number,
+    newColWidth: number
+  ) => void;
 }
 
 export function GridView({
@@ -89,6 +93,7 @@ export function GridView({
   onGridChange,
   onLoadFileToNewGrid,
   clearAllGrids,
+  handleChangeDefaultSizes,
 }: GridViewProps) {
   //
   // 1) We'll create a local "zoom" state. If autoLoadLocalStorage is true,
@@ -1472,6 +1477,9 @@ export function GridView({
       // End transaction - this captures the final state for undo/redo
       grid.endTransaction();
 
+      // Save the changes to localStorage
+      notifyGridChange();
+
       // Update grid dimensions based on cell formats after the move (for "cell" mode)
       if (sizingMode === "cell") {
         console.log("🔧 Block moved in cell mode, updating grid dimensions...");
@@ -1526,6 +1534,7 @@ export function GridView({
     baseColWidth,
     zoom,
     updateGridDimensionsFromCellFormats,
+    notifyGridChange,
   ]);
 
   const cancelBlockDrag = useCallback(() => {
@@ -2477,6 +2486,9 @@ export function GridView({
       // Done editing cells => end the transaction
       grid.endTransaction();
 
+      // Save the changes to localStorage
+      notifyGridChange();
+
       forceRefresh();
 
       // shift active cell
@@ -2518,6 +2530,7 @@ export function GridView({
       forceRefresh,
       sizingMode,
       updateGridDimensionsFromCellFormats,
+      notifyGridChange,
     ]
   );
 
@@ -2621,13 +2634,22 @@ export function GridView({
 
   const clearSelectedCells = useCallback(() => {
     const { startRow, endRow, startCol, endCol } = selectionRange;
+
+    grid.beginTransaction();
+
     for (let r = startRow; r <= endRow; r++) {
       for (let c = startCol; c <= endCol; c++) {
         grid.setCellRaw(r, c, "");
       }
     }
+
+    grid.endTransaction();
+
+    // Save the changes to localStorage
+    notifyGridChange();
+
     forceRefresh();
-  }, [selectionRange, grid, forceRefresh]);
+  }, [selectionRange, grid, forceRefresh, notifyGridChange]);
 
   const enterEmbeddedGrid = useCallback(() => {
     grid.beginTransaction();
@@ -3154,6 +3176,7 @@ export function GridView({
 
       // End the transaction and refresh
       grid.endTransaction();
+      notifyGridChange();
       forceRefresh();
     } catch (err) {
       console.error("Failed to paste from system clipboard:", err);
@@ -3220,8 +3243,19 @@ export function GridView({
     console.log(
       `Pasted references from R${sourceStartRow}C${sourceStartCol}:R${copiedRange.endRow}C${copiedRange.endCol} to R${targetStartRow}C${targetStartCol}:R${endRow}C${endCol}`
     );
+
+    // Save the changes to localStorage
+    notifyGridChange();
+
     forceRefresh();
-  }, [clipboardData, copiedRange, selectionRange, grid, forceRefresh]);
+  }, [
+    clipboardData,
+    copiedRange,
+    selectionRange,
+    grid,
+    forceRefresh,
+    notifyGridChange,
+  ]);
 
   // Main keydown
   const handleContainerKeyDown = useCallback(
@@ -3399,7 +3433,9 @@ export function GridView({
         forceRefresh();
       } else if ((e.key === "s" || e.key === "S") && e.ctrlKey) {
         e.preventDefault();
+        e.stopPropagation();
         saveGridToFile();
+        return;
       }
       // Another fallback for normal typed char
       else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
@@ -4117,17 +4153,24 @@ export function GridView({
     (columnIndex: number) => {
       // Calculate optimal width based on content
       let maxWidth = baseColWidth * zoom;
+      let hasContent = false;
 
       for (let row = 1; row <= grid.rowCount; row++) {
         const content = grid.getCellRaw(row, columnIndex);
-        if (content) {
+        if (content && content.trim()) {
+          hasContent = true;
           // Estimate width based on content length and font size
           const estimatedWidth = Math.min(
             content.length * fontSize * 0.6 + 20,
-            6 * baseColWidth * zoom
+            Math.min(3 * baseColWidth * zoom, 300)
           );
           maxWidth = Math.max(maxWidth, estimatedWidth);
         }
+      }
+
+      // If the column is empty or has no meaningful content, use the base width
+      if (!hasContent) {
+        maxWidth = baseColWidth * zoom;
       }
 
       handleColumnResize(columnIndex, maxWidth);
@@ -4142,20 +4185,55 @@ export function GridView({
 
       for (let col = 1; col <= grid.columnCount; col++) {
         const content = grid.getCellRaw(rowIndex, col);
-        if (content) {
-          // Estimate height based on line breaks and wrapping
-          const lines = content.split("\n").length;
+        if (content && content.trim()) {
+          // Get the current column width to account for text wrapping
+          const columnWidth = colWidths[col - 1] || baseColWidth * zoom;
+
+          // Count explicit line breaks
+          const explicitLines = content.split("\n");
+          let totalLines = 0;
+
+          // For each line, calculate how many display lines it will need based on wrapping
+          explicitLines.forEach((line) => {
+            if (line.trim() === "") {
+              // Empty lines still take up space
+              totalLines += 1;
+            } else {
+              // Estimate how many lines this content will wrap to
+              const avgCharWidth = fontSize * 0.6;
+              const availableWidth = columnWidth - 16; // Account for padding
+              const charsPerLine = Math.max(
+                1,
+                Math.floor(availableWidth / avgCharWidth)
+              );
+              const wrappedLines = Math.ceil(line.length / charsPerLine);
+              totalLines += Math.max(1, wrappedLines);
+            }
+          });
+
+          // Calculate height with proper line spacing and padding
+          // Use 1.4 line height (typical for good readability) + padding
+          const lineHeight = fontSize * 1.4;
           const estimatedHeight = Math.min(
-            lines * fontSize * 1.2 + 8,
-            6 * baseRowHeight * zoom
+            totalLines * lineHeight + 16, // 16px total padding (8px top + 8px bottom)
+            8 * baseRowHeight * zoom // Cap at 8x base height for very long content
           );
+
           maxHeight = Math.max(maxHeight, estimatedHeight);
         }
       }
 
       handleRowResize(rowIndex, maxHeight);
     },
-    [baseRowHeight, zoom, grid, fontSize, handleRowResize]
+    [
+      baseRowHeight,
+      zoom,
+      grid,
+      fontSize,
+      handleRowResize,
+      colWidths,
+      baseColWidth,
+    ]
   );
 
   // Auto-resize after editing
@@ -4166,19 +4244,45 @@ export function GridView({
       // Auto-resize column
       const estimatedWidth = Math.min(
         content.length * fontSize * 0.6 + 20,
-        6 * baseColWidth * zoom
+        Math.min(3 * baseColWidth * zoom, 300)
       );
 
       if (estimatedWidth > colWidths[col - 1]) {
         handleColumnResize(col, estimatedWidth);
       }
 
-      // Auto-resize row if content has line breaks
-      const lines = content.split("\n").length;
-      if (lines > 1) {
+      // Auto-resize row if content has line breaks or is long
+      if (content.includes("\n") || content.length > 30) {
+        // Get the current column width to account for text wrapping
+        const columnWidth = colWidths[col - 1] || baseColWidth * zoom;
+
+        // Count explicit line breaks
+        const explicitLines = content.split("\n");
+        let totalLines = 0;
+
+        // For each line, calculate how many display lines it will need based on wrapping
+        explicitLines.forEach((line) => {
+          if (line.trim() === "") {
+            // Empty lines still take up space
+            totalLines += 1;
+          } else {
+            // Estimate how many lines this content will wrap to
+            const avgCharWidth = fontSize * 0.6;
+            const availableWidth = columnWidth - 16; // Account for padding
+            const charsPerLine = Math.max(
+              1,
+              Math.floor(availableWidth / avgCharWidth)
+            );
+            const wrappedLines = Math.ceil(line.length / charsPerLine);
+            totalLines += Math.max(1, wrappedLines);
+          }
+        });
+
+        // Calculate height with proper line spacing and padding
+        const lineHeight = fontSize * 1.4;
         const estimatedHeight = Math.min(
-          lines * fontSize * 1.2 + 8,
-          6 * baseRowHeight * zoom
+          totalLines * lineHeight + 16, // 16px total padding
+          8 * baseRowHeight * zoom // Cap at 8x base height
         );
 
         if (estimatedHeight > rowHeights[row - 1]) {
@@ -4197,6 +4301,9 @@ export function GridView({
       handleRowResize,
     ]
   );
+
+  // Handle default size changes
+  // handleChangeDefaultSizes is now passed as a prop from parent component
 
   return (
     <div
@@ -4462,6 +4569,8 @@ export function GridView({
         setShowMinimap={setShowMinimap}
         sizingMode={sizingMode}
         setSizingMode={setSizingMode}
+        baseRowHeight={baseRowHeight}
+        baseColWidth={baseColWidth}
       />
 
       {fullscreenEditing && (
