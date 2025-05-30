@@ -130,52 +130,51 @@ export function GridView({
   // Create a custom setSizingMode that also saves to localStorage
   const setSizingMode = useCallback(
     (mode: SizingMode) => {
-      console.log(`setSizingMode called with mode: ${mode}`);
-      console.log(`Current sizingModeState: ${sizingModeState}`);
-      console.log(`Current gridSizingSettings:`, gridSizingSettings);
-      console.log(`autoLoadLocalStorage: ${autoLoadLocalStorage}`);
+      console.log(`🎛️ setSizingMode called with mode: ${mode}`);
+      console.log(
+        `📊 Current state - sizingModeState: ${sizingModeState}, gridSizingSettings:`,
+        gridSizingSettings
+      );
+      console.log(`⚙️ autoLoadLocalStorage: ${autoLoadLocalStorage}`);
 
       setSizingModeState(mode);
 
-      // Immediately save to localStorage with integrated approach
-      if (true || autoLoadLocalStorage) {
-        // Get current settings or create defaults if they don't exist
-        let currentSettings = gridSizingSettings;
-        if (!currentSettings) {
-          console.log("Creating default sizing settings...");
-          currentSettings = LocalStorageManager.getDefaultGridSizing(
-            grid.rowCount,
-            grid.columnCount,
-            baseRowHeight * zoom,
-            baseColWidth * zoom
-          );
-          setGridSizingSettings(currentSettings);
-        }
-
-        const updatedSettings = {
-          ...currentSettings,
-          sizingMode: mode,
-        };
-
-        console.log(
-          `Saving sizing mode change to localStorage: ${mode}`,
-          updatedSettings
+      // Get current settings or create defaults if they don't exist
+      let currentSettings = gridSizingSettings;
+      if (!currentSettings) {
+        console.log("🔧 Creating default sizing settings...");
+        currentSettings = LocalStorageManager.getDefaultGridSizing(
+          grid.rowCount,
+          grid.columnCount,
+          baseRowHeight * zoom,
+          baseColWidth * zoom
         );
-
-        // Update the grid model's sizing settings
-        grid.sizingSettings = updatedSettings;
-        console.log(`Updated grid.sizingSettings:`, grid.sizingSettings);
-
-        // Save using the integrated approach (saves to grid_X_state)
-        notifyGridChange();
-        console.log("Called notifyGridChange()");
-
-        // Update local state to match
-        setGridSizingSettings(updatedSettings);
-        console.log("Updated local gridSizingSettings state");
-      } else {
-        console.log("autoLoadLocalStorage is false, skipping save");
+        // Override the default mode with the one the user just selected
+        currentSettings.sizingMode = mode;
+        setGridSizingSettings(currentSettings);
       }
+
+      const updatedSettings = {
+        ...currentSettings,
+        sizingMode: mode,
+      };
+
+      console.log(
+        `💾 Updating grid.sizingSettings with mode: ${mode}`,
+        updatedSettings
+      );
+
+      // Always update the grid model's sizing settings
+      grid.sizingSettings = updatedSettings;
+      console.log(`✅ Updated grid.sizingSettings:`, grid.sizingSettings);
+
+      // Always notify of changes - this will either call onGridChange or save to localStorage
+      notifyGridChange();
+      console.log("📤 Called notifyGridChange()");
+
+      // Update local state to match
+      setGridSizingSettings(updatedSettings);
+      console.log("🔄 Updated local gridSizingSettings state");
     },
     [
       autoLoadLocalStorage,
@@ -258,12 +257,32 @@ export function GridView({
   // Derive the actual font size
   const fontSize = baseFontSize * zoom;
 
-  const [rowHeights, setRowHeights] = useState<number[]>(() =>
-    Array(grid.rowCount).fill(baseRowHeight * zoom)
-  );
-  const [colWidths, setColWidths] = useState<number[]>(() =>
-    Array(grid.columnCount).fill(baseColWidth * zoom)
-  );
+  // Initialize rowHeights and colWidths from saved settings or defaults
+  const [rowHeights, setRowHeights] = useState<number[]>(() => {
+    // Try to load from grid sizing settings first
+    if (
+      grid.sizingSettings &&
+      grid.sizingSettings.sizingMode === "grid" &&
+      grid.sizingSettings.rowHeights
+    ) {
+      return grid.sizingSettings.rowHeights;
+    }
+    // Fall back to base values scaled by current zoom
+    return Array(grid.rowCount).fill(baseRowHeight * zoom);
+  });
+
+  const [colWidths, setColWidths] = useState<number[]>(() => {
+    // Try to load from grid sizing settings first
+    if (
+      grid.sizingSettings &&
+      grid.sizingSettings.sizingMode === "grid" &&
+      grid.sizingSettings.colWidths
+    ) {
+      return grid.sizingSettings.colWidths;
+    }
+    // Fall back to base values scaled by current zoom
+    return Array(grid.columnCount).fill(baseColWidth * zoom);
+  });
 
   // We keep track of active cell & selection in local state,
   // but also store it in the grid model.
@@ -727,6 +746,160 @@ export function GridView({
   const hideHandleTimeoutRef = useRef<number | undefined>(undefined);
   const showHandleTimeoutRef = useRef<number | undefined>(undefined);
 
+  // Track grid changes to prevent double-scaling
+  const prevGridRef = useRef(grid);
+  const prevZoomRef = useRef(zoom);
+
+  // Function to update grid dimensions based on cell formats (for "cell" sizing mode)
+  const updateGridDimensionsFromCellFormats = useCallback(() => {
+    console.log(
+      `🔍 updateGridDimensionsFromCellFormats called, sizingMode: ${sizingMode}`
+    );
+
+    if (sizingMode !== "cell" || !gridSizingSettings) {
+      console.log(
+        `❌ Early return: sizingMode=${sizingMode}, hasSettings=${!!gridSizingSettings}`
+      );
+      return;
+    }
+
+    console.log(
+      `📊 Cell formats available:`,
+      Object.keys(gridSizingSettings.cellFormats).length
+    );
+
+    const newRowHeights = [...rowHeights];
+    const newColWidths = [...colWidths];
+
+    // Get all filled cells to know which cells to consider
+    const filledCells = grid.getFilledCells();
+    console.log(`📋 Processing ${filledCells.length} filled cells`);
+
+    // For each row, find the maximum height required by any cell in that row
+    for (let row = 1; row <= grid.rowCount; row++) {
+      let maxHeight = baseRowHeight * zoom; // Default height
+
+      // Check all filled cells in this row
+      for (const { row: cellRow, col } of filledCells) {
+        if (cellRow === row) {
+          const cellKey = `R${row}C${col}`;
+          const cellFormat = gridSizingSettings.cellFormats[cellKey];
+          if (cellFormat && cellFormat.height) {
+            maxHeight = Math.max(maxHeight, cellFormat.height);
+            console.log(
+              `📏 Row ${row}: found height ${cellFormat.height} in cell ${cellKey}, maxHeight now ${maxHeight}`
+            );
+          }
+        }
+      }
+
+      // Only update if the height changed significantly
+      if (Math.abs(newRowHeights[row - 1] - maxHeight) > 1) {
+        console.log(
+          `📐 Row ${row}: updating height from ${
+            newRowHeights[row - 1]
+          } to ${maxHeight}`
+        );
+        newRowHeights[row - 1] = maxHeight;
+      }
+    }
+
+    // For each column, find the maximum width required by any cell in that column
+    for (let col = 1; col <= grid.columnCount; col++) {
+      let maxWidth = baseColWidth * zoom; // Default width
+
+      // Check all filled cells in this column
+      for (const { row, col: cellCol } of filledCells) {
+        if (cellCol === col) {
+          const cellKey = `R${row}C${col}`;
+          const cellFormat = gridSizingSettings.cellFormats[cellKey];
+          if (cellFormat && cellFormat.width) {
+            maxWidth = Math.max(maxWidth, cellFormat.width);
+            console.log(
+              `📏 Column ${col}: found width ${cellFormat.width} in cell ${cellKey}, maxWidth now ${maxWidth}`
+            );
+          }
+        }
+      }
+
+      // Only update if the width changed significantly
+      if (Math.abs(newColWidths[col - 1] - maxWidth) > 1) {
+        console.log(
+          `📐 Column ${col}: updating width from ${
+            newColWidths[col - 1]
+          } to ${maxWidth}`
+        );
+        newColWidths[col - 1] = maxWidth;
+      }
+    }
+
+    // Update state if changes were made
+    let hasChanges = false;
+
+    if (!arraysEqual(rowHeights, newRowHeights)) {
+      console.log(`🔄 Updating row heights`);
+      setRowHeights(newRowHeights);
+      hasChanges = true;
+    }
+
+    if (!arraysEqual(colWidths, newColWidths)) {
+      console.log(`🔄 Updating column widths`);
+      setColWidths(newColWidths);
+      hasChanges = true;
+    }
+
+    // Update the sizing settings to reflect the new grid dimensions
+    if (hasChanges) {
+      console.log(`💾 Saving updated grid dimensions`);
+      const updatedSettings: GridSizingSettings = {
+        ...gridSizingSettings,
+        rowHeights: newRowHeights,
+        colWidths: newColWidths,
+      };
+
+      grid.sizingSettings = updatedSettings;
+      setGridSizingSettings(updatedSettings);
+      notifyGridChange();
+    } else {
+      console.log(`✅ No dimension changes needed`);
+    }
+  }, [
+    sizingMode,
+    gridSizingSettings,
+    rowHeights,
+    colWidths,
+    grid,
+    baseRowHeight,
+    baseColWidth,
+    zoom,
+    notifyGridChange,
+  ]);
+
+  // Helper function to compare arrays
+  const arraysEqual = (a: number[], b: number[]) => {
+    return (
+      a.length === b.length && a.every((val, i) => Math.abs(val - b[i]) < 1)
+    );
+  };
+
+  // Handle zoom changes intelligently
+  useEffect(() => {
+    const gridChanged = prevGridRef.current !== grid;
+    const zoomChanged = Math.abs(prevZoomRef.current - zoom) > 0.001;
+
+    if (zoomChanged && !gridChanged) {
+      // Zoom changed on same grid - scale dimensions
+      const zoomRatio = zoom / prevZoomRef.current;
+
+      setRowHeights((prev) => prev.map((height) => height * zoomRatio));
+      setColWidths((prev) => prev.map((width) => width * zoomRatio));
+    }
+
+    // Update refs
+    prevGridRef.current = grid;
+    prevZoomRef.current = zoom;
+  }, [grid, zoom]);
+
   // Because the parent might not have loaded from local storage:
   // optionally do it here once on mount
   useEffect(() => {
@@ -801,10 +974,45 @@ export function GridView({
     colWidths,
   ]);
 
-  // Re-init rowHeights/colWidths if row/col count changes or zoom changes
+  // Re-init rowHeights/colWidths if row/col count changes
   useEffect(() => {
-    setRowHeights(Array(grid.rowCount).fill(baseRowHeight * zoom));
-    setColWidths(Array(grid.columnCount).fill(baseColWidth * zoom));
+    // For row heights - preserve existing sizes when possible
+    setRowHeights((prev) => {
+      const newRowCount = grid.rowCount;
+      const currentRowCount = prev.length;
+
+      if (newRowCount > currentRowCount) {
+        // Grid expanded, add new rows with base height scaled by zoom
+        const newRows = Array(newRowCount - currentRowCount).fill(
+          baseRowHeight * zoom
+        );
+        return [...prev, ...newRows];
+      } else if (newRowCount < currentRowCount) {
+        // Grid shrunk, remove excess rows
+        return prev.slice(0, newRowCount);
+      }
+      // Same size, no change needed
+      return prev;
+    });
+
+    // For column widths - preserve existing sizes when possible
+    setColWidths((prev) => {
+      const newColCount = grid.columnCount;
+      const currentColCount = prev.length;
+
+      if (newColCount > currentColCount) {
+        // Grid expanded, add new columns with base width scaled by zoom
+        const newCols = Array(newColCount - currentColCount).fill(
+          baseColWidth * zoom
+        );
+        return [...prev, ...newCols];
+      } else if (newColCount < currentColCount) {
+        // Grid shrunk, remove excess columns
+        return prev.slice(0, newColCount);
+      }
+      // Same size, no change needed
+      return prev;
+    });
   }, [grid.rowCount, grid.columnCount, baseRowHeight, baseColWidth, zoom]);
 
   // Re-parse => styleMap => blockList => store to localStorage (or manager)
@@ -1153,6 +1361,41 @@ export function GridView({
         referenceUpdaterRef.current.updateReferencesForBlockMove(cellMoves);
       }
 
+      // If in "cell" mode, store the current cell sizes before moving
+      if (sizingMode === "cell" && gridSizingSettings) {
+        for (const item of dragOriginalBlockData) {
+          const oldCellKey = `R${item.row}C${item.col}`;
+          const newCellKey = `R${item.row + dR}C${item.col + dC}`;
+
+          // Get current cell format or create one with current grid dimensions
+          const existingFormat = gridSizingSettings.cellFormats[oldCellKey];
+          const currentHeight =
+            rowHeights[item.row - 1] || baseRowHeight * zoom;
+          const currentWidth = colWidths[item.col - 1] || baseColWidth * zoom;
+
+          // Create or update the cell format with current dimensions
+          const cellFormat = new CellFormat({
+            ...existingFormat,
+            width: existingFormat?.width || currentWidth,
+            height: existingFormat?.height || currentHeight,
+            lastWidthSource: existingFormat?.lastWidthSource || "auto",
+            lastHeightSource: existingFormat?.lastHeightSource || "auto",
+          });
+
+          // Store the format for the new position
+          const updatedSettings = { ...gridSizingSettings };
+          updatedSettings.cellFormats[newCellKey] = cellFormat;
+
+          // Remove the old format if it exists
+          if (updatedSettings.cellFormats[oldCellKey]) {
+            delete updatedSettings.cellFormats[oldCellKey];
+          }
+
+          grid.sizingSettings = updatedSettings;
+          setGridSizingSettings(updatedSettings);
+        }
+      }
+
       // Clear the grid first
       grid.clearAllCells(true);
 
@@ -1228,6 +1471,12 @@ export function GridView({
 
       // End transaction - this captures the final state for undo/redo
       grid.endTransaction();
+
+      // Update grid dimensions based on cell formats after the move (for "cell" mode)
+      if (sizingMode === "cell") {
+        console.log("🔧 Block moved in cell mode, updating grid dimensions...");
+        setTimeout(() => updateGridDimensionsFromCellFormats(), 50);
+      }
     } else {
       // No movement, just restore original state and end the transaction
       grid.clearAllCells(true);
@@ -1271,6 +1520,12 @@ export function GridView({
     rowHeights,
     colWidths,
     forceRefresh,
+    sizingMode,
+    gridSizingSettings,
+    baseRowHeight,
+    baseColWidth,
+    zoom,
+    updateGridDimensionsFromCellFormats,
   ]);
 
   const cancelBlockDrag = useCallback(() => {
@@ -2247,8 +2502,23 @@ export function GridView({
         colWidths,
         gridContainerRef.current
       );
+
+      // Update grid dimensions based on cell formats after the move (for "cell" mode)
+      if (sizingMode === "cell") {
+        console.log("🔧 Block moved in cell mode, updating grid dimensions...");
+        setTimeout(() => updateGridDimensionsFromCellFormats(), 50);
+      }
     },
-    [activeRow, activeCol, rowHeights, colWidths, grid, forceRefresh]
+    [
+      activeRow,
+      activeCol,
+      rowHeights,
+      colWidths,
+      grid,
+      forceRefresh,
+      sizingMode,
+      updateGridDimensionsFromCellFormats,
+    ]
   );
 
   // Alt+Arrow => jump to nearest block
@@ -2888,7 +3158,22 @@ export function GridView({
     } catch (err) {
       console.error("Failed to paste from system clipboard:", err);
     }
-  }, [selectionRange, grid, isCutMode, cutCells, cutRange, forceRefresh]);
+  }, [
+    selectionRange,
+    grid,
+    isCutMode,
+    cutCells,
+    cutRange,
+    forceRefresh,
+    sizingMode,
+    gridSizingSettings,
+    rowHeights,
+    colWidths,
+    baseRowHeight,
+    baseColWidth,
+    zoom,
+    notifyGridChange,
+  ]);
 
   const pasteReference = useCallback(() => {
     if (!clipboardData || !copiedRange) {
@@ -3365,23 +3650,25 @@ export function GridView({
   const handleGridScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
       const gridContainer = e.currentTarget;
-      const rowSize = baseRowHeight * zoom;
-      const colSize = baseColWidth * zoom;
 
       if (!gridContainer) return;
 
       const scrollTop = gridContainer.scrollTop;
       const scrollLeft = gridContainer.scrollLeft;
 
-      // Compute which row/col is at the top left
-      const topRow = Math.floor(scrollTop / rowSize);
-      const leftCol = Math.floor(scrollLeft / colSize);
+      // Find the row and column indices for the current scroll position
+      // Note that these functions return 1-based indices (not 0-based)
+      const row = findFirstRowInView(scrollTop, rowHeights);
+      const col = findFirstRowInView(scrollLeft, colWidths);
 
-      const topLeftCell = { row: topRow, col: leftCol };
-      grid.topLeftCell = topLeftCell;
-      notifyGridChange();
+      // If we have a valid row and column, save them to the grid
+      if (row > 0 && col > 0) {
+        const topLeftCell = { row, col };
+        grid.topLeftCell = topLeftCell;
+        notifyGridChange();
+      }
     },
-    [baseRowHeight, baseColWidth, zoom, grid, notifyGridChange]
+    [rowHeights, colWidths, grid, notifyGridChange]
   );
 
   // Update the updateCellValue function
@@ -3644,74 +3931,185 @@ export function GridView({
     zoom,
   ]);
 
+  // Sync local sizing state when grid.sizingSettings changes (e.g., from localStorage load)
+  useEffect(() => {
+    if (grid.sizingSettings && grid.sizingSettings.sizingMode === "grid") {
+      console.log(
+        "Syncing sizing state from grid.sizingSettings:",
+        grid.sizingSettings
+      );
+
+      if (
+        grid.sizingSettings.rowHeights &&
+        grid.sizingSettings.rowHeights.length === grid.rowCount
+      ) {
+        setRowHeights(grid.sizingSettings.rowHeights);
+      }
+
+      if (
+        grid.sizingSettings.colWidths &&
+        grid.sizingSettings.colWidths.length === grid.columnCount
+      ) {
+        setColWidths(grid.sizingSettings.colWidths);
+      }
+
+      setGridSizingSettings(grid.sizingSettings);
+      setSizingModeState(grid.sizingSettings.sizingMode);
+    }
+  }, [grid.sizingSettings, grid.rowCount, grid.columnCount]);
+
   // Column resize handler
   const handleColumnResize = useCallback(
     (columnIndex: number, newWidth: number) => {
+      console.log(
+        `🔧 Resizing column ${columnIndex} to width ${newWidth}, sizingMode: ${sizingMode}`
+      );
+
       if (sizingMode === "grid") {
         // Update grid-wide column width
         setColWidths((prev) => {
           const newWidths = [...prev];
           newWidths[columnIndex - 1] = newWidth;
+
+          // Update the grid sizing settings to persist the change
+          const updatedSettings: GridSizingSettings = {
+            ...gridSizingSettings,
+            sizingMode: "grid",
+            rowHeights: rowHeights,
+            colWidths: newWidths,
+            cellFormats: gridSizingSettings?.cellFormats || {},
+          };
+
+          // Save to grid model and localStorage
+          grid.sizingSettings = updatedSettings;
+          setGridSizingSettings(updatedSettings);
+          notifyGridChange();
+
           return newWidths;
         });
       } else {
-        // Update cell-specific formats
+        // In "cell" mode: store dimensions for filled cells and update grid immediately
+        console.log(
+          `📏 Cell mode: storing widths for filled cells in column ${columnIndex}`
+        );
+
         setGridSizingSettings((prev) => {
           if (!prev) return prev;
           const newSettings = { ...prev };
 
-          // Update all cells in this column
-          for (let row = 1; row <= grid.rowCount; row++) {
-            const cellKey = `R${row}C${columnIndex}`;
-            const existingFormat =
-              newSettings.cellFormats[cellKey] || new CellFormat();
-            newSettings.cellFormats[cellKey] = new CellFormat({
-              ...existingFormat,
-              width: newWidth,
-              lastWidthSource: "manual",
-            });
+          // Store the width for all filled cells in this column
+          const filledCells = grid.getFilledCells();
+          console.log(`📋 Found ${filledCells.length} filled cells total`);
+
+          let cellsInColumn = 0;
+          for (const { row, col } of filledCells) {
+            if (col === columnIndex) {
+              cellsInColumn++;
+              const cellKey = `R${row}C${columnIndex}`;
+              const existingFormat =
+                newSettings.cellFormats[cellKey] || new CellFormat();
+              newSettings.cellFormats[cellKey] = new CellFormat({
+                ...existingFormat,
+                width: newWidth,
+                lastWidthSource: "manual",
+              });
+              console.log(`💾 Stored width ${newWidth} for cell ${cellKey}`);
+            }
           }
+
+          console.log(
+            `📊 Updated ${cellsInColumn} cells in column ${columnIndex}`
+          );
+          console.log(
+            `🗂️ Total cell formats now:`,
+            Object.keys(newSettings.cellFormats).length
+          );
+
+          // Save to grid model and localStorage
+          grid.sizingSettings = newSettings;
+          notifyGridChange();
 
           return newSettings;
         });
+
+        // Update the column width immediately for visual feedback
+        setColWidths((prev) => {
+          const newWidths = [...prev];
+          newWidths[columnIndex - 1] = newWidth;
+          console.log(
+            `🎨 Updated column ${columnIndex} visual width to ${newWidth}`
+          );
+          return newWidths;
+        });
       }
     },
-    [sizingMode, grid.rowCount]
+    [sizingMode, grid, gridSizingSettings, rowHeights, notifyGridChange]
   );
 
   // Row resize handler
   const handleRowResize = useCallback(
     (rowIndex: number, newHeight: number) => {
+      console.log(`Resizing row ${rowIndex} to height ${newHeight}`);
+
       if (sizingMode === "grid") {
         // Update grid-wide row height
         setRowHeights((prev) => {
           const newHeights = [...prev];
           newHeights[rowIndex - 1] = newHeight;
+
+          // Update the grid sizing settings to persist the change
+          const updatedSettings: GridSizingSettings = {
+            ...gridSizingSettings,
+            sizingMode: "grid",
+            rowHeights: newHeights,
+            colWidths: colWidths,
+            cellFormats: gridSizingSettings?.cellFormats || {},
+          };
+
+          // Save to grid model and localStorage
+          grid.sizingSettings = updatedSettings;
+          setGridSizingSettings(updatedSettings);
+          notifyGridChange();
+
           return newHeights;
         });
       } else {
-        // Update cell-specific formats
+        // In "cell" mode: store dimensions for filled cells and update grid immediately
         setGridSizingSettings((prev) => {
           if (!prev) return prev;
           const newSettings = { ...prev };
 
-          // Update all cells in this row
-          for (let col = 1; col <= grid.columnCount; col++) {
-            const cellKey = `R${rowIndex}C${col}`;
-            const existingFormat =
-              newSettings.cellFormats[cellKey] || new CellFormat();
-            newSettings.cellFormats[cellKey] = new CellFormat({
-              ...existingFormat,
-              height: newHeight,
-              lastHeightSource: "manual",
-            });
+          // Store the height for all filled cells in this row
+          const filledCells = grid.getFilledCells();
+          for (const { row, col } of filledCells) {
+            if (row === rowIndex) {
+              const cellKey = `R${rowIndex}C${col}`;
+              const existingFormat =
+                newSettings.cellFormats[cellKey] || new CellFormat();
+              newSettings.cellFormats[cellKey] = new CellFormat({
+                ...existingFormat,
+                height: newHeight,
+                lastHeightSource: "manual",
+              });
+            }
           }
+
+          // Save to grid model and localStorage
+          grid.sizingSettings = newSettings;
+          notifyGridChange();
 
           return newSettings;
         });
+
+        // Update the row height immediately for visual feedback
+        setRowHeights((prev) => {
+          const newHeights = [...prev];
+          newHeights[rowIndex - 1] = newHeight;
+          return newHeights;
+        });
       }
     },
-    [sizingMode, grid.columnCount]
+    [sizingMode, grid, gridSizingSettings, colWidths, notifyGridChange]
   );
 
   // Auto-resize handlers
@@ -3873,6 +4271,7 @@ export function GridView({
           gridContainerRef={gridContainerRef}
           onColumnResize={handleColumnResize}
           onColumnAutoResize={handleColumnAutoResize}
+          zoom={zoom}
         />
 
         <RowHeaders
@@ -3884,6 +4283,7 @@ export function GridView({
           gridContainerRef={gridContainerRef}
           onRowResize={handleRowResize}
           onRowAutoResize={handleRowAutoResize}
+          zoom={zoom}
         />
 
         <div

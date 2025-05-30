@@ -12,6 +12,7 @@ export function ColumnHeaders({
   gridContainerRef,
   onColumnResize,
   onColumnAutoResize,
+  zoom = 1.0,
 }: {
   grid: Grid;
   rowHeights: number[];
@@ -21,6 +22,7 @@ export function ColumnHeaders({
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
   onColumnResize?: (columnIndex: number, newWidth: number) => void;
   onColumnAutoResize?: (columnIndex: number) => void;
+  zoom?: number;
 }) {
   const [visibleCols, setVisibleCols] = useState({ startCol: 1, endCol: 1 });
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -69,12 +71,14 @@ export function ColumnHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
+      // Don't add scrollLeft - the transform already handles scrolling
       const x = e.clientX - rect.left;
       const columnStart = sumUpTo(colWidths, columnIndex - 1);
       const columnEnd = columnStart + colWidths[columnIndex - 1];
 
-      // Check if we're near the right edge of the column (resize handle)
-      const isNearRightEdge = Math.abs(x - columnEnd) <= 5;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+      const isNearRightEdge = Math.abs(x - columnEnd) <= tolerance;
 
       if (isNearRightEdge) {
         e.preventDefault();
@@ -84,7 +88,7 @@ export function ColumnHeaders({
         setResizeStartWidth(colWidths[columnIndex - 1]);
       }
     },
-    [colWidths]
+    [colWidths, zoom]
   );
 
   const handleMouseMove = useCallback(
@@ -92,15 +96,19 @@ export function ColumnHeaders({
       if (!headerRef.current) return;
 
       const rect = headerRef.current.getBoundingClientRect();
+      // Don't add scrollLeft - the transform already handles scrolling
       const x = e.clientX - rect.left;
 
       // Find which column we're over and if we're near a resize handle
       let nearResizeHandle = false;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+
       for (let i = visibleCols.startCol; i <= visibleCols.endCol; i++) {
         const columnStart = sumUpTo(colWidths, i - 1);
         const columnEnd = columnStart + colWidths[i - 1];
 
-        if (Math.abs(x - columnEnd) <= 5) {
+        if (Math.abs(x - columnEnd) <= tolerance) {
           nearResizeHandle = true;
           break;
         }
@@ -113,7 +121,7 @@ export function ColumnHeaders({
           : "default";
       }
     },
-    [colWidths, visibleCols]
+    [colWidths, visibleCols, zoom]
   );
 
   const handleDoubleClick = useCallback(
@@ -121,19 +129,21 @@ export function ColumnHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
+      // Don't add scrollLeft - the transform already handles scrolling
       const x = e.clientX - rect.left;
       const columnStart = sumUpTo(colWidths, columnIndex - 1);
       const columnEnd = columnStart + colWidths[columnIndex - 1];
 
-      // Check if we're near the right edge of the column (resize handle)
-      const isNearRightEdge = Math.abs(x - columnEnd) <= 5;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+      const isNearRightEdge = Math.abs(x - columnEnd) <= tolerance;
 
       if (isNearRightEdge && onColumnAutoResize) {
         e.preventDefault();
         onColumnAutoResize(columnIndex);
       }
     },
-    [colWidths, onColumnAutoResize]
+    [colWidths, onColumnAutoResize, zoom]
   );
 
   // Global mouse events for resizing

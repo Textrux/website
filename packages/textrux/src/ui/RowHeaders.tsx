@@ -11,6 +11,7 @@ export function RowHeaders({
   gridContainerRef,
   onRowResize,
   onRowAutoResize,
+  zoom = 1.0,
 }: {
   grid: Grid;
   rowHeights: number[];
@@ -20,6 +21,7 @@ export function RowHeaders({
   gridContainerRef: React.RefObject<HTMLDivElement | null>;
   onRowResize?: (rowIndex: number, newHeight: number) => void;
   onRowAutoResize?: (rowIndex: number) => void;
+  zoom?: number;
 }) {
   const [visibleRows, setVisibleRows] = useState({ startRow: 1, endRow: 1 });
   const [scrollTop, setScrollTop] = useState(0);
@@ -69,12 +71,14 @@ export function RowHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
+      // Don't add scrollTop - the transform already handles scrolling
       const y = e.clientY - rect.top;
       const rowStart = sumUpTo(rowHeights, rowIndex - 1);
       const rowEnd = rowStart + rowHeights[rowIndex - 1];
 
-      // Check if we're near the bottom edge of the row (resize handle)
-      const isNearBottomEdge = Math.abs(y - rowEnd) <= 5;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+      const isNearBottomEdge = Math.abs(y - rowEnd) <= tolerance;
 
       if (isNearBottomEdge) {
         e.preventDefault();
@@ -84,7 +88,7 @@ export function RowHeaders({
         setResizeStartHeight(rowHeights[rowIndex - 1]);
       }
     },
-    [rowHeights]
+    [rowHeights, zoom]
   );
 
   const handleMouseMove = useCallback(
@@ -92,15 +96,19 @@ export function RowHeaders({
       if (!headerRef.current) return;
 
       const rect = headerRef.current.getBoundingClientRect();
+      // Don't add scrollTop - the transform already handles scrolling
       const y = e.clientY - rect.top;
 
       // Find which row we're over and if we're near a resize handle
       let nearResizeHandle = false;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+
       for (let i = visibleRows.startRow; i <= visibleRows.endRow; i++) {
         const rowStart = sumUpTo(rowHeights, i - 1);
         const rowEnd = rowStart + rowHeights[i - 1];
 
-        if (Math.abs(y - rowEnd) <= 5) {
+        if (Math.abs(y - rowEnd) <= tolerance) {
           nearResizeHandle = true;
           break;
         }
@@ -113,7 +121,7 @@ export function RowHeaders({
           : "default";
       }
     },
-    [rowHeights, visibleRows]
+    [rowHeights, visibleRows, zoom]
   );
 
   const handleDoubleClick = useCallback(
@@ -121,19 +129,21 @@ export function RowHeaders({
       const rect = headerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
+      // Don't add scrollTop - the transform already handles scrolling
       const y = e.clientY - rect.top;
       const rowStart = sumUpTo(rowHeights, rowIndex - 1);
       const rowEnd = rowStart + rowHeights[rowIndex - 1];
 
-      // Check if we're near the bottom edge of the row (resize handle)
-      const isNearBottomEdge = Math.abs(y - rowEnd) <= 5;
+      // Scale tolerance by zoom factor but ensure minimum usability
+      const tolerance = Math.max(10, 15 / zoom);
+      const isNearBottomEdge = Math.abs(y - rowEnd) <= tolerance;
 
       if (isNearBottomEdge && onRowAutoResize) {
         e.preventDefault();
         onRowAutoResize(rowIndex);
       }
     },
-    [rowHeights, onRowAutoResize]
+    [rowHeights, onRowAutoResize, zoom]
   );
 
   // Global mouse events for resizing
