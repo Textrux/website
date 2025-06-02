@@ -27,6 +27,80 @@ export interface BaseConstruct {
 }
 
 /**
+ * Enhanced construct with element management capabilities
+ */
+export interface ElementAwareConstruct extends BaseConstruct {
+  /** Element container for managing construct elements */
+  elementContainer?: import("./ConstructElementInterfaces").ConstructElementContainer;
+
+  /** Format provider for elements */
+  formatProvider?: import("./ConstructElementInterfaces").ElementFormatProvider;
+
+  /** Populate elements for this construct */
+  populateElements?(): void;
+
+  /** Get format map for all elements */
+  getElementFormatMap?(): Map<
+    string,
+    import("../../../style/CellFormat").CellFormat
+  >;
+}
+
+/**
+ * Construct that can emit and handle events
+ */
+export interface EventAwareConstruct extends BaseConstruct {
+  /** Event emitter for this construct */
+  eventEmitter?: import("./ConstructEventInterfaces").ConstructEventEmitter;
+
+  /** Emit an event from this construct */
+  emit?(
+    event: import("./ConstructEventInterfaces").ConstructEvent
+  ): Promise<void>;
+
+  /** Add event listener */
+  addEventListener?(
+    listener: import("./ConstructEventInterfaces").ConstructEventListener
+  ): void;
+
+  /** Remove event listener */
+  removeEventListener?(
+    listener: import("./ConstructEventInterfaces").ConstructEventListener
+  ): void;
+}
+
+/**
+ * Construct with control capabilities
+ */
+export interface ControlAwareConstruct extends BaseConstruct {
+  /** Available controls for this construct */
+  controls?: import("./ConstructControlInterfaces").ConstructControl[];
+
+  /** Get controls for this construct */
+  getControls?(): import("./ConstructControlInterfaces").ConstructControl[];
+
+  /** Execute a control on this construct */
+  executeControl?(
+    controlId: string,
+    context: import("./ConstructControlInterfaces").ControlContext
+  ): Promise<import("./ConstructControlInterfaces").ControlResult>;
+}
+
+/**
+ * Fully enhanced construct with all capabilities
+ */
+export interface EnhancedConstruct
+  extends ElementAwareConstruct,
+    EventAwareConstruct,
+    ControlAwareConstruct {
+  /** Initialize all enhanced capabilities */
+  initializeEnhancements?(): Promise<void>;
+
+  /** Whether this construct is fully initialized */
+  fullyInitialized?: boolean;
+}
+
+/**
  * Interface for construct signatures
  */
 export interface ConstructSignature {
