@@ -89,7 +89,7 @@ export function CellView(props: CellViewProps) {
     row,
     col,
   ]);
-  // Focus if we’re the editing cell
+  // Focus if we're the editing cell
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
@@ -157,7 +157,7 @@ export function CellView(props: CellViewProps) {
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = start + 1;
           });
-          return; // Don’t commit yet
+          return; // Don't commit yet
         }
 
         // Normal Enter: commit and move selection
@@ -221,6 +221,7 @@ export function CellView(props: CellViewProps) {
   const combinedClasses = [
     "absolute",
     "box-border",
+    "grid-cell",
     borderColor,
     bgColor,
     "overflow-hidden",
@@ -274,8 +275,8 @@ export function CellView(props: CellViewProps) {
           autoFocus={focusTarget === "cell"}
         />
       ) : (
-        <div className="w-full h-full px-1 whitespace-pre-wrap dark:text-gray-100">
-          {value}
+        <div className="w-full h-full px-1 whitespace-pre-wrap dark:text-gray-100 flex items-center">
+          <span className="w-full">{value}</span>
         </div>
       )}
     </div>

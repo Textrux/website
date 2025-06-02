@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { examples, type ExampleData } from "../../examples";
 import { SizingMode } from "../../layers/1-substrate/GridModel";
+import { AppearanceTab } from "./AppearanceTab";
+import { AppearanceSettings } from "../../types/AppearanceSettings";
+import { LocalStorageManager } from "../../util/LocalStorageManager";
 
 interface AppModalProps {
   isOpen: boolean;
@@ -35,6 +38,13 @@ export interface AppModalExtraProps {
   // Base sizing for display only
   baseRowHeight: number;
   baseColWidth: number;
+
+  // Grid index for managing appearance settings
+  gridIndex: number;
+
+  // Appearance settings
+  appearanceSettings: AppearanceSettings;
+  onAppearanceSettingsChange: (settings: AppearanceSettings) => void;
 }
 
 type CombinedProps = AppModalProps & AppModalExtraProps;
@@ -58,6 +68,9 @@ export const AppModal: React.FC<CombinedProps> = ({
   setSizingMode,
   baseRowHeight,
   baseColWidth,
+  gridIndex,
+  appearanceSettings,
+  onAppearanceSettingsChange,
 }) => {
   // Keep a local copy of the row/col so we only commit changes on "Save"
   const [localRowCount, setLocalRowCount] = useState(rowCount);
@@ -78,7 +91,7 @@ export const AppModal: React.FC<CombinedProps> = ({
   }, [isOpen, rowCount, colCount, baseRowHeight, baseColWidth]);
 
   const [activeTab, setActiveTab] = useState<
-    "Settings" | "Examples" | "Instructions" | "About"
+    "Settings" | "Appearance" | "Examples" | "Instructions" | "About"
   >("Settings");
   const [selectedExample, setSelectedExample] = useState(examples[0]);
 
@@ -90,7 +103,7 @@ export const AppModal: React.FC<CombinedProps> = ({
   }, [isOpen]);
 
   function handleTabClick(
-    tab: "Settings" | "Examples" | "Instructions" | "About"
+    tab: "Settings" | "Appearance" | "Examples" | "Instructions" | "About"
   ) {
     setActiveTab(tab);
   }
@@ -130,7 +143,7 @@ export const AppModal: React.FC<CombinedProps> = ({
     >
       <div
         id="popupBox"
-        className="bg-white text-black dark:bg-gray-800 dark:text-gray-100 w-full max-w-md md:max-w-lg rounded-lg shadow-lg overflow-hidden flex flex-col h-[90vh]"
+        className="bg-white text-black dark:bg-gray-800 dark:text-gray-100 w-full max-w-2xl lg:max-w-4xl rounded-lg shadow-lg overflow-hidden flex flex-col h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with title and close button */}
@@ -160,21 +173,27 @@ export const AppModal: React.FC<CombinedProps> = ({
         {/* Tab navigation - horizontal on desktop, horizontal scrollable on mobile */}
         <div className="border-b dark:border-gray-600 overflow-x-auto">
           <div className="flex">
-            {(["Settings", "Examples", "Instructions", "About"] as const).map(
-              (tab) => (
-                <button
-                  key={tab}
-                  className={`px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap ${
-                    activeTab === tab
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  }`}
-                  onClick={() => handleTabClick(tab)}
-                >
-                  {tab}
-                </button>
-              )
-            )}
+            {(
+              [
+                "Settings",
+                "Appearance",
+                "Examples",
+                "Instructions",
+                "About",
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab}
+                className={`px-4 py-3 text-sm sm:text-base font-medium whitespace-nowrap ${
+                  activeTab === tab
+                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+                onClick={() => handleTabClick(tab)}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -353,6 +372,14 @@ export const AppModal: React.FC<CombinedProps> = ({
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === "Appearance" && (
+            <AppearanceTab
+              gridIndex={gridIndex}
+              settings={appearanceSettings}
+              onSettingsChange={onAppearanceSettingsChange}
+            />
           )}
 
           {activeTab === "Examples" && (

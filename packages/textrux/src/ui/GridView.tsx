@@ -51,6 +51,8 @@ import {
   GridSizingSettings,
 } from "../layers/1-substrate/GridModel";
 import { CellFormat } from "../style/CellFormat";
+import { AppearanceSettings } from "../types/AppearanceSettings";
+import { StyleManager } from "../util/StyleManager";
 
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
@@ -4318,9 +4320,67 @@ export function GridView({
   // Handle default size changes
   // handleChangeDefaultSizes is now passed as a prop from parent component
 
+  // Appearance settings state
+  const [appearanceSettings, setAppearanceSettings] =
+    useState<AppearanceSettings>(() => {
+      // Always load appearance settings since they're user preferences
+      return LocalStorageManager.loadAppearanceSettings(grid.index);
+    });
+
+  // Handle appearance settings change
+  const handleAppearanceSettingsChange = useCallback(
+    (newSettings: AppearanceSettings) => {
+      console.log(
+        `🎯 GridView handleAppearanceSettingsChange called for grid ${grid.index}:`,
+        newSettings
+      );
+
+      setAppearanceSettings(newSettings);
+
+      // Always save appearance settings to localStorage since they're user preferences
+      // that should persist regardless of autoLoadLocalStorage setting
+      console.log(`💾 Always saving appearance settings to localStorage`);
+      LocalStorageManager.saveAppearanceSettings(grid.index, newSettings);
+
+      // Apply styles immediately
+      console.log(`🎨 Applying styles with StyleManager`);
+      StyleManager.updateStyles(newSettings);
+
+      // Trigger style update
+      console.log(`🔄 Triggering forceRefresh()`);
+      forceRefresh();
+    },
+    [grid.index, forceRefresh]
+  );
+
+  // Load appearance settings when grid changes
+  useEffect(() => {
+    // Always load appearance settings since they're user preferences
+    const settings = LocalStorageManager.loadAppearanceSettings(grid.index);
+    setAppearanceSettings(settings);
+    // Apply styles when loading
+    StyleManager.updateStyles(settings);
+  }, [grid.index]);
+
+  // Apply styles when appearance settings change
+  useEffect(() => {
+    StyleManager.updateStyles(appearanceSettings);
+  }, [appearanceSettings]);
+
+  // Initialize styles on mount
+  useEffect(() => {
+    StyleManager.updateStyles(appearanceSettings);
+
+    // Cleanup on unmount
+    return () => {
+      // Don't cleanup styles here as other grids might be using them
+      // StyleManager.cleanup();
+    };
+  }, []);
+
   return (
     <div
-      className={`relative overflow-hidden ${className}`}
+      className={`relative overflow-hidden textrux-grid ${className}`}
       style={{ width, height, ...style }}
       onDragOver={(e) => {
         e.preventDefault();
@@ -4584,6 +4644,9 @@ export function GridView({
         setSizingMode={setSizingMode}
         baseRowHeight={baseRowHeight}
         baseColWidth={baseColWidth}
+        gridIndex={grid.index}
+        appearanceSettings={appearanceSettings}
+        onAppearanceSettingsChange={handleAppearanceSettingsChange}
       />
 
       {fullscreenEditing && (
