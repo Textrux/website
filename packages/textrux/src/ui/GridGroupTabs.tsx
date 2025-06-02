@@ -14,6 +14,11 @@ export function GridGroupTabs() {
     null
   );
 
+  // Delete button hover state with 1 second delay
+  const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
+  const [showDeleteButton, setShowDeleteButton] = useState<number | null>(null);
+  const hoverTimeoutRef = useRef<number | undefined>(undefined);
+
   // Ref for scrolling and drag handling
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const tabsInnerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +44,44 @@ export function GridGroupTabs() {
       }
     };
   }, []);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle mouse enter for tab hover with delay
+  const handleTabMouseEnter = (index: number) => {
+    if (editingIndex !== null || isDragging.current) return;
+
+    setHoveredTabIndex(index);
+
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Set a 1 second delay before showing the delete button
+    hoverTimeoutRef.current = window.setTimeout(() => {
+      setShowDeleteButton(index);
+    }, 1000);
+  };
+
+  // Handle mouse leave for tab hover
+  const handleTabMouseLeave = (index: number) => {
+    setHoveredTabIndex(null);
+    setShowDeleteButton(null);
+
+    // Clear the timeout if user leaves before 1 second
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = undefined;
+    }
+  };
 
   const handleAddTab = () => {
     setTabs([...tabs, `Sheet${tabs.length + 1}`]);
@@ -330,6 +373,8 @@ export function GridGroupTabs() {
                 <div
                   onClick={() => handleSelectTab(i)}
                   onDoubleClick={() => handleDoubleClick(i)}
+                  onMouseEnter={() => handleTabMouseEnter(i)}
+                  onMouseLeave={() => handleTabMouseLeave(i)}
                   draggable={editingIndex !== i}
                   onDragStart={(e) => handleDragStart(i, e)}
                   onDragOver={(e) => handleDragOver(i, e)}
@@ -374,14 +419,14 @@ export function GridGroupTabs() {
                     </span>
                   )}
 
-                  {/* Delete button - hidden during rename and until hover */}
-                  {editingIndex !== i && (
+                  {/* Delete button - shown only after 1 second hover delay */}
+                  {editingIndex !== i && showDeleteButton === i && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteTab(i);
                       }}
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xs transition-opacity duration-150"
                       aria-label="Delete sheet"
                     >
                       ×
