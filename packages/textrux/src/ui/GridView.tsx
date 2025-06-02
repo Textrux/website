@@ -54,6 +54,103 @@ import { CellFormat } from "../style/CellFormat";
 import { AppearanceSettings } from "../types/AppearanceSettings";
 import { StyleManager } from "../util/StyleManager";
 
+// Helper function to calculate pixel position from row/column index and sizes
+const calculatePixelPosition = (
+  index: number,
+  sizes: number[],
+  fallbackSize: number
+): number => {
+  let position = 0;
+  for (let i = 0; i < index - 1 && i < sizes.length; i++) {
+    position += sizes[i] || fallbackSize;
+  }
+  return position;
+};
+
+// Helper function to calculate pixel range (top/bottom or left/right)
+const calculatePixelRange = (
+  startIndex: number,
+  endIndex: number,
+  sizes: number[],
+  fallbackSize: number
+): { start: number; end: number } => {
+  const start = calculatePixelPosition(startIndex, sizes, fallbackSize);
+  let end = start;
+  for (let i = startIndex - 1; i < endIndex && i < sizes.length; i++) {
+    end += sizes[i] || fallbackSize;
+  }
+  return { start, end };
+};
+
+// Helper function to create a standard selection range update
+const createSelectionUpdate = (
+  startRow: number,
+  endRow: number,
+  startCol: number,
+  endCol: number
+) => ({
+  startRow,
+  endRow,
+  startCol,
+  endCol,
+});
+
+// Helper function to calculate cumulative position (used in scroll calculations)
+const calculateCumulativePosition = (
+  targetIndex: number,
+  sizes: number[]
+): number => {
+  let position = 0;
+  // Convert from 1-based to 0-based index
+  const arrayIndex = Math.max(0, targetIndex - 1);
+
+  for (let i = 0; i < arrayIndex && i < sizes.length; i++) {
+    position += sizes[i];
+  }
+  return position;
+};
+
+// Helper function to update position state consistently
+const updatePositionState = (
+  row: number,
+  col: number,
+  setActiveRow: (row: number) => void,
+  setActiveCol: (col: number) => void,
+  setSelectionRange: (range: any) => void
+) => {
+  setActiveRow(row);
+  setActiveCol(col);
+  setSelectionRange(createSelectionUpdate(row, row, col, col));
+};
+
+// Helper function to safely clear timeout references
+const clearTimeoutRef = (
+  timeoutRef: React.MutableRefObject<number | undefined>
+) => {
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = undefined;
+  }
+};
+
+// Helper function to collect cell data for operations like cut/copy/move
+const collectCellData = (
+  grid: GridModel,
+  startRow: number,
+  endRow: number,
+  startCol: number,
+  endCol: number
+): Array<{ row: number; col: number; text: string }> => {
+  const cellData: Array<{ row: number; col: number; text: string }> = [];
+  for (let row = startRow; row <= endRow; row++) {
+    for (let col = startCol; col <= endCol; col++) {
+      const text = grid.getCellRaw(row, col);
+      cellData.push({ row, col, text });
+    }
+  }
+  return cellData;
+};
+
 /** The row/col selection range in the spreadsheet. */
 export interface SelectionRange {
   startRow: number;
@@ -560,12 +657,9 @@ export function GridView({
       if (cellCluster) {
         // First press - select cell cluster
         const { topRow, bottomRow, leftCol, rightCol } = cellCluster;
-        setSelectionRange({
-          startRow: topRow,
-          endRow: bottomRow,
-          startCol: leftCol,
-          endCol: rightCol,
-        });
+        setSelectionRange(
+          createSelectionUpdate(topRow, bottomRow, leftCol, rightCol)
+        );
         setActiveRow(topRow);
         setActiveCol(leftCol);
         ctrlAStageRef.current = 1;
@@ -575,12 +669,14 @@ export function GridView({
       // If we're in a block (either initially or after selecting cell cluster)
       if (block && ctrlAStageRef.current <= 1) {
         // Select block canvas
-        setSelectionRange({
-          startRow: block.topRow,
-          endRow: block.bottomRow,
-          startCol: block.leftCol,
-          endCol: block.rightCol,
-        });
+        setSelectionRange(
+          createSelectionUpdate(
+            block.topRow,
+            block.bottomRow,
+            block.leftCol,
+            block.rightCol
+          )
+        );
         setActiveRow(block.topRow);
         setActiveCol(block.leftCol);
         ctrlAStageRef.current = 2;
@@ -598,12 +694,7 @@ export function GridView({
       ) {
         // Select block cluster canvas
         const { top, left, bottom, right } = blockCluster.clusterCanvas;
-        setSelectionRange({
-          startRow: top,
-          endRow: bottom,
-          startCol: left,
-          endCol: right,
-        });
+        setSelectionRange(createSelectionUpdate(top, bottom, left, right));
         setActiveRow(top);
         setActiveCol(left);
         ctrlAStageRef.current = 3;
@@ -625,12 +716,9 @@ export function GridView({
           maxCol = Math.max(maxCol, col);
         });
 
-        setSelectionRange({
-          startRow: minRow,
-          endRow: maxRow,
-          startCol: minCol,
-          endCol: maxCol,
-        });
+        setSelectionRange(
+          createSelectionUpdate(minRow, maxRow, minCol, maxCol)
+        );
         setActiveRow(minRow);
         setActiveCol(minCol);
         ctrlAStageRef.current = 4;
@@ -638,12 +726,7 @@ export function GridView({
       }
 
       // If there are no filled cells, select cell R1C1
-      setSelectionRange({
-        startRow: 1,
-        endRow: 1,
-        startCol: 1,
-        endCol: 1,
-      });
+      setSelectionRange(createSelectionUpdate(1, 1, 1, 1));
       setActiveRow(1);
       setActiveCol(1);
     },
@@ -1269,26 +1352,20 @@ export function GridView({
         const container = gridContainerRef.current;
         const containerRect = container.getBoundingClientRect();
 
-        // Calculate the pixel positions of the block
-        let blockTopPx = 0;
-        for (let i = 0; i < newBlockTop - 1; i++) {
-          blockTopPx += rowHeights[i] || baseRowHeight * zoom;
-        }
+        // Calculate the pixel positions of the block using helper functions
+        const { start: blockTopPx, end: blockBottomPx } = calculatePixelRange(
+          newBlockTop,
+          newBlockBottom,
+          rowHeights,
+          baseRowHeight * zoom
+        );
 
-        let blockBottomPx = blockTopPx;
-        for (let i = newBlockTop - 1; i < newBlockBottom; i++) {
-          blockBottomPx += rowHeights[i] || baseRowHeight * zoom;
-        }
-
-        let blockLeftPx = 0;
-        for (let i = 0; i < newBlockLeft - 1; i++) {
-          blockLeftPx += colWidths[i] || baseColWidth * zoom;
-        }
-
-        let blockRightPx = blockLeftPx;
-        for (let i = newBlockLeft - 1; i < newBlockRight; i++) {
-          blockRightPx += colWidths[i] || baseColWidth * zoom;
-        }
+        const { start: blockLeftPx, end: blockRightPx } = calculatePixelRange(
+          newBlockLeft,
+          newBlockRight,
+          colWidths,
+          baseColWidth * zoom
+        );
 
         // Check if we need to scroll
         const scrollTop = container.scrollTop;
@@ -1586,26 +1663,20 @@ export function GridView({
       const container = gridContainerRef.current;
       if (!container) return null;
 
-      // Calculate the pixel position of the selection center
-      let startRowPx = 0;
-      for (let i = 0; i < range.startRow - 1; i++) {
-        startRowPx += rowHeights[i] || baseRowHeight * zoom;
-      }
+      // Calculate the pixel position of the selection using helper functions
+      const { start: startRowPx, end: endRowPx } = calculatePixelRange(
+        range.startRow,
+        range.endRow,
+        rowHeights,
+        baseRowHeight * zoom
+      );
 
-      let endRowPx = startRowPx;
-      for (let i = range.startRow - 1; i < range.endRow; i++) {
-        endRowPx += rowHeights[i] || baseRowHeight * zoom;
-      }
-
-      let startColPx = 0;
-      for (let i = 0; i < range.startCol - 1; i++) {
-        startColPx += colWidths[i] || baseColWidth * zoom;
-      }
-
-      let endColPx = startColPx;
-      for (let i = range.startCol - 1; i < range.endCol; i++) {
-        endColPx += colWidths[i] || baseColWidth * zoom;
-      }
+      const { start: startColPx, end: endColPx } = calculatePixelRange(
+        range.startCol,
+        range.endCol,
+        colWidths,
+        baseColWidth * zoom
+      );
 
       // Calculate center position within the grid
       const centerX = (startColPx + endColPx) / 2;
@@ -1630,14 +1701,8 @@ export function GridView({
       e.stopPropagation();
 
       // Clear any pending timeouts
-      if (hideHandleTimeoutRef.current) {
-        clearTimeout(hideHandleTimeoutRef.current);
-        hideHandleTimeoutRef.current = undefined;
-      }
-      if (showHandleTimeoutRef.current) {
-        clearTimeout(showHandleTimeoutRef.current);
-        showHandleTimeoutRef.current = undefined;
-      }
+      clearTimeoutRef(hideHandleTimeoutRef);
+      clearTimeoutRef(showHandleTimeoutRef);
 
       // Reset hovering state since we're starting to drag
       setIsHoveringHandle(false);
@@ -1684,18 +1749,14 @@ export function GridView({
       const hoveredRow = findRowByY(y, rowHeights);
       const hoveredCol = findColByX(x, colWidths);
 
-      // Calculate target cell center position
-      let targetRowPx = 0;
-      for (let i = 0; i < hoveredRow - 1; i++) {
-        targetRowPx += rowHeights[i] || baseRowHeight * zoom;
-      }
-      targetRowPx += (rowHeights[hoveredRow - 1] || baseRowHeight * zoom) / 2;
+      // Calculate target cell center position using helper function
+      const targetRowPx =
+        calculatePixelPosition(hoveredRow, rowHeights, baseRowHeight * zoom) +
+        (rowHeights[hoveredRow - 1] || baseRowHeight * zoom) / 2;
 
-      let targetColPx = 0;
-      for (let i = 0; i < hoveredCol - 1; i++) {
-        targetColPx += colWidths[i] || baseColWidth * zoom;
-      }
-      targetColPx += (colWidths[hoveredCol - 1] || baseColWidth * zoom) / 2;
+      const targetColPx =
+        calculatePixelPosition(hoveredCol, colWidths, baseColWidth * zoom) +
+        (colWidths[hoveredCol - 1] || baseColWidth * zoom) / 2;
 
       // Convert to absolute screen coordinates for visual feedback
       const targetAbsoluteX = rect.left + targetColPx - container.scrollLeft;
@@ -2042,14 +2103,14 @@ export function GridView({
     if (newC < 1) newC = 1;
     if (newC > grid.columnCount) newC = grid.columnCount;
 
-    setActiveRow(newR);
-    setActiveCol(newC);
-    setSelectionRange({
-      startRow: newR,
-      endRow: newR,
-      startCol: newC,
-      endCol: newC,
-    });
+    // Use helper function to update position state consistently
+    updatePositionState(
+      newR,
+      newC,
+      setActiveRow,
+      setActiveCol,
+      setSelectionRange
+    );
 
     ctrlAStageRef.current = 0;
     lastCtrlACellRef.current = null;
@@ -2298,14 +2359,15 @@ export function GridView({
 
       const newR = Math.max(1, Math.min(grid.rowCount, activeRow + dR));
       const newC = Math.max(1, Math.min(grid.columnCount, activeCol + dC));
-      setActiveRow(newR);
-      setActiveCol(newC);
-      setSelectionRange({
-        startRow: newR,
-        endRow: newR,
-        startCol: newC,
-        endCol: newC,
-      });
+
+      updatePositionState(
+        newR,
+        newC,
+        setActiveRow,
+        setActiveCol,
+        setSelectionRange
+      );
+
       anchorRef.current = { row: newR, col: newC };
       ctrlAStageRef.current = 0;
       lastCtrlACellRef.current = null;
@@ -2346,12 +2408,14 @@ export function GridView({
 
       setActiveRow(newR);
       setActiveCol(newC);
-      setSelectionRange({
-        startRow: Math.min(start.row, newR),
-        endRow: Math.max(start.row, newR),
-        startCol: Math.min(start.col, newC),
-        endCol: Math.max(start.col, newC),
-      });
+      setSelectionRange(
+        createSelectionUpdate(
+          Math.min(start.row, newR),
+          Math.max(start.row, newR),
+          Math.min(start.col, newC),
+          Math.max(start.col, newC)
+        )
+      );
       ctrlAStageRef.current = 0;
       lastCtrlACellRef.current = null;
       grid.selectedCell = { row: newR, col: newC };
@@ -2644,6 +2708,7 @@ export function GridView({
 
     grid.beginTransaction();
 
+    // Clear all cells in the selection range
     for (let r = startRow; r <= endRow; r++) {
       for (let c = startCol; c <= endCol; c++) {
         grid.setCellRaw(r, c, "");
@@ -3022,16 +3087,13 @@ export function GridView({
 
     grid.beginTransaction();
 
-    const cutArr: Array<{ row: number; col: number; text: string }> = [];
-
-    for (let r = startRow; r <= endRow; r++) {
-      for (let c = startCol; c <= endCol; c++) {
-        const txt = grid.getCellRaw(r, c);
-        if (txt.trim() !== "") {
-          cutArr.push({ row: r, col: c, text: txt });
-        }
-      }
-    }
+    const cutArr = collectCellData(
+      grid,
+      startRow,
+      endRow,
+      startCol,
+      endCol
+    ).filter(({ text }) => text.trim() !== "");
 
     setCutCells(cutArr);
     setCutRange({ startRow, endRow, startCol, endCol });
@@ -3747,14 +3809,7 @@ export function GridView({
 
   // Add a helper function to calculate scroll position
   const calculateScrollPosition = (index: number, sizes: number[]): number => {
-    let position = 0;
-    // Convert from 1-based to 0-based index
-    const arrayIndex = Math.max(0, index - 1);
-
-    for (let i = 0; i < arrayIndex && i < sizes.length; i++) {
-      position += sizes[i];
-    }
-    return position;
+    return calculateCumulativePosition(index, sizes);
   };
 
   // Add an effect to restore scroll position when the grid changes (for tab switching)
