@@ -12,6 +12,72 @@ import { fromTSV, toTSV } from "../util/TSV";
 const DEFAULT_ROW_HEIGHT = 24;
 const DEFAULT_COL_WIDTH = 100;
 
+// Helper function to create a new grid with all default settings
+const createNewGrid = (
+  index: number,
+  name: string,
+  defaultRows: number,
+  defaultCols: number,
+  delimiter: "tab" | "," = "tab"
+) => {
+  const newGrid = new GridModel(defaultRows, defaultCols, index);
+  newGrid.name = name;
+  newGrid.zoomLevel = 1.0;
+  newGrid.delimiter = delimiter;
+
+  // Create proper sizing settings with default base sizes
+  const sizingSettings = LocalStorageManager.getDefaultGridSizing(
+    defaultRows,
+    defaultCols,
+    DEFAULT_ROW_HEIGHT,
+    DEFAULT_COL_WIDTH
+  );
+  newGrid.sizingSettings = sizingSettings;
+
+  return newGrid;
+};
+
+// Helper function to create a shallow copy of gallery while preserving type
+const copyGallery = (prevGallery: GridGalleryModel) => {
+  const newGal = Object.assign(new GridGalleryModel(), prevGallery);
+  newGal.grids = [...prevGallery.grids];
+  return newGal;
+};
+
+// Helper function to save complete gallery state to localStorage
+const saveGalleryState = (gallery: GridGalleryModel) => {
+  // Save each individual grid
+  for (const grid of gallery.grids) {
+    LocalStorageManager.saveGrid(grid);
+  }
+  // Save gallery structure
+  LocalStorageManager.saveGalleryIndexes(gallery.grids);
+  LocalStorageManager.saveActiveGridIndex(gallery.activeGridIndex);
+};
+
+// Helper function to parse content and load it into a grid
+const loadContentIntoGrid = (grid: GridModel, content: string) => {
+  const delim = content.includes("\t") ? "\t" : ",";
+  const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
+
+  // Set delimiter on grid
+  grid.delimiter = delim === "\t" ? "tab" : ",";
+
+  // Resize the grid if needed
+  const neededRows = arr.length;
+  const neededCols = Math.max(...arr.map((row) => row.length), 0);
+  grid.resizeRows(Math.max(grid.rowCount, neededRows));
+  grid.resizeCols(Math.max(grid.columnCount, neededCols));
+
+  // Load the data into the grid
+  for (let r = 0; r < neededRows; r++) {
+    for (let c = 0; c < arr[r].length; c++) {
+      const val = arr[r][c].trim();
+      if (val) grid.setCellRaw(r + 1, c + 1, val);
+    }
+  }
+};
+
 export interface GridGalleryProps {
   autoLoadLocalStorage?: boolean;
   initialGridCount?: number;
@@ -429,31 +495,19 @@ export default function GridGalleryView(props: GridGalleryProps) {
     newGal.nextGridIndex = 1;
 
     // Create a single default grid
-    const defaultGrid = new GridModel(
+    const defaultGrid = createNewGrid(
+      newGal.nextGridIndex++,
+      "Grid 1",
       defaultRows,
-      defaultCols,
-      newGal.nextGridIndex++
-    );
-    defaultGrid.name = "Grid 1";
-    defaultGrid.zoomLevel = 1.0;
-    defaultGrid.delimiter = "tab";
-
-    // Set the sizing settings on the new grid
-    defaultGrid.sizingSettings = LocalStorageManager.getDefaultGridSizing(
-      defaultRows,
-      defaultCols,
-      DEFAULT_ROW_HEIGHT,
-      DEFAULT_COL_WIDTH
+      defaultCols
     );
 
     // Add the grid to the gallery
     newGal.grids = [defaultGrid];
     newGal.activeGridIndex = 0;
 
-    // Update localStorage with the new state
-    LocalStorageManager.saveGrid(defaultGrid);
-    LocalStorageManager.saveGalleryIndexes(newGal.grids);
-    LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+    // Save to localStorage
+    saveGalleryState(newGal);
 
     console.log(
       `Reset to single grid with preserved default sizes: row=${DEFAULT_ROW_HEIGHT}, col=${DEFAULT_COL_WIDTH}`
@@ -486,9 +540,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
     }
 
     setGallery((prev) => {
-      // Create a shallow copy while preserving the type
-      const newGal = Object.assign(new GridGalleryModel(), prev);
-      newGal.grids = [...prev.grids];
+      const newGal = copyGallery(prev);
       newGal.activeGridIndex = index;
 
       // Save the new active index to localStorage immediately
@@ -507,42 +559,21 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
   const addGrid = () => {
     setGallery((prev) => {
-      // Create a shallow copy while preserving the type
-      const newGal = Object.assign(new GridGalleryModel(), prev);
-      newGal.grids = [...prev.grids];
+      const newGal = copyGallery(prev);
 
-      // Create a new grid with the next available index
-      const newGrid = new GridModel(
+      // Create a new grid with default settings
+      const newGrid = createNewGrid(
+        newGal.nextGridIndex++,
+        `Grid ${newGal.grids.length + 1}`,
         defaultRows,
-        defaultCols,
-        newGal.nextGridIndex++
+        defaultCols
       );
-      newGrid.name = `Grid ${newGal.grids.length + 1}`;
-
-      // Set default values for new grid
-      newGrid.zoomLevel = 1.0;
-      newGrid.delimiter = "tab";
-
-      // Create proper sizing settings with the saved default sizes
-      const sizingSettings = LocalStorageManager.getDefaultGridSizing(
-        defaultRows,
-        defaultCols,
-        DEFAULT_ROW_HEIGHT,
-        DEFAULT_COL_WIDTH
-      );
-
-      // Set the sizing settings on the new grid
-      newGrid.sizingSettings = sizingSettings;
 
       newGal.grids.push(newGrid);
-
-      // Set the new grid as active
       newGal.activeGridIndex = newGal.grids.length - 1;
 
-      // Save to localStorage immediately
-      LocalStorageManager.saveGrid(newGrid);
-      LocalStorageManager.saveGalleryIndexes(newGal.grids);
-      LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+      // Save to localStorage
+      saveGalleryState(newGal);
 
       console.log(
         `Created new grid with default sizes: row=${DEFAULT_ROW_HEIGHT}, col=${DEFAULT_COL_WIDTH}`
@@ -559,9 +590,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
     }
 
     setGallery((prev) => {
-      // Create a shallow copy while preserving the type
-      const newGal = Object.assign(new GridGalleryModel(), prev);
-      newGal.grids = [...prev.grids];
+      const newGal = copyGallery(prev);
 
       // Remove the grid
       const removed = newGal.grids.splice(index, 1)[0];
@@ -584,9 +613,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
   const renameGrid = (index: number, newName: string) => {
     setGallery((prev) => {
-      // Create a shallow copy while preserving the type
-      const newGal = Object.assign(new GridGalleryModel(), prev);
-      newGal.grids = [...prev.grids];
+      const newGal = copyGallery(prev);
 
       // Update the name
       newGal.grids[index].name = newName;
@@ -606,8 +633,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
     );
 
     setGallery((prev) => {
-      // Create a shallow copy while preserving the type
-      const newGal = Object.assign(new GridGalleryModel(), prev);
+      const newGal = copyGallery(prev);
 
       // Update with the new order of grids
       newGal.grids = newGrids;
@@ -632,54 +658,29 @@ export default function GridGalleryView(props: GridGalleryProps) {
       const content = target.result as string;
 
       setGallery((prev) => {
-        // Create a shallow copy while preserving the type
-        const newGal = Object.assign(new GridGalleryModel(), prev);
-        newGal.grids = [...prev.grids];
-
-        // Create a new grid with the next available index
-        const newGrid = new GridModel(
-          defaultRows,
-          defaultCols,
-          newGal.nextGridIndex++
-        );
+        const newGal = copyGallery(prev);
 
         // Set the grid name to the filename without extension
         const baseName = file.name.replace(/\.\w+$/, ""); // remove extension
-        newGrid.name = baseName.split("___")[0];
+        const gridName = baseName.split("___")[0];
 
-        // Set default values for new grid
-        newGrid.zoomLevel = 1.0;
-        newGrid.delimiter =
-          file.name.endsWith(".tsv") || content.includes("\t") ? "tab" : ",";
+        // Create a new grid
+        const newGrid = createNewGrid(
+          newGal.nextGridIndex++,
+          gridName,
+          defaultRows,
+          defaultCols
+        );
 
-        // Parse the file content
-        const isTab = file.name.endsWith(".tsv") || content.includes("\t");
-        const arr = isTab ? fromTSV(content) : fromCSV(content);
+        // Load the file content into the grid
+        loadContentIntoGrid(newGrid, content);
 
-        // Resize the grid if needed
-        const neededRows = arr.length;
-        const neededCols = Math.max(...arr.map((row) => row.length), 0);
-        newGrid.resizeRows(Math.max(newGrid.rowCount, neededRows));
-        newGrid.resizeCols(Math.max(newGrid.columnCount, neededCols));
-
-        // Load the data into the grid
-        for (let r = 0; r < neededRows; r++) {
-          for (let c = 0; c < arr[r].length; c++) {
-            const val = arr[r][c].trim();
-            if (val) newGrid.setCellRaw(r + 1, c + 1, val);
-          }
-        }
-
-        // Add the new grid
+        // Add the new grid and make it active
         newGal.grids.push(newGrid);
-
-        // Set the new grid as active
         newGal.activeGridIndex = newGal.grids.length - 1;
 
-        // Save to localStorage immediately
-        LocalStorageManager.saveGrid(newGrid);
-        LocalStorageManager.saveGalleryIndexes(newGal.grids);
-        LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+        // Save to localStorage
+        saveGalleryState(newGal);
 
         return newGal;
       });
@@ -690,54 +691,26 @@ export default function GridGalleryView(props: GridGalleryProps) {
   // Function to create a new grid and load an example into it
   const loadExampleToNewGrid = (example: any) => {
     try {
-      // Content is directly available from the example
-      const content = example.content;
-      const delim = content.includes("\t") ? "\t" : ",";
-      const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
-
       setGallery((prev) => {
-        // Create a shallow copy while preserving the type
-        const newGal = Object.assign(new GridGalleryModel(), prev);
-        newGal.grids = [...prev.grids];
+        const newGal = copyGallery(prev);
 
-        // Create a new grid with the next available index
-        const newGrid = new GridModel(
+        // Create a new grid with the example name
+        const newGrid = createNewGrid(
+          newGal.nextGridIndex++,
+          example.name,
           defaultRows,
-          defaultCols,
-          newGal.nextGridIndex++
+          defaultCols
         );
 
-        // Set the grid name to the example name
-        newGrid.name = example.name;
+        // Load the example content into the grid
+        loadContentIntoGrid(newGrid, example.content);
 
-        // Set default values for new grid
-        newGrid.zoomLevel = 1.0;
-        newGrid.delimiter = delim === "\t" ? "tab" : ",";
-
-        // Resize the grid if needed
-        const neededRows = arr.length;
-        const neededCols = Math.max(...arr.map((row) => row.length), 0);
-        newGrid.resizeRows(Math.max(newGrid.rowCount, neededRows));
-        newGrid.resizeCols(Math.max(newGrid.columnCount, neededCols));
-
-        // Load the data into the grid
-        for (let r = 0; r < neededRows; r++) {
-          for (let c = 0; c < arr[r].length; c++) {
-            const val = arr[r][c].trim();
-            if (val) newGrid.setCellRaw(r + 1, c + 1, val);
-          }
-        }
-
-        // Add the new grid
+        // Add the new grid and make it active
         newGal.grids.push(newGrid);
-
-        // Set the new grid as active
         newGal.activeGridIndex = newGal.grids.length - 1;
 
-        // Save to localStorage immediately
-        LocalStorageManager.saveGrid(newGrid);
-        LocalStorageManager.saveGalleryIndexes(newGal.grids);
-        LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+        // Save to localStorage
+        saveGalleryState(newGal);
 
         return newGal;
       });
