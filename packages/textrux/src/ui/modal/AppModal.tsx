@@ -20,7 +20,7 @@ export interface AppModalExtraProps {
   clearAllGrids?: () => void; // Optional function to reset all grids to defaults
   saveGridToFile: () => void;
   loadGridFromFile: (file: File) => void;
-  loadExample: (ex: ExampleData) => void;
+  onLoadExampleToNewGrid: (ex: ExampleData) => void; // Load example to new tab
 
   rowCount: number; // The grid's current row count
   colCount: number; // The grid's current column count
@@ -58,7 +58,7 @@ export const AppModal: React.FC<CombinedProps> = ({
   clearAllGrids,
   saveGridToFile,
   loadGridFromFile,
-  loadExample,
+  onLoadExampleToNewGrid,
   rowCount,
   colCount,
   onChangeDimensions,
@@ -117,7 +117,7 @@ export const AppModal: React.FC<CombinedProps> = ({
   // <--- This is triggered by the "Load" button in the Examples tab
   function onLoadExampleClick() {
     console.log("selected example", selectedExample);
-    loadExample(selectedExample);
+    onLoadExampleToNewGrid(selectedExample);
     onClose();
   }
 

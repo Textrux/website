@@ -687,6 +687,65 @@ export default function GridGalleryView(props: GridGalleryProps) {
     reader.readAsText(file);
   };
 
+  // Function to create a new grid and load an example into it
+  const loadExampleToNewGrid = (example: any) => {
+    try {
+      // Content is directly available from the example
+      const content = example.content;
+      const delim = content.includes("\t") ? "\t" : ",";
+      const arr = delim === "\t" ? fromTSV(content) : fromCSV(content);
+
+      setGallery((prev) => {
+        // Create a shallow copy while preserving the type
+        const newGal = Object.assign(new GridGalleryModel(), prev);
+        newGal.grids = [...prev.grids];
+
+        // Create a new grid with the next available index
+        const newGrid = new GridModel(
+          defaultRows,
+          defaultCols,
+          newGal.nextGridIndex++
+        );
+
+        // Set the grid name to the example name
+        newGrid.name = example.name;
+
+        // Set default values for new grid
+        newGrid.zoomLevel = 1.0;
+        newGrid.delimiter = delim === "\t" ? "tab" : ",";
+
+        // Resize the grid if needed
+        const neededRows = arr.length;
+        const neededCols = Math.max(...arr.map((row) => row.length), 0);
+        newGrid.resizeRows(Math.max(newGrid.rowCount, neededRows));
+        newGrid.resizeCols(Math.max(newGrid.columnCount, neededCols));
+
+        // Load the data into the grid
+        for (let r = 0; r < neededRows; r++) {
+          for (let c = 0; c < arr[r].length; c++) {
+            const val = arr[r][c].trim();
+            if (val) newGrid.setCellRaw(r + 1, c + 1, val);
+          }
+        }
+
+        // Add the new grid
+        newGal.grids.push(newGrid);
+
+        // Set the new grid as active
+        newGal.activeGridIndex = newGal.grids.length - 1;
+
+        // Save to localStorage immediately
+        LocalStorageManager.saveGrid(newGrid);
+        LocalStorageManager.saveGalleryIndexes(newGal.grids);
+        LocalStorageManager.saveActiveGridIndex(newGal.activeGridIndex);
+
+        return newGal;
+      });
+    } catch (err) {
+      console.error("Failed to load example to new grid:", err);
+    }
+  };
+
   return (
     <div
       style={{
@@ -723,6 +782,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
             baseFontSize={14}
             onGridChange={onGridChange}
             onLoadFileToNewGrid={loadFileToNewGrid}
+            onLoadExampleToNewGrid={loadExampleToNewGrid}
             clearAllGrids={clearAllGrids}
           />
         ) : (

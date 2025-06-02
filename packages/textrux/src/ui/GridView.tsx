@@ -75,6 +75,7 @@ export interface GridViewProps {
   autoLoadLocalStorage?: boolean;
   onGridChange?: (grid: GridModel) => void;
   onLoadFileToNewGrid?: (file: File) => void;
+  onLoadExampleToNewGrid?: (ex: any) => void; // Load example to new tab
   clearAllGrids?: () => void; // Function to reset all grids to defaults
   handleChangeDefaultSizes?: (
     newRowHeight: number,
@@ -94,6 +95,7 @@ export function GridView({
   autoLoadLocalStorage = true,
   onGridChange,
   onLoadFileToNewGrid,
+  onLoadExampleToNewGrid,
   clearAllGrids,
   handleChangeDefaultSizes,
 }: GridViewProps) {
@@ -4634,7 +4636,7 @@ export function GridView({
         clearAllGrids={clearAllGrids}
         saveGridToFile={saveGridToFile}
         loadGridFromFile={loadGridFromFile}
-        loadExample={loadExample}
+        onLoadExampleToNewGrid={onLoadExampleToNewGrid || loadExample}
         rowCount={grid.rowCount}
         colCount={grid.columnCount}
         onChangeDimensions={onChangeDimensions}
