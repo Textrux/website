@@ -319,4 +319,10 @@ export interface CellClusterTraits {
   base: CellClusterBaseTraits;
   composite: CellClusterCompositeTraits;
   derived: CellClusterDerivedTraits;
+  
+  // Enhanced trait categories for detailed construct detection
+  spatial?: import("./SpatialRelationshipTraits").SpatialRelationshipTraits;
+  content?: import("./ContentPatternTraits").ContentPatternTraits;
+  roles?: import("./CellRoleTraits").CellRoleTraits;
+  arrangement?: import("./ArrangementTraits").ArrangementTraits;
 }
