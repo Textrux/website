@@ -105,7 +105,7 @@ The foundation layer takes aggregated groups and identifies them as basic, namea
 
 ### Layer 4: Constructs
 
-**Typed Primitives Built from Foundations** _(Metaphor: Rooms, Walls, Trees, Tables)_
+**Typed Primitives Built from Foundations** _(Metaphor: Rooms, Walls)_
 
 Based on foundation analysis, this layer identifies high-level semantic constructs:
 
@@ -163,7 +163,7 @@ This layer represents actual, populated instances of blueprints found in real gr
 
 ### Layer 8: Renovators
 
-**Agents That Reshape/Evaluate a Structure Internally** _(Metaphor: Renovation Crews, Evaluators)_
+**Agents That Reshape/Evaluate a Structure Internally** _(Metaphor: Renovation Crews)_
 
 Renovators are systems that can modify and optimize structures from within:
 
