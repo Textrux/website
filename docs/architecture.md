@@ -79,9 +79,9 @@ The foundation layer takes aggregated groups and identifies them as basic, namea
 **Block Clusters**: The rectangular area encompassing a set of block subclusters
 - Represents the overall boundary around related structural units
 
-**Cell Subclusters**: Sets of filled cells within a cell cluster that are **contiguous** (4-connected: N, S, E, W only)
+**Cell Subclusters**: Sets of filled cells within a cell cluster that are **contiguous** (8-connected: N, S, E, W, NE, NW, SE, SW)
 - These are the actual connected "chunks" of data within a cell cluster
-- Uses 4-connected (not 8-connected) because we want distinct, directly touching groups
+- Uses 8-connected connectivity, so cells touching even diagonally are considered part of the same subcluster
 
 **Trait Analysis System**: The heart of BSS, implementing four categories of spatial analysis:
 
