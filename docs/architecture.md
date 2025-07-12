@@ -49,22 +49,39 @@ The substrate layer defines the fundamental spatial canvas upon which all spatia
 This layer defines the fundamental grouping rules that operate on the binary filled/empty cells:
 
 **In Textrux's Implementation**:
-- **Binary Proximity Grouping**: Filled cells that are adjacent (4-connected) form natural groups
-- **Density-Based Clustering**: Cells close together spatially are considered related
+- **8-Connected Proximity Grouping**: Filled cells that are adjacent (including corners: N, S, E, W, NE, NW, SE, SW) form natural groups
+- **Density-Based Clustering**: Cells close together spatially are considered related through their expanded outline
 - **Pre-Shape Analysis**: Groups are formed before we try to understand what shapes they make
 
-**Why This Matters**: This layer creates the raw material that higher layers will interpret as meaningful structures. Without proper aggregation rules, spatial relationships would be lost.
+**Why This Matters**: This layer creates the raw material that higher layers will interpret as meaningful structures. The 8-connected rule means that diagonally adjacent filled cells are considered part of the same aggregate, enabling recognition of more complex spatial patterns.
 
 ### Layer 3: Foundations
 **Recognizable Base Shapes** _(Metaphor: Cinder Blocks)_
 
-The foundation layer takes aggregated groups and identifies them as basic, nameable shapes:
+The foundation layer takes aggregated groups and identifies them as basic, nameable shapes based on how many empty rectangular perimeters can be drawn around them:
 
 **In Textrux's Implementation**:
-- **Cell Clusters**: Groups of spatially related filled cells that form coherent units
-- **Blocks**: Rectangular arrangements of filled cells
-- **Block Clusters**: Collections of related blocks
-- **Subclusters**: Contiguous portions within larger clusters
+
+**Blocks**: Created when **2 empty rectangular perimeters** can be drawn around filled cells
+- Think of it as: filled cells with 2 layers of "breathing room" around them
+- Blocks represent major structural units that are well-separated from other content
+
+**Cell Clusters**: Created when **1 empty rectangular perimeter** can be drawn around filled cells  
+- Think of it as: filled cells with 1 layer of "breathing room" around them
+- Cell clusters are sub-units within blocks, representing more tightly grouped content
+- Each block contains one or more cell clusters
+
+**Block Subclusters**: Formed when blocks are close enough that their "frames" interact
+- **Linked**: When the frames of two blocks overlap
+- **Locked**: When the frame of one block overlaps the border of another
+- Block subclusters represent related blocks that should be considered together
+
+**Block Clusters**: The rectangular area encompassing a set of block subclusters
+- Represents the overall boundary around related structural units
+
+**Cell Subclusters**: Sets of filled cells within a cell cluster that are **contiguous** (4-connected: N, S, E, W only)
+- These are the actual connected "chunks" of data within a cell cluster
+- Uses 4-connected (not 8-connected) because we want distinct, directly touching groups
 
 **Trait Analysis System**: The heart of BSS, implementing four categories of spatial analysis:
 
@@ -73,7 +90,7 @@ The foundation layer takes aggregated groups and identifies them as basic, namea
 - **Cell Role Traits**: Assignment of semantic roles (root, parent, child, peer)
 - **Arrangement Traits**: Orientation analysis, spacing patterns, flow direction
 
-**Key Innovation**: This layer analyzes **spatial positions first**, with text content only used for refinement later.
+**Key Innovation**: This layer analyzes **spatial positions first**, with text content only used for refinement later. The different "breathing room" requirements create a natural hierarchy from fine-grained (cell subclusters) to broad (block clusters).
 
 ### Layer 4: Constructs
 **Typed Primitives Built from Foundations** _(Metaphor: Rooms, Walls, Trees, Tables)_
@@ -198,72 +215,138 @@ Because the system understands spatial semantics through all 10 layers:
 - **Intelligent Auto-Completion**: Suggest completions based on spatial context and blueprint patterns
 - **Context-Sensitive Actions**: Different actions available based on construct type and position
 
-## Real-World Applications
+## Real-World Applications Through the SPASE Pipeline
 
-### API Documentation as Spatial Maps
-Instead of traditional documentation, APIs can be represented as spatial structures where:
-- Endpoint relationships are shown through proximity
-- Data flow is indicated by spatial arrangement
-- Complex nested schemas become visually navigable spatial structures
+### API Documentation as Spatial Schemas
 
-### Code Architecture Visualization
-Entire software systems can be represented spatially:
-- Module dependencies through spatial relationships
-- Call hierarchies through parent-child arrangements
-- System boundaries through spatial clustering
+**The Problem**: Traditional API documentation is linear text that doesn't capture the spatial relationships between endpoints, data types, and schemas.
 
-### Data Analysis and Exploration
-CSV files become rich, navigable semantic structures:
-- Automatic discovery of hidden hierarchies
-- Visual exploration of data relationships
-- Intelligent data entry based on spatial context
+**The SPASE Solution**:
+- **Substrates**: Rectangular grid containing endpoint definitions
+- **Aggregates**: Grouping related API elements by proximity
+- **Foundations**: Cell clusters representing individual endpoints, schemas, and data types
+- **Constructs**: Tree structures showing endpoint hierarchies, table structures for parameter lists
+- **Layouts**: Meta-header layouts where "API" appears above endpoint trees
+- **Blueprints**: "API Schema" templates that match specific layout + content patterns
+- **Structures**: Actual API documentation instances found in grids
+- **Renovators**: Validators that check API completeness, normalizers that standardize formats
+- **Explorers**: JSON Schema exporters, OpenAPI generators, SDK creators
+- **Artifacts**: Valid OpenAPI specs, auto-generated SDKs, interactive API docs
+
+### Software Architecture Visualization
+
+**The Problem**: Code relationships are invisible in traditional file systems and IDEs.
+
+**The SPASE Solution**:
+- **Substrates**: Grid where each cell represents a code module or component
+- **Aggregates**: Clustering modules by dependency proximity
+- **Foundations**: Block clusters representing related modules, subclusters for tight coupling
+- **Constructs**: Tree structures for inheritance hierarchies, tables for module dependencies
+- **Layouts**: System architecture layouts showing frontend-backend-database relationships
+- **Blueprints**: "Microservice Architecture" or "MVC Pattern" templates
+- **Structures**: Actual software systems discovered and mapped
+- **Renovators**: Dependency analyzers, circular dependency detectors, refactoring engines
+- **Explorers**: UML generators, dependency graph exporters, documentation creators
+- **Artifacts**: Architectural diagrams, dependency reports, system documentation
+
+### Data Analysis and Discovery
+
+**The Problem**: CSV files hide their semantic structure behind rigid row-column interpretations.
+
+**The SPASE Solution**:
+- **Substrates**: Existing CSV data loaded as binary filled/empty patterns
+- **Aggregates**: Natural groupings by data proximity and density
+- **Foundations**: Cell clusters representing related data points
+- **Constructs**: Hidden hierarchies revealed as tree structures, natural tables discovered
+- **Layouts**: Multi-construct arrangements showing complex data relationships  
+- **Blueprints**: "Survey Data", "Financial Report", "Experiment Results" templates
+- **Structures**: Actual data patterns matched to known templates
+- **Renovators**: Data cleaners, outlier detectors, missing value fillers
+- **Explorers**: Statistical analyzers, visualization generators, machine learning preprocessors
+- **Artifacts**: Clean datasets, statistical reports, interactive visualizations
 
 ### Visual Programming Environments
-2D spatial canvases where:
-- Program logic is expressed through spatial arrangement
-- Control flow follows spatial relationships
-- Complex algorithms become spatially navigable
 
-## The Paradigm Shift
+**The Problem**: Traditional programming is linear text that doesn't leverage spatial thinking.
 
-Textrux represents a fundamental shift from thinking about grids as either:
-- **Rigid Tables**: Where meaning is locked into rows and columns
-- **Flat Data**: Where spatial arrangement is ignored
+**The SPASE Solution**:
+- **Substrates**: 2D programming canvas where code elements have spatial positions
+- **Aggregates**: Related code blocks grouped by functional proximity
+- **Foundations**: Code blocks as spatial units with input/output connections
+- **Constructs**: Control flow as spatial trees, data flow as spatial connections
+- **Layouts**: Function definitions, class hierarchies, module organizations
+- **Blueprints**: "Design Pattern" templates, "Algorithm" patterns, "Data Structure" patterns
+- **Structures**: Actual programs built using spatial blueprints
+- **Renovators**: Code optimizers, pattern refactorers, bug detectors
+- **Explorers**: Traditional language compilers, interpreters, documentation generators
+- **Artifacts**: Executable code, optimized algorithms, program documentation
 
-To understanding grids as:
-- **Spatial Canvases**: Where position encodes rich semantic relationships
-- **Dynamic Structures**: Where meaning emerges from spatial analysis
-- **Flexible Representations**: Where the same data can have multiple valid spatial interpretations
+## The SPASE Paradigm Shift
 
-## Getting Started
+### From Linear to Spatial Thinking
 
-The beauty of BSS is that it works with existing data formats. Any CSV file can be loaded into Textrux, where the system will:
+Traditional computing forces us to think linearly:
+- **Files**: Sequential lists of lines
+- **Tables**: Rigid row-column structures  
+- **APIs**: Linear documentation
+- **Code**: Sequential text instructions
 
-1. **Parse** the grid into filled/empty cell patterns
-2. **Analyze** spatial relationships using the trait system
-3. **Discover** semantic constructs in the spatial arrangement
-4. **Present** the data with content-driven formatting
-5. **Enable** semantic-aware interaction and navigation
+SPASE enables spatial thinking:
+- **Spatial Canvases**: Where position encodes semantic relationships
+- **Dynamic Discovery**: Where structures emerge from spatial analysis
+- **Multi-Layer Understanding**: Where simple patterns build into complex meanings
+- **Flexible Interpretation**: Where the same spatial data can be understood in multiple ways
 
-This isn't about replacing existing tools—it's about revealing the hidden spatial semantics that were always there, waiting to be discovered.
+### From Manual to Automatic Semantics
 
-## Technical Implementation Notes
+Traditional systems require manual semantic annotation:
+- **HTML**: Manual tags define structure
+- **JSON**: Manual nesting defines relationships
+- **Spreadsheets**: Manual formatting defines meaning
 
-While this document focuses on concepts, the implementation leverages:
-- **TypeScript** for type-safe spatial analysis
-- **React** for responsive spatial visualization
-- **Zustand** for spatial state management
-- **Trait-based architecture** for extensible pattern recognition
-- **Confidence scoring** for robust semantic detection
+SPASE discovers semantics automatically:
+- **Trait Analysis**: Automatically detects spatial relationships
+- **Construct Recognition**: Automatically identifies semantic structures
+- **Blueprint Matching**: Automatically recognizes familiar patterns
+- **Content-Driven Formatting**: Automatically applies appropriate styling
 
-The system is designed to be:
-- **Fast**: Efficient spatial analysis algorithms
-- **Accurate**: Confidence-based decision making
-- **Extensible**: Easy to add new spatial patterns
-- **Robust**: Graceful handling of ambiguous spatial arrangements
+## Getting Started with Textrux
 
-## Conclusion
+The beauty of the SPASE framework is that it works with existing data. Any CSV file can be loaded into Textrux, where it flows through the complete 10-layer pipeline:
 
-Textrux's Binary Spatial Semantics system opens up entirely new possibilities for how we think about, interact with, and visualize data. By recognizing that spatial relationships carry semantic meaning, we transform humble CSV files into rich, navigable representations of complex structures.
+1. **Substrate Analysis**: Grid topology and coordinates established
+2. **Aggregation**: Filled cells grouped by proximity rules
+3. **Foundation Recognition**: Basic shapes identified and analyzed with trait system
+4. **Construct Detection**: Trees, tables, matrices, key-value pairs discovered
+5. **Layout Analysis**: Multi-construct arrangements identified
+6. **Blueprint Matching**: Known templates recognized
+7. **Structure Instantiation**: Concrete instances created
+8. **Internal Processing**: Renovators optimize and validate
+9. **External Translation**: Explorers generate outputs
+10. **Artifact Creation**: Final usable files and forms produced
 
-This isn't just a new way to view spreadsheets—it's a new paradigm for spatial computing, where position and relationship become first-class semantic citizens in our data representations.
+This isn't about replacing existing tools—it's about revealing the hidden spatial semantics that were always there, transforming simple data into rich, navigable, semantic structures.
+
+## Technical Foundation
+
+Textrux implements the SPASE framework using modern web technologies:
+- **TypeScript**: Type-safe spatial analysis with comprehensive trait interfaces
+- **React**: Responsive spatial visualization that adapts to semantic discoveries
+- **Zustand**: Spatial state management across all 10 layers
+- **Trait-Based Architecture**: Extensible pattern recognition system
+- **Confidence Scoring**: Robust semantic detection with uncertainty handling
+- **Layer Isolation**: Clean separation between SPASE layers for maintainability
+
+## Conclusion: The Future of Spatial Computing
+
+Textrux's implementation of Binary Spatial Semantics through the SPASE framework represents more than just a new way to view CSV files—it's a fundamental shift toward **spatial computing**, where:
+
+- **Position becomes a first-class semantic citizen**
+- **Spatial relationships encode rich meanings**
+- **Complex structures emerge from simple spatial rules**
+- **Manual formatting gives way to automatic semantic discovery**
+- **Linear thinking expands into spatial understanding**
+
+By implementing all 10 layers of the SPASE framework, Textrux transforms any spatial data—from simple CSV files to complex schemas—into semantically rich, navigable, and automatically understood structures. This opens entirely new possibilities for data representation, program design, system architecture, and human-computer interaction.
+
+The future of computing isn't just faster processors or bigger datasets—it's the recognition that **space itself can encode meaning**, and that by understanding spatial semantics, we can build systems that are more intuitive, more powerful, and more aligned with how humans naturally think about structure and relationships.
