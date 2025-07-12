@@ -246,75 +246,31 @@ Because the system understands spatial semantics through all 10 layers:
 - **Intelligent Auto-Completion**: Suggest completions based on spatial context and blueprint patterns
 - **Context-Sensitive Actions**: Different actions available based on construct type and position
 
-## Real-World Applications Through the SPASE Pipeline
+## Real-World Applications
 
 ### API Documentation as Spatial Schemas
 
 **The Problem**: Traditional API documentation is linear text that doesn't capture the spatial relationships between endpoints, data types, and schemas.
 
-**The SPASE Solution**:
-
-- **Substrates**: Rectangular grid containing endpoint definitions
-- **Aggregates**: Grouping related API elements by proximity
-- **Foundations**: Cell clusters representing individual endpoints, schemas, and data types
-- **Constructs**: Tree structures showing endpoint hierarchies, table structures for parameter lists
-- **Layouts**: Meta-header layouts where "API" appears above endpoint trees
-- **Blueprints**: "API Schema" templates that match specific layout + content patterns
-- **Structures**: Actual API documentation instances found in grids
-- **Renovators**: Validators that check API completeness, normalizers that standardize formats
-- **Explorers**: JSON Schema exporters, OpenAPI generators, SDK creators
-- **Artifacts**: Valid OpenAPI specs, auto-generated SDKs, interactive API docs
+**The Textrux Solution**: Instead of writing API documentation in linear text files, developers can create spatial representations where related endpoints, data types, and schemas are positioned near each other. The system automatically recognizes API blueprint patterns (like a meta-header containing "API" above a tree of endpoints) and can export these spatial representations as valid OpenAPI specifications, auto-generated SDKs, and interactive documentation. This makes complex APIs more visually understandable and easier to navigate.
 
 ### Software Architecture Visualization
 
 **The Problem**: Code relationships are invisible in traditional file systems and IDEs.
 
-**The SPASE Solution**:
-
-- **Substrates**: Grid where each cell represents a code module or component
-- **Aggregates**: Clustering modules by dependency proximity
-- **Foundations**: Block clusters representing related modules, subclusters for tight coupling
-- **Constructs**: Tree structures for inheritance hierarchies, tables for module dependencies
-- **Layouts**: System architecture layouts showing frontend-backend-database relationships
-- **Blueprints**: "Microservice Architecture" or "MVC Pattern" templates
-- **Structures**: Actual software systems discovered and mapped
-- **Renovators**: Dependency analyzers, circular dependency detectors, refactoring engines
-- **Explorers**: UML generators, dependency graph exporters, documentation creators
-- **Artifacts**: Architectural diagrams, dependency reports, system documentation
+**The Textrux Solution**: Software architects can represent entire codebases spatially, where modules, components, and their dependencies are shown through proximity and spatial arrangement. The system recognizes architectural patterns like "Microservice Architecture" or "MVC Pattern" blueprints and can automatically generate UML diagrams, dependency reports, and comprehensive system documentation. This makes large, complex software systems more comprehensible and helps identify architectural issues like circular dependencies.
 
 ### Data Analysis and Discovery
 
 **The Problem**: CSV files hide their semantic structure behind rigid row-column interpretations.
 
-**The SPASE Solution**:
-
-- **Substrates**: Existing CSV data loaded as binary filled/empty patterns
-- **Aggregates**: Natural groupings by data proximity and density
-- **Foundations**: Cell clusters representing related data points
-- **Constructs**: Hidden hierarchies revealed as tree structures, natural tables discovered
-- **Layouts**: Multi-construct arrangements showing complex data relationships
-- **Blueprints**: "Survey Data", "Financial Report", "Experiment Results" templates
-- **Structures**: Actual data patterns matched to known templates
-- **Renovators**: Data cleaners, outlier detectors, missing value fillers
-- **Explorers**: Statistical analyzers, visualization generators, machine learning preprocessors
-- **Artifacts**: Clean datasets, statistical reports, interactive visualizations
+**The Textrux Solution**: Data analysts can load existing CSV files, where the system automatically discovers hidden hierarchical structures, natural groupings, and data relationships through spatial analysis. The system recognizes patterns like "Survey Data," "Financial Report," or "Experiment Results" blueprints and can automatically generate clean datasets, statistical reports, and interactive visualizations. This reveals the true structure of data that was previously hidden behind traditional spreadsheet thinking.
 
 ### Visual Programming Environments
 
 **The Problem**: Traditional programming is linear text that doesn't leverage spatial thinking.
 
-**The SPASE Solution**:
-
-- **Substrates**: 2D programming canvas where code elements have spatial positions
-- **Aggregates**: Related code blocks grouped by functional proximity
-- **Foundations**: Code blocks as spatial units with input/output connections
-- **Constructs**: Control flow as spatial trees, data flow as spatial connections
-- **Layouts**: Function definitions, class hierarchies, module organizations
-- **Blueprints**: "Design Pattern" templates, "Algorithm" patterns, "Data Structure" patterns
-- **Structures**: Actual programs built using spatial blueprints
-- **Renovators**: Code optimizers, pattern refactorers, bug detectors
-- **Explorers**: Traditional language compilers, interpreters, documentation generators
-- **Artifacts**: Executable code, optimized algorithms, program documentation
+**The Textrux Solution**: Programmers can create code using 2D spatial canvases where program logic, data flow, and control structures are expressed through spatial positioning. The system recognizes programming patterns like "Design Patterns," "Algorithms," and "Data Structures" blueprints and can compile these spatial representations into traditional programming languages. This makes complex algorithms more intuitive to design and understand, especially for visual thinkers.
 
 ## The SPASE Paradigm Shift
 
