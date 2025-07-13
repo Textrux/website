@@ -5,7 +5,8 @@
       "Bash(npm run build:*)",
       "Bash(sed:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx ts-node:*)"
+      "Bash(npx ts-node:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

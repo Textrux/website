@@ -1,73 +1,226 @@
-# **Wave Computing**
+# **Wave Computing: Distributed Intelligence Through Signal Propagation**
 
-Wave computing is the idea that you have independent units of computation that exist in discrete locations on a grid and can broadcast and receive signals between them.
+Wave computing is a computational paradigm where independent processing units exist at discrete locations on a grid and coordinate their behavior by broadcasting and receiving signals between them.
 
-## Basic Concepts
+## The Core Concept
 
-If you were to think about raindrops on a pond you would get a sense of the activity in a wave computer. Better yet would be a number of fishing lures held up by bobbers. As a fish bit at one lure, it would cause the bobber on the surface to send out waves that would reach all the other bobbers nearby. They, in turn, might bob and sometimes trigger a fish to bite at that lure. This would, in turn, cause that bobber to move and send out waves to other bobbers which might trigger them to get a bite, sending out their own waves. This continual interplay between the bobbers, the lures, the fish, and the waves would create an interesting system without any real consequences.
+Picture a pristine mountain lake with fishing bobbers floating on its surface, each connected to lures below. When a fish strikes one of the lures, the bobber moves and sends ripples across the water. These waves reach other bobbers nearby, causing them to bob up and down. This bobbing motion may or may not entice fish near those bobbers to strike their lures. When they do strike, those bobbers create their own ripples, potentially triggering more fish at other locations. The result is a cascade of reactions propagating across the lake—sometimes dying out quickly, sometimes creating sustained patterns of activity.
 
-However, imagine now that the pond was a flat surface, the bobbers were antennae on that surface, the lures were tiny computers at the bottom of those antennae, the fish were the functions running on those computers that might respond to a disturbance and might not, and the waves were radio waves that rippled out and were sensed by the antennae.
+Now replace the bobbers with computational nodes, the fish with functions running on those nodes, the lures with the processing tasks those functions perform, and the water ripples with radio signals. The bobbing motion becomes signal processing—when a node receives a signal (wave), it may or may not trigger its function to execute and broadcast its own signal. This creates the fundamental mechanism of wave computing: autonomous nodes that may respond to signals from their neighbors, potentially triggering cascades of computational activity across the network.
 
-What set of functions could you write on each tiny computer to make this system produce an interesting result for you? That's the goal of this section, to answer that very question.
+## Beyond Traditional Computing Paradigms
 
-First, lets look at the general types of signals.
+Traditional computing architectures rely on sequential control structures: processors execute sequential instructions, servers respond to client requests, and data flows through predefined channels. Wave computing operates differently—there's no central controller. Instead, computation emerges from the interactions of autonomous nodes, each capable of receiving signals, processing them according to local rules, and broadcasting responses.
 
-### Types of Signals
+This shifts computation from **imperative** (execute these specific instructions in order) to **reactive** (respond to environmental signals based on local conditions). Rather than following a predetermined program, the system's behavior emerges from the collective responses of individual nodes to the signals they receive.
 
-- Pulse
+This paradigm shift enables completely new types of algorithms that have no equivalent in traditional computing—algorithms that exist only in the interactions between nodes, algorithms that adapt their own structure based on signal patterns, and algorithms that solve problems through collective behavior rather than sequential logic.
 
-  A pulse is like a single wave in a pond. It propagates across the space and cause one discrete disturbance in every direction until it dissipates. Imagine a bobber being pulled down sharply but quickly returning to its original position.
+## Signal Types
 
-- Tone
+Wave computing uses different types of signals for different computational purposes:
 
-  A tone is like a single continuous wave carrying the same message over and over again continually to every point within its propagation area. Imagine a bobber bobbing up and down on the surface of the pond continually causing the same size wave to propagate at a continuous interval.
+### Pulse Signals
 
-- Packet
+A pulse is a single, discrete burst of energy that propagates outward and dissipates. In the bobber analogy, this is like a single strong tug on the line that causes one sharp bob before returning to rest. Pulses are used for immediate, one-time notifications.
 
-  A packet is a discrete group of waves that propagate together but only once. If dropping one stone in the pond only caused one discrete wave to propagate, then imagine dropping three stones of different sizes in a pond at the same place one after the other. You would then get one set of 3 waves, each of a different size, propagating together as a pack across the pond.
+**Computational Applications:**
 
-- Broadcast
+- **Event Notifications**: A node discovering an error condition pulses an alert
+- **Synchronization Markers**: Temporal coordination across distributed processes
+- **State Transitions**: Signaling completion of a computational phase
 
-  A broadcast is like a continual stream of waves of various sizes continually dissipating across the pond. Again, continuing the "one rock makes one wave" thought experiment, imagine a pipe above the water dropping a continual stream of various sized stones into the pond one after the other. Waves of different sizes would be continually dissipated across the pond with no area of the pond left still.
+### Tone Signals
 
-What qualities would you be able to look for in the waves to build your functions from? What types of waves would you produce in return?
+A tone is a continuous, repeating signal that maintains the same message over time. In the bobber analogy, this is like a bobber that bobs up and down at regular intervals, continuously creating the same size ripples. Tones establish persistent communication channels.
 
-### Computing Signals
+**Computational Applications:**
 
-- While / Unless / When
+- **Service Discovery**: "I am a database node, and I am available"
+- **Load Balancing**: Continuous broadcasting of current capacity
+- **Distributed State Maintenance**: Persistent declaration of local state
 
-  You could decide that you only wanted to broadcast signals out from your antennae while/unless/When you were or were not receiving certain other signals. This moves away a bit from the pond analogy into radio waves as you can think of different frequencies of radio waves being broadcast from different sources at the same time.
+### Packet Signals
 
-  For instance, maybe you only wanted to broadcast a signal from your antenna while you were receiving another signal on a particular frequency.
+A packet is a discrete group of related signals that propagate together as a unit. Like dropping three stones of different sizes in sequence at the same spot, creating a group of waves that travel together. Packets enable complex, structured data transfer while maintaining atomicity.
 
-- Repetition
+**Computational Applications:**
 
-  You could decide that you only wanted to broadcast a message if you heard a certain signal repeated a number of times. In turn, you might want to broadcast your signal a certain number of times as well, or continuously.
+- **Multi-parameter Updates**: Sending related state changes as a unit
+- **Transaction Coordination**: Atomic operations across distributed systems
+- **Complex Query Distribution**: Sending structured requests to multiple nodes
 
-- Conflict Resolution
+### Broadcast Signals
 
-  If your function is triggered to send a signal but receives a conflicting signal while in processing, do you push forward and finish sending your signal, stop immediately and start processing the new signal, or perhaps stop and wait a specified amount of time until you process any more signals.
+A broadcast is a continuous stream of varied signals. Like continuously dropping different sized stones into the water, creating ongoing waves of different sizes across the entire area. Broadcasts create rich information environments where multiple types of data flow simultaneously.
 
-- Targeting
+**Computational Applications:**
 
-  When you send signals, do you address them to any particular node or just let them be processed by any nodes that see fit.
+- **Real-time Data Feeds**: Continuous sensor data distribution
+- **Market-style Algorithms**: Auction-based resource allocation
+- **Emergent Coordination**: Complex behaviors arising from information saturation
 
-- Additive Signals
+## Signal Processing Strategies
 
-  If you send a signal and another node sends the same signal at the same time, should recipients expect to interpret the increased strength of that signal a certain way or consider its mere receipt as ample information to process it.
+Nodes can implement various strategies for processing and responding to signals:
 
-- Auction vs Open Market Signals
+### Conditional Response Patterns
 
-  Should all nodes expect to transition as a group from one cascade of signals to a brand new cascade of signals only after all nodes have completed processing the first cascade? For instance, if you are at an auction, you expect to hear a continual array of sounds but eventually everything settles down after each item is sold since the sole auctioneer is controlling the action. Or should there be an open market for signals with nodes continuously sending signals that may be received by many other sellers and buyers with no central auctioneer controlling the airwaves.
+**While/Unless/When Logic**: Nodes can broadcast signals only under specific conditions. For example, a node might only broadcast database queries while receiving heartbeat signals from a coordinator. This creates fault-tolerant behaviors without centralized control.
 
-- Historical Signals
+### Repetition and Reinforcement
 
-  You might also want to consider time as a part of your processing and, say, look back at the history of signals at a particular frequency to see if they match up to a certain pattern before sending out a signal.
+**Threshold-based Responses**: Nodes can require signal repetition before responding, filtering noise and responding only to persistent patterns. This creates natural consensus mechanisms—only repeated signals trigger significant computational work.
 
-- Charged Nodes
+### Conflict Resolution
 
-  You might also think of each node as being "charged" and allowing it to lose energy over time, either reducing it's available output power gradually (analog) or waiting until the power output has reached a certain threshold and then it would not be able to broadcast at all (digital). The node could then be "charged up" by receiving certain input signals. As it heard more and more of those signals, its energy would increase and it could gradually (analog) or after a threshold (digital) start outputting a signal again.
+**Signal Collision Handling**: When a node receives conflicting signals while processing, it must decide whether to continue current processing, switch to the new signal, or wait. These decisions, made by many nodes, create system-wide behaviors for handling conflicts and priorities.
 
-### Defining Signal Patterns
+### Targeting and Addressability
 
-There could even be a Wave Expression (WavEx) language that allowed you to find patterns in signal sequences much like Regular Expressions (RegEx) help you find patterns in character sequences or Structural Expressions (StrEx) help you find patterns in structures. You could create a certain Wave Expression and then pass that to a function that checks for this pattern in a signal and returns true if it finds it, just like a Regular Expression works.
+**Selective Communication**: Signals can be broadcast generally or targeted to specific nodes, enabling both massively parallel computation and point-to-point coordination.
+
+### Additive Signal Processing
+
+**Signal Strength as Information**: When multiple nodes broadcast the same signal simultaneously, the increased signal strength can carry additional meaning—consensus, urgency, or priority. This creates natural voting mechanisms.
+
+### Temporal Signal Analysis
+
+**Historical Pattern Recognition**: Nodes can analyze signal histories to detect temporal patterns before responding. This enables behaviors like trend detection and predictive responses based on past signal patterns.
+
+## Coordination Models
+
+Wave computing systems can operate under two different coordination models:
+
+**Auction Dynamics**: The system operates in discrete rounds. All nodes process the current "round" of signals before any new signals are processed. This creates deterministic, synchronous behavior suitable for consensus algorithms and coordinated state changes.
+
+**Market Dynamics**: Signals flow continuously with no central coordination. Nodes respond to signals as they arrive, creating asynchronous behavior that's highly resilient but potentially unpredictable. This works well for real-time systems and emergent behaviors.
+
+## Charged Node Computing
+
+Nodes can be designed with finite, rechargeable computational capacity:
+
+**Energy-Based Computation**: Each node has a "charge" that depletes with broadcast activity and can be replenished by receiving specific input signals. This creates natural load balancing—overworked nodes become quiet, allowing others to take over. Computational activity flows to areas of least resistance.
+
+**Analog vs. Digital Charging**: Nodes can operate in analog mode (gradually losing power and broadcasting weaker signals) or digital mode (binary on/off based on charge thresholds). Analog creates smooth degradation under load, while digital creates more predictable but potentially unstable behaviors.
+
+## Wave Expressions (WavEx)
+
+Just as Regular Expressions help find patterns in text sequences, Wave Expressions (WavEx) can help find patterns in signal sequences across time and space.
+
+**WavEx Capabilities:**
+
+- **Temporal Pattern Matching**: Detecting specific sequences of signals over time
+- **Spatial Wave Analysis**: Recognizing patterns in how signals propagate across nodes
+- **Multi-frequency Coordination**: Complex patterns involving multiple signal types
+- **Predictive Signal Modeling**: Learning from historical patterns to predict future signals
+
+WavEx enables nodes to recognize complex signal patterns and respond proactively rather than just reactively.
+
+## Programming Wave Computers
+
+Programming a wave computer requires a fundamentally different approach than traditional programming. Instead of writing sequential instructions, you define the behavior of individual nodes and how they respond to various signal types.
+
+### Node Function Definition
+
+Each node in a wave computer needs to be programmed with:
+
+**Signal Listening Rules**: What types of signals the node responds to, on which frequencies or channels, and under what conditions.
+
+**Processing Logic**: How the node transforms received signals into computational results.
+
+**Broadcasting Behavior**: What signals the node sends out, when, and to where.
+
+### Wave Computing Operators
+
+A wave programming language might include specialized operators for different signal types:
+
+**Send Operators**:
+
+- `(` - pulse: send one value once
+- `((` - tone: send one value continuously
+- `(((` - packet: send multiple values once
+- `((((` - broadcast: send multiple values continuously
+
+**Receive Operators**:
+
+- `)` - receive pulse
+- `))` - receive tone
+- `)))` - receive packet
+- `))))` - receive broadcast
+
+**Control Operators**:
+
+- Conditional execution (while/unless/when certain signals are present)
+- Repetition control (count-based or continuous)
+- Parallel processing (handle multiple signals simultaneously vs. sequentially)
+
+### Example Wave Function
+
+A simple wave function that increments numbers up to a maximum might look like:
+
+```
+Define IncrementIfBelowMax(Max, ChannelIn, ChannelOut)
+  )ChannelIn -> Value
+  if Value <= Max:
+    (ChannelOut, Value + 1)
+```
+
+This function listens for pulses on ChannelIn, increments the received value if it's below Max, and pulses the result on ChannelOut.
+
+## Hybrid Computing: Broadcast Discovery + Linear Transfer
+
+Wave computing doesn't have to completely replace traditional linear communication—it can be combined with it for optimal efficiency. In a hybrid system:
+
+**Broadcast for Discovery**: Use wave computing's broadcast capabilities for resource discovery and coordination. For example, a node broadcasts "Node 232345 needs data item 52342" across the wave medium.
+
+**Linear for Transfer**: Once the node with the requested data identifies itself, switch to traditional point-to-point communication (Ethernet, etc.) for efficient data transfer.
+
+This hybrid approach combines the advantages of both paradigms:
+
+- **Wave computing**: Excellent for discovery, coordination, and emergent behaviors
+- **Linear computing**: Efficient for bulk data transfer and deterministic operations
+
+### Practical Hybrid Applications
+
+**Distributed Databases**: Broadcast queries to discover which nodes have relevant data, then use linear connections for actual data retrieval.
+
+**Load Balancing**: Nodes broadcast their current capacity, allowing work to naturally flow to available resources, but actual task execution happens via direct connections.
+
+**Sensor Networks**: Sensors broadcast environmental data on the wave medium for ambient awareness, but critical alerts get sent via dedicated channels.
+
+**Cloud Computing**: Use wave computing for resource discovery and automatic scaling decisions, while traditional networking handles data transfers and user interactions.
+
+## Emergent Properties
+
+When simple signal processing rules interact across many nodes, complex system-wide behaviors emerge:
+
+**Self-Organizing Networks**: As nodes respond to signals, they naturally form communication clusters, processing hierarchies, and specialized functional groups without centralized planning.
+
+**Adaptive Load Distribution**: Work automatically flows to available nodes through signal propagation patterns, creating dynamic load balancing that responds to real-time conditions.
+
+**Fault Tolerance**: When nodes fail, their neighbors compensate by adjusting their signal processing behaviors, creating self-healing systems.
+
+**Emergent Algorithms**: Complex computational behaviors emerge from simple signal interaction rules, similar to how flocking behaviors arise from simple local interaction rules.
+
+## Integration with Spatial Computing
+
+Wave computing extends the spatial computing principles found in Binary Spatial Semantics. Where BSS derives meaning from spatial relationships of static data, wave computing adds the temporal dimension—meaning emerges from spatial and temporal patterns of dynamic signal propagation.
+
+This enables:
+
+- **Spatial-Temporal Data Structures**: Data structures that exist in space and evolve through signal patterns over time
+- **Self-Modifying Spatial Algorithms**: Algorithms that optimize their spatial distribution based on signal propagation patterns
+- **Adaptive Grid Computing**: Computational grids that reconfigure themselves through wave computing principles
+
+## Applications and Future Directions
+
+Wave computing applies to systems where independent agents must coordinate through limited communication channels:
+
+- **Distributed Computing**: Natural load balancing and fault tolerance
+- **IoT Networks**: Sensor networks that adapt and self-organize
+- **Robotics**: Swarm robotics with emergent coordination
+- **Smart Cities**: Infrastructure that responds and adapts organically
+- **Network Protocols**: Self-organizing communication networks
+
+The key insight is that computation can emerge from local interactions rather than being imposed through centralized control. This creates systems that are more adaptive, resilient, and capable of handling complex, dynamic environments.
