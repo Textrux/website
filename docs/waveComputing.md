@@ -121,6 +121,14 @@ WavEx enables nodes to recognize complex signal patterns and respond proactively
 
 Programming a wave computer requires a fundamentally different approach than traditional programming. Instead of writing sequential instructions, you define the behavior of individual nodes and how they respond to various signal types.
 
+### Why Broadcasting Changes Everything
+
+Traditional computing rarely uses true broadcasting. When your cell phone sends data, it broadcasts to a specific cell tower, but that's still linear communication—no other phones in the area "hear" that signal or pay attention to it. They wait for communication from specific towers.
+
+However, in other forms of communication—like walkie-talkies or speaking in a room full of people—communication is truly nonlinear. Multiple recipients hear the same message, and multiple senders can broadcast on the same "channel." Everyone has ambient awareness of conversations around them.
+
+Wave computing applies this ambient awareness to computation. Nodes don't just wait for specific inputs—they passively "listen" to their environment and respond to patterns they recognize, just like you might hear your name called in a busy restaurant when your order is ready but ignore all the other conversations going on around you.
+
 ### Node Function Definition
 
 Each node in a wave computer needs to be programmed with:
@@ -155,7 +163,9 @@ A wave programming language might include specialized operators for different si
 - Repetition control (count-based or continuous)
 - Parallel processing (handle multiple signals simultaneously vs. sequentially)
 
-### Example Wave Function
+### Example Wave Functions and Applications
+
+#### Basic Function Definition and Usage
 
 A simple wave function that increments numbers up to a maximum might look like:
 
@@ -167,6 +177,160 @@ Define IncrementIfBelowMax(Max, ChannelIn, ChannelOut)
 ```
 
 This function listens for pulses on ChannelIn, increments the received value if it's below Max, and pulses the result on ChannelOut.
+
+**Node Implementation**: A specific node would use this function like:
+
+```
+IncrementIfBelowMax(5, 140KHZ, 230MHZ)
+```
+
+This node listens for pulses on 140KHZ frequency, increments any received value that's 5 or below, and broadcasts the result on 230MHZ.
+
+#### Distributed Counter Algorithm
+
+**Problem**: Create a distributed counter that multiple nodes can increment, but never exceeds a maximum value.
+
+**Solution**: A network of three types of nodes:
+
+**Counter Node** (holds the current count):
+
+```
+CounterNode(MaxValue, RequestChannel, ResponseChannel)
+  )RequestChannel -> IncrementRequest
+  if CurrentCount < MaxValue:
+    CurrentCount = CurrentCount + 1
+    (ResponseChannel, CurrentCount)
+```
+
+**Incrementer Nodes** (request increments):
+
+```
+IncrementerNode(RequestChannel, ResponseChannel)
+  every 2 seconds:
+    (RequestChannel, "increment")
+  )ResponseChannel -> NewCount
+    print("Count is now: " + NewCount)
+```
+
+**Usage**:
+
+- 1 Counter Node: `CounterNode(10, 100KHZ, 200KHZ)`
+- 3 Incrementer Nodes: `IncrementerNode(100KHZ, 200KHZ)`
+
+**Result**: Multiple nodes can safely increment a shared counter without coordination overhead. The counter node ensures atomicity, while incrementer nodes can join or leave the network dynamically.
+
+#### Distributed Auction Algorithm
+
+**Problem**: Multiple nodes want to bid on a resource. Find the highest bidder through wave computing.
+
+**Solution**:
+
+**Auctioneer Node**:
+
+```
+AuctioneerNode(BidChannel, WinnerChannel)
+  HighestBid = 0
+  Winner = null
+  while auction_active:
+    )BidChannel -> (NodeID, BidAmount)
+    if BidAmount > HighestBid:
+      HighestBid = BidAmount
+      Winner = NodeID
+      ((WinnerChannel, "Current high bid: " + BidAmount + " by " + NodeID)
+```
+
+**Bidder Nodes**:
+
+```
+BidderNode(MyID, MyBid, BidChannel, WinnerChannel)
+  (BidChannel, (MyID, MyBid))
+  ))WinnerChannel -> WinnerAnnouncement
+    if MyID in WinnerAnnouncement:
+      print("I'm winning!")
+    else:
+      // Optionally increase bid
+      (BidChannel, (MyID, MyBid + 10))
+```
+
+**Usage**:
+
+- 1 Auctioneer: `AuctioneerNode(300KHZ, 400KHZ)`
+- Multiple Bidders: `BidderNode("Node1", 100, 300KHZ, 400KHZ)`, `BidderNode("Node2", 150, 300KHZ, 400KHZ)`
+
+**Result**: A self-organizing auction where bidders can dynamically join, see current status, and adjust bids in real-time.
+
+#### Swarm Pathfinding Algorithm
+
+**Problem**: A swarm of nodes needs to find a path through a maze or around obstacles.
+
+**Solution**:
+
+**Explorer Nodes** (search for paths):
+
+```
+ExplorerNode(MyPosition, TargetPosition, PathChannel, ObstacleChannel)
+  while not at target:
+    ))ObstacleChannel -> ObstacleLocation
+      mark_obstacle(ObstacleLocation)
+
+    NextPosition = calculate_next_step(MyPosition, TargetPosition, known_obstacles)
+    move_to(NextPosition)
+    (PathChannel, (MyPosition, NextPosition, distance_to_target))
+```
+
+**Coordinator Node** (aggregates path information):
+
+```
+CoordinatorNode(PathChannel, BestPathChannel)
+  BestPaths = {}
+  )PathChannel -> (FromPos, ToPos, Distance)
+    update_path_map(FromPos, ToPos, Distance)
+    BestPath = find_shortest_path(start, target)
+    ((BestPathChannel, BestPath)
+```
+
+**Usage**: Multiple explorer nodes with different starting positions all broadcasting their discoveries, while a coordinator maintains the global best path.
+
+**Result**: The swarm collectively maps the environment and finds optimal paths faster than any individual node could alone.
+
+#### Load Balancing Algorithm
+
+**Problem**: Distribute computational tasks across available nodes based on their current capacity.
+
+**Solution**:
+
+**Worker Nodes**:
+
+```
+WorkerNode(MyID, CapacityChannel, TaskChannel, ResultChannel)
+  CurrentLoad = 0
+  ((CapacityChannel, (MyID, MaxCapacity - CurrentLoad))
+
+  )TaskChannel -> Task
+    if CurrentLoad < MaxCapacity:
+      CurrentLoad += Task.complexity
+      Result = process(Task)
+      (ResultChannel, (Task.ID, Result))
+      CurrentLoad -= Task.complexity
+      ((CapacityChannel, (MyID, MaxCapacity - CurrentLoad))
+```
+
+**Task Distributor**:
+
+```
+TaskDistributor(TaskQueue, CapacityChannel, TaskChannel)
+  AvailableWorkers = {}
+  ))CapacityChannel -> (WorkerID, AvailableCapacity)
+    AvailableWorkers[WorkerID] = AvailableCapacity
+
+  for Task in TaskQueue:
+    BestWorker = max(AvailableWorkers, key=capacity)
+    (TaskChannel, Task)
+```
+
+**Result**: Tasks automatically flow to the most available workers without centralized scheduling. Workers join and leave the network seamlessly.
+
+These examples demonstrate how wave computing enables emergent coordination behaviors that would be complex to implement in traditional systems but arise naturally from simple local rules.
 
 ## Hybrid Computing: Broadcast Discovery + Linear Transfer
 
