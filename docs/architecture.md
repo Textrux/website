@@ -280,7 +280,6 @@ Spase enables spatial thinking:
 - **Spatial Canvases**: Where position encodes semantic relationships
 - **Dynamic Discovery**: Where structures emerge from spatial analysis
 - **Multi-Layer Understanding**: Where simple patterns build into complex meanings
-- **Flexible Interpretation**: Where the same spatial data can be understood in multiple ways
 
 ### From Manual to Automatic Semantics
 
