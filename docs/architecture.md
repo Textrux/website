@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Textrux implements a revolutionary approach to understanding and interacting with grid-based data through **Binary Spatial Semantics (BSS)**, following the **SPASE** (Spatial Semantics) framework. Unlike traditional systems that treat grids as either holistic patterns (like bitmap letters) or rigid row-column structures (like spreadsheets), Textrux derives meaning from the **spatial relationships between filled and empty cells**.
+Textrux implements a revolutionary approach to understanding and interacting with grid-based data through **Binary Spatial Semantics (BSS)**, following the **Spase** (Spatial Semantics) framework. Unlike traditional systems that treat grids as either holistic patterns (like bitmap letters) or rigid row-column structures (like spreadsheets), Textrux derives meaning from the **spatial relationships between filled and empty cells**.
 
-This document explains the conceptual architecture of Textrux, its layered approach to spatial analysis using the 10-layer SPASE framework, and why this paradigm shift opens up entirely new possibilities for data representation and interaction.
+This document explains the conceptual architecture of Textrux, its layered approach to spatial analysis using the 10-layer Spase framework, and why this paradigm shift opens up entirely new possibilities for data representation and interaction.
 
 ## Core Philosophy: Beyond Tables and Bitmaps
 
@@ -27,9 +27,9 @@ Textrux recognizes that a simple CSV file is actually a **spatial canvas** where
 
 This isn't about the _content_ of cells—it's about their **spatial relationships**.
 
-## System Architecture: The 10-Layer SPASE Stack
+## System Architecture: The 10-Layer Spase Stack
 
-Textrux implements BSS through the SPASE (Spatial Semantics) framework—a comprehensive 10-layer architecture where each layer builds upon the previous to transform raw spatial bits into high-level tangible artifacts.
+Textrux implements BSS through the Spase (Spatial Semantics) framework—a comprehensive 10-layer architecture where each layer builds upon the previous to transform raw spatial bits into high-level tangible artifacts.
 
 ### Layer 1: Substrates
 
@@ -207,11 +207,11 @@ The final layer represents the concrete files, forms, and outputs that humans an
 
 **End Products**: These are the tangible results that demonstrate the value of the entire spatial semantic analysis pipeline.
 
-## Why the SPASE Architecture Matters
+## Why the Spase Architecture Matters
 
 ### The Power of Layered Abstraction
 
-The 10-layer SPASE framework provides several critical advantages:
+The 10-layer Spase framework provides several critical advantages:
 
 **Separation of Concerns**: Each layer has a specific responsibility, from basic spatial topology (Layer 1) to final artifacts (Layer 10). This makes the system maintainable and extensible.
 
@@ -272,7 +272,7 @@ Because the system understands spatial semantics through all 10 layers:
 
 **The Textrux Solution**: Programmers can create code using 2D spatial canvases where program logic, data flow, and control structures are expressed through spatial positioning. The system recognizes programming patterns like "Design Patterns," "Algorithms," and "Data Structures" blueprints and can compile these spatial representations into traditional programming languages. This makes complex algorithms more intuitive to design and understand, especially for visual thinkers.
 
-## The SPASE Paradigm Shift
+## The Spase Paradigm Shift
 
 ### From Linear to Spatial Thinking
 
@@ -283,7 +283,7 @@ Traditional computing forces us to think linearly:
 - **APIs**: Linear documentation
 - **Code**: Sequential text instructions
 
-SPASE enables spatial thinking:
+Spase enables spatial thinking:
 
 - **Spatial Canvases**: Where position encodes semantic relationships
 - **Dynamic Discovery**: Where structures emerge from spatial analysis
@@ -298,7 +298,7 @@ Traditional systems require manual semantic annotation:
 - **JSON**: Manual nesting defines relationships
 - **Spreadsheets**: Manual formatting defines meaning
 
-SPASE discovers semantics automatically:
+Spase discovers semantics automatically:
 
 - **Trait Analysis**: Automatically detects spatial relationships
 - **Construct Recognition**: Automatically identifies semantic structures
@@ -307,7 +307,7 @@ SPASE discovers semantics automatically:
 
 ## Getting Started with Textrux
 
-The beauty of the SPASE framework is that it works with existing data. Any CSV file can be loaded into Textrux, where it flows through the complete 10-layer pipeline:
+The beauty of the Spase framework is that it works with existing data. Any CSV file can be loaded into Textrux, where it flows through the complete 10-layer pipeline:
 
 1. **Substrate Analysis**: Grid topology and coordinates established
 2. **Aggregation**: Filled cells grouped by proximity rules
@@ -324,18 +324,18 @@ This isn't about replacing existing tools—it's about revealing the hidden spat
 
 ## Technical Foundation
 
-Textrux implements the SPASE framework using modern web technologies:
+Textrux implements the Spase framework using modern web technologies:
 
 - **TypeScript**: Type-safe spatial analysis with comprehensive trait interfaces
 - **React**: Responsive spatial visualization that adapts to semantic discoveries
 - **Zustand**: Spatial state management across all 10 layers
 - **Trait-Based Architecture**: Extensible pattern recognition system
 - **Confidence Scoring**: Robust semantic detection with uncertainty handling
-- **Layer Isolation**: Clean separation between SPASE layers for maintainability
+- **Layer Isolation**: Clean separation between Spase layers for maintainability
 
 ## Conclusion: The Future of Spatial Computing
 
-Textrux's implementation of Binary Spatial Semantics through the SPASE framework represents more than just a new way to view CSV files—it's a fundamental shift toward **spatial computing**, where:
+Textrux's implementation of Binary Spatial Semantics through the Spase framework represents more than just a new way to view CSV files—it's a fundamental shift toward **spatial computing**, where:
 
 - **Position becomes a first-class semantic citizen**
 - **Spatial relationships encode rich meanings**
@@ -343,6 +343,6 @@ Textrux's implementation of Binary Spatial Semantics through the SPASE framework
 - **Manual formatting gives way to automatic semantic discovery**
 - **Linear thinking expands into spatial understanding**
 
-By implementing all 10 layers of the SPASE framework, Textrux transforms any spatial data—from simple CSV files to complex schemas—into semantically rich, navigable, and automatically understood structures. This opens entirely new possibilities for data representation, program design, system architecture, and human-computer interaction.
+By implementing all 10 layers of the Spase framework, Textrux transforms any spatial data—from simple CSV files to complex schemas—into semantically rich, navigable, and automatically understood structures. This opens entirely new possibilities for data representation, program design, system architecture, and human-computer interaction.
 
 The future of computing isn't just faster processors or bigger datasets—it's the recognition that **space itself can encode meaning**, and that by understanding spatial semantics, we can build systems that are more intuitive, more powerful, and more aligned with how humans naturally think about structure and relationships.
