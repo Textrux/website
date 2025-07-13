@@ -12,8 +12,8 @@ This document explains the conceptual architecture of Textrux, its layered appro
 
 Most grid-based systems fall into two categories:
 
-1. **Holistic Semantics** (like bitmap fonts): The entire pattern matters, but individual cells have no meaning
-2. **Group Semantics** (like CSV/spreadsheets): Meaning comes from rows-as-records and columns-as-attributes
+1. **Holistic Semantics** (like bitmap fonts, pixel art, QR codes): The entire pattern matters, but individual cells have no meaning
+2. **Group Semantics** (like CSV/spreadsheets, database tables): Meaning is derived from its structural organization, rows-as-records and columns-as-attributes
 
 Both approaches miss a fundamental opportunity: **the spatial relationships between individual cells can encode rich, complex meanings**.
 
@@ -42,7 +42,6 @@ The substrate layer defines the fundamental spatial canvas upon which all spatia
 - **Rectangular Grid**: We use a 2D grid of rectangular cells (not hexagonal, triangular, or 3D)
 - **Discrete Coordinates**: Each cell has integer row/column coordinates
 - **Binary State**: Each cell is either filled (contains data) or empty
-- **Grid Management**: `GridModel`, `GridGalleryModel`, and `GridParser` handle the mechanics
 
 **Key Design Decision**: Textrux could have chosen hexagonal tiles, 3D voxels, or irregular shapes, but rectangular grids provide the optimal balance of simplicity and expressiveness for most data structures.
 
@@ -50,36 +49,39 @@ The substrate layer defines the fundamental spatial canvas upon which all spatia
 
 **Rules for How Groups Are Formed** _(Metaphor: Gravel Beds)_
 
-This layer defines the fundamental grouping rules that operate on the binary filled/empty cells:
+This layer defines the fundamental grouping rules that operate on the substrate elements (binary filled/empty cells in the case of Textrux):
 
 **In Textrux's Implementation**:
 
-- **8-Connected Proximity Grouping**: Filled cells that are adjacent (including corners: N, S, E, W, NE, NW, SE, SW) form natural groups
-- **Density-Based Clustering**: Cells close together spatially are considered related through their expanded outline
-- **Pre-Shape Analysis**: Groups are formed before we try to understand what shapes they make
+- **Proximity Grouping**: The basic grouping strategy of Textrux is proximity (as opposed to content similarity, bounding areas, alignment, symmetry, etc )
+- **Pre-Shape Analysis**: Groups are formed before we try to understand what constructs they make
 
-**Why This Matters**: This layer creates the raw material that higher layers will interpret as meaningful structures. The 8-connected rule means that diagonally adjacent filled cells are considered part of the same aggregate, enabling recognition of more complex spatial patterns.
+**Why This Matters**: This layer creates the raw material that higher layers will interpret as meaningful structures.
 
 ### Layer 3: Foundations
 
 **Recognizable Base Shapes** _(Metaphor: Cinder Blocks)_
 
-The foundation layer takes aggregated groups and identifies them as basic, nameable shapes based on how many empty rectangular perimeters can be drawn around them:
+The foundation layer takes aggregates/groups and identifies them as basic, nameable containers based on how many empty rectangular perimeters can be drawn around them:
 
 **In Textrux's Implementation**:
 
-**Blocks**: Created when **2 empty rectangular perimeters** can be drawn around filled cells
+**Blocks**: Found when **2 empty rectangular perimeters** can be drawn around (but not inside) filled cells
 
 - Think of it as: filled cells with 2 layers of "breathing room" around them
 - Blocks represent major structural units that are well-separated from other content
 
-**Cell Clusters**: Created when **1 empty rectangular perimeter** can be drawn around filled cells
+**Cell Clusters**: Found inside Blocks when **1 empty rectangular perimeter** can be drawn around (but not inside) a set of filled cells
 
 - Think of it as: filled cells with 1 layer of "breathing room" around them
 - Cell clusters are sub-units within blocks, representing more tightly grouped content
 - Each block contains one or more cell clusters
 
-**Block Subclusters**: Formed when blocks are close enough that their "frames" interact
+**Cell Subclusters**: Sets of filled cells within a cell cluster that are **contiguous** (another filled cell can be found in one of the 8 cells in its immediate perimeter)
+
+- These are the often irregularly shaped "chunks" of filled cells within a cell cluster
+
+**Block Subclusters**: Formed when blocks are close enough that their "frames" and/or "borders" overlap the same region
 
 - **Linked**: When the frames of two blocks overlap
 - **Locked**: When the frame of one block overlaps the border of another
@@ -89,19 +91,12 @@ The foundation layer takes aggregated groups and identifies them as basic, namea
 
 - Represents the overall boundary around related structural units
 
-**Cell Subclusters**: Sets of filled cells within a cell cluster that are **contiguous** (8-connected: N, S, E, W, NE, NW, SE, SW)
+**Higher Level Cell**: A higher level grid can emerge when distinct regions of a grid are each treated as a single cell in a higher level grid
 
-- These are the actual connected "chunks" of data within a cell cluster
-- Uses 8-connected connectivity, so cells touching even diagonally are considered part of the same subcluster
+- **Block Clusters** can be arranged into rows and columns and each can be treated as a single filled cell ina higher level virtual grid
+- Empty 5x5 areas of the grid can be considered empty cells in that higher level grid since there is one potentially filled cell in the center
 
-**Trait Analysis System**: The heart of BSS, implementing four categories of spatial analysis:
-
-- **Spatial Relationship Traits**: Parent-child relationships, peer relationships, connectivity patterns
-- **Content Pattern Traits**: Spatial hierarchy patterns, structural indicators
-- **Cell Role Traits**: Assignment of semantic roles (root, parent, child, peer)
-- **Arrangement Traits**: Orientation analysis, spacing patterns, flow direction
-
-**Key Innovation**: This layer analyzes **spatial positions first**, with text content only used for refinement later. The different "breathing room" requirements create a natural hierarchy from fine-grained (cell subclusters) to broad (block clusters).
+**Key Innovation**: This layer analyzes **raw proximity grouping first**, with more subtle constructs being defined from the traits of the filled cells in these foundational elements.
 
 ### Layer 4: Constructs
 
@@ -126,26 +121,24 @@ This layer identifies specific arrangements of constructs and defines them as re
 
 **In Textrux's Implementation**:
 
-- **Meta-Header Layout**: A single-cell cluster above a multi-cell cluster in the same starting column
+- **Meta-Header Layout**: A particular arrangement of constructs that allow one construct to act as a meta header when aligned with another similar construct (such as two cell clusters with one below the other starting in the same column)
 - **Header-Tree-Table Layout**: Specific arrangement of different construct types
-- **Stacked Forms**: Multiple constructs arranged vertically
-- **Side-by-Side Schemas**: Horizontal arrangement of related constructs
+- **Side-by-Side Schemas**: Horizontal arrangement of related constructs such as a tree construct being placed row for row next to a table construct attributing each hierarchical element in the tree to a set of properties in the corresponding row of the table
 
 **Key Insight**: Layouts are about the relationships _between_ constructs, not within them.
 
 ### Layer 6: Blueprints
 
-**Named Templates That Prescribe Layouts + Constructs** _(Metaphor: Architectural Plans)_
+**Named Templates That Prescribe Constructs + Layouts** _(Metaphor: Architectural Plans)_
 
 Blueprints combine layout patterns with content requirements to create reusable templates:
 
 **In Textrux's Implementation**:
 
-- **API Schema Blueprint**: Looks for meta-header layouts where the single-cell contains "API"
-- **Checklist Form Blueprint**: Specific layout of key-value pairs with checkbox indicators
+- **API Schema Blueprint**: May look for any meta-header layout with a root cell that contains the text "API"
 - **File Structure Blueprint**: Tree constructs arranged in file-system-like patterns
 
-**Template Matching**: Blueprints match both spatial arrangement (layouts + constructs) and content patterns (specific text in specific places).
+**Template Matching**: Blueprints can match both spatial arrangement (layouts + constructs) and content patterns (specific text in specific places).
 
 ### Layer 7: Structures
 
@@ -156,10 +149,9 @@ This layer represents actual, populated instances of blueprints found in real gr
 **In Textrux's Implementation**:
 
 - **Populated API Schema**: An actual API blueprint instance with real endpoint names and data types
-- **Completed Checklist**: A checklist form blueprint filled with actual tasks and completion states
 - **Real File Structure**: A file structure blueprint populated with actual file and folder names
 
-**Key Characteristics**: Structures have blueprint references, slot completion status, and validation states.
+**Key Characteristics**: Structures are the result of spatially parsing the grid to find specific instances of any particular blueprint.
 
 ### Layer 8: Renovators
 
@@ -185,7 +177,7 @@ Explorers take structures and translate them into formats that external systems 
 **In Textrux's Implementation**:
 
 - **JSON Schema Exporter**: Converts API structures into valid JSON Schema files
-- **HTML Form Renderer**: Turns checklist structures into interactive web forms
+- **Web Renderer**: Turns hierarchical web elements valid HTML/JavaScript/CSS
 - **Code Generator**: Transforms structures into source code in various languages
 - **Documentation Generator**: Creates human-readable docs from spatial structures
 
@@ -200,7 +192,7 @@ The final layer represents the concrete files, forms, and outputs that humans an
 **In Textrux's Implementation**:
 
 - **JSON Schema Files**: Valid JSON Schema documents generated from API structures
-- **HTML Forms**: Interactive web forms generated from checklist structures
+- **Websites**: Interactive websites generated from (often multiple related hierarchical structures
 - **Markdown Documentation**: Human-readable docs generated from any structure
 - **Source Code Files**: Programming language files generated from spatial structures
 - **Database Schemas**: SQL or NoSQL schema definitions
@@ -217,15 +209,15 @@ The 10-layer Spase framework provides several critical advantages:
 
 **Progressive Enhancement**: Simple spatial patterns (Layers 1-3) progressively evolve into complex semantic structures (Layers 4-7) and finally into usable outputs (Layers 8-10).
 
-**Flexibility**: Different substrate choices (hexagonal vs rectangular grids), different aggregation rules (proximity vs density), or different construct types can be swapped without affecting other layers.
+**Flexibility**: Different tenants (akin to languages in sequential semantics) can define different substrate choices (hexagonal vs rectangular grids), different aggregation rules (proximity vs content similarity), or different construct types. Textrux is one possible tenant but many more are possible.
 
 ### Content-Driven Formatting
 
-Instead of users manually formatting data, the system automatically detects spatial semantics through the trait analysis system and applies appropriate visual styling. A tree structure discovered in a CSV automatically gets tree-like formatting without user intervention.
+Instead of users manually formatting data, the system automatically detects spatial semantics and applies appropriate visual styling. A tree structure discovered in a CSV automatically gets tree-like formatting without user intervention.
 
 ### Orientation Agnostic Design
 
-Spatial patterns work in any direction. A tree growing down-and-right is semantically equivalent to one growing up-and-left. The system's trait analysis adapts automatically to detect meaningful patterns regardless of orientation.
+Spatial patterns work in any direction. A tree growing down-and-right is semantically equivalent to one growing up-and-left. The system's spatial parser adapts automatically to detect meaningful patterns regardless of orientation.
 
 ### Rich Data Representation
 
@@ -264,13 +256,13 @@ Because the system understands spatial semantics through all 10 layers:
 
 **The Problem**: CSV files hide their semantic structure behind rigid row-column interpretations.
 
-**The Textrux Solution**: Data analysts can load existing CSV files, where the system automatically discovers hidden hierarchical structures, natural groupings, and data relationships through spatial analysis. The system recognizes patterns like "Survey Data," "Financial Report," or "Experiment Results" blueprints and can automatically generate clean datasets, statistical reports, and interactive visualizations. This reveals the true structure of data that was previously hidden behind traditional spreadsheet thinking.
+**The Textrux Solution**: Data analysts can load existing CSV files, and the system automatically discovers the inherent tabular structure. That data can then be taken further to add collapsible hierarchical structures or a nested table to any cell in the table.
 
 ### Visual Programming Environments
 
 **The Problem**: Traditional programming is linear text that doesn't leverage spatial thinking.
 
-**The Textrux Solution**: Programmers can create code using 2D spatial canvases where program logic, data flow, and control structures are expressed through spatial positioning. The system recognizes programming patterns like "Design Patterns," "Algorithms," and "Data Structures" blueprints and can compile these spatial representations into traditional programming languages. This makes complex algorithms more intuitive to design and understand, especially for visual thinkers.
+**The Textrux Solution**: Programmers can create code using 2D spatial canvases where program logic, data flow, and control structures are expressed through spatial positioning. The system can be extended to recognize code written into any cell in any language and interact with code in other cells based upon their spatial semantics. Alternatively code can be split into tokens and placed in individual cells using a tree construct to create AST/LISP like hierarchies that can be executed visually by absorbing leaf nodes upwards step by step. This makes complex algorithms more intuitive to design and understand, especially for visual thinkers.
 
 ## The Spase Paradigm Shift
 
@@ -300,7 +292,7 @@ Traditional systems require manual semantic annotation:
 
 Spase discovers semantics automatically:
 
-- **Trait Analysis**: Automatically detects spatial relationships
+- **Spatial Analysis**: Automatically detects spatial relationships
 - **Construct Recognition**: Automatically identifies semantic structures
 - **Blueprint Matching**: Automatically recognizes familiar patterns
 - **Content-Driven Formatting**: Automatically applies appropriate styling
@@ -311,27 +303,14 @@ The beauty of the Spase framework is that it works with existing data. Any CSV f
 
 1. **Substrate Analysis**: Grid topology and coordinates established
 2. **Aggregation**: Filled cells grouped by proximity rules
-3. **Foundation Recognition**: Basic shapes identified and analyzed with trait system
+3. **Foundation Recognition**: Basic elements identified
 4. **Construct Detection**: Trees, tables, matrices, key-value pairs discovered
 5. **Layout Analysis**: Multi-construct arrangements identified
 6. **Blueprint Matching**: Known templates recognized
 7. **Structure Instantiation**: Concrete instances created
-8. **Internal Processing**: Renovators optimize and validate
+8. **Internal Processing**: Renovators execute, optimize and validate
 9. **External Translation**: Explorers generate outputs
 10. **Artifact Creation**: Final usable files and forms produced
-
-This isn't about replacing existing tools—it's about revealing the hidden spatial semantics that were always there, transforming simple data into rich, navigable, semantic structures.
-
-## Technical Foundation
-
-Textrux implements the Spase framework using modern web technologies:
-
-- **TypeScript**: Type-safe spatial analysis with comprehensive trait interfaces
-- **React**: Responsive spatial visualization that adapts to semantic discoveries
-- **Zustand**: Spatial state management across all 10 layers
-- **Trait-Based Architecture**: Extensible pattern recognition system
-- **Confidence Scoring**: Robust semantic detection with uncertainty handling
-- **Layer Isolation**: Clean separation between Spase layers for maintainability
 
 ## Conclusion: The Future of Spatial Computing
 
