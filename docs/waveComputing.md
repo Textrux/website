@@ -377,6 +377,61 @@ This enables:
 - **Self-Modifying Spatial Algorithms**: Algorithms that optimize their spatial distribution based on signal propagation patterns
 - **Adaptive Grid Computing**: Computational grids that reconfigure themselves through wave computing principles
 
+## Related Paradigms and Technologies
+
+While wave computing as described here is a novel paradigm, several existing technologies share aspects of its core principles:
+
+### Spin Wave Computing
+
+**What it is**: Uses magnetic excitations (spin waves) instead of electrical charges for computation, with information encoded in wave amplitude and phase.
+
+**Similarities**: Like wave computing, it relies on wave propagation for information transfer and processing, supports parallel computation through wave interactions, and enables decentralized processing without central control.
+
+**Differences**: Focuses specifically on magnetic systems at nanoscale, while wave computing is medium-agnostic and operates at the network level.
+
+**Status**: Active research field with experimental prototypes, but still largely theoretical.
+
+### Wave-Based Analog Computing with Metamaterials
+
+**What it is**: Uses electromagnetic waves in specially designed materials to perform mathematical computations like matrix operations in hardware.
+
+**Similarities**: Employs wave propagation for computation, operates at light speed with parallel processing, and encodes data in wave properties similar to our signal types.
+
+**Differences**: Hardware-specific for particular mathematical operations, whereas wave computing proposes a general-purpose programmable framework.
+
+**Status**: Emerging research area with recent experimental validation (2025), but limited to specific computational tasks.
+
+### Z-Wave Protocol
+
+**What it is**: Wireless communication protocol for IoT devices using mesh networking for smart home automation.
+
+**Similarities**: Uses decentralized mesh communication where devices relay signals, creating a network without single points of failure.
+
+**Differences**: Purely a communication protocol focused on device control, not a computational paradigm. Lacks sophisticated signal processing or emergent algorithms.
+
+**Status**: Mature, widely deployed protocol in smart homes since 2001.
+
+### Distributed and Edge Computing
+
+**What it is**: Multiple systems working together on problems across networks, with edge computing bringing processing closer to data sources.
+
+**Similarities**: Decentralized nodes processing data locally, dynamic resource allocation, and autonomous operation without central coordination.
+
+**Differences**: Relies on traditional point-to-point networking rather than broadcast-based ambient awareness. Uses predefined protocols rather than emergent behaviors.
+
+**Status**: Well-established paradigms powering modern cloud and IoT infrastructure.
+
+### Key Distinctions
+
+Wave computing differs from these approaches by combining:
+
+- **True broadcast communication** (ambient awareness vs. point-to-point)
+- **Emergent algorithms** (behavior arising from interactions vs. predetermined logic)
+- **Signal diversity** (pulses, tones, packets, broadcasts with different temporal characteristics)
+- **Reactive programming** (responding to environmental patterns vs. executing sequential instructions)
+
+While these related technologies demonstrate aspects of wave computing principles, none combines all elements into a unified computational paradigm. Wave computing represents a synthesis of ideas from these fields into a new framework for distributed intelligence.
+
 ## Applications and Future Directions
 
 Wave computing applies to systems where independent agents must coordinate through limited communication channels:
