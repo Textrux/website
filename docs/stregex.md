@@ -49,21 +49,32 @@ Where:
 ## Stregex Syntax
 
 ### Basic Structure
+All Stregex patterns are contained within regex comments, making them invisible to traditional parsers while remaining valid syntax:
+
 ```
-(?# structural_pattern ) regex_pattern
+(?# :structural_pattern: regex_pattern )
 ```
 
-The structured comment `(?# ... )` defines the spatial pattern, followed by traditional regex for text matching within the identified cells.
+The `:` characters delimit the structural and regex portions within the comment.
 
-### Structural Comment Format
+### Grammar Variable System
+Stregex supports variables that can be defined and referenced across patterns, enabling complex grammar definitions:
+
 ```
-(?# construct_type: position_sequence )
+(?# $root=tree: m: ^[A-Z][a-z]+$ )
+(?# $child=construct: n: ^(table|matrix|keyvalue)$ )  
+(?# $tree: $root($child)*: .* )
+```
+
+### Full Comment Format
+```
+(?# $variable=construct_type: position_sequence: regex_pattern )
 ```
 
 **Examples:**
-- `(?# tree: m6n6o6 )` - Tree structure moving right and down
-- `(?# table: mgmgmg|qrqrqr )` - Table with header row and data row
-- `(?# keyvalue: mqmq )` - Key-value pairs horizontally
+- `(?# $root=tree: m: ^[A-Z][a-z]+$ )` - Define root tree node
+- `(?# $header=table: fgh: ^(Name|Age|City)$ )` - Define table header
+- `(?# $api: $root($endpoints)*: ^API$ )` - Reference defined variables
 
 ---
 
@@ -92,75 +103,121 @@ The structured comment `(?# ... )` defines the spatial pattern, followed by trad
 
 ---
 
-## Construct Patterns
+## Grammar Definitions
 
-### Tree Structures
+### Tree Grammar with Nested Constructs
 
-**Vertical Tree (growing down):**
-```
-(?# tree: m|q|v ) ^[A-Z][a-z]+$
-```
-Matches cells in vertical line (center, down, down-down) containing capitalized words.
+**Step 1: Define Basic Constructs**
+```stregex
+(?# $table_header=table: fgh: ^[A-Z][a-z]+$ )
+(?# $table_row=table: qrs: ^\w+$ )
+(?# $table=table: $table_header|$table_row: .* )
 
-**Hierarchical Tree (indented):**
-```
-(?# tree: m|qn|vo ) ^.+$
-```
-Matches root at center, children indented right-down, grandchildren further right.
+(?# $matrix_labels=matrix: fg: ^[XY]$ )
+(?# $matrix_data=matrix: qr: ^\d+$ )
+(?# $matrix=matrix: $matrix_labels|$matrix_data: .* )
 
-**Binary Tree:**
+(?# $kv_key=keyvalue: f: ^[a-z]+$ )
+(?# $kv_val=keyvalue: g: ^[a-zA-Z0-9]+$ )
+(?# $keyvalue=keyvalue: $kv_key$kv_val: .* )
 ```
-(?# tree: m|ql|qr ) ^(root|left|right)$
-```
-Matches center root with left and right children.
 
-### Table Structures
+**Step 2: Define Tree Components**
+```stregex
+(?# $tree_root=tree: m: ^[A-Z][a-zA-Z]*$ )
+(?# $tree_child=tree: n: ^[a-z][a-zA-Z]*$ )
+(?# $child_construct=construct: n: ($table|$matrix|$keyvalue) )
+```
 
-**Simple Table:**
+**Step 3: Complete Tree Grammar**
+```stregex
+(?# $tree=tree: $tree_root($tree_child|$child_construct)*: .* )
 ```
-(?# table: fgh|qrs ) ^[A-Za-z0-9]+$
-```
-Matches 2x3 table pattern with header row and data row.
 
-**Table with Headers:**
-```
-(?# table: fg|qr ) ^(Name|Age|Alice|30)$
-```
-Matches column headers in top row, data in second row.
+### Example: API Tree Structure
 
-**Extended Table:**
+**Define API Components:**
+```stregex
+(?# $api_root=tree: m: ^API$ )
+(?# $endpoint=tree: n: ^/[a-z]+$ )
+(?# $method=tree: o: ^(GET|POST|PUT|DELETE)$ )
+(?# $response=table: p: ^\d{3}$ )
 ```
-(?# table: fghi|qrst|vwxy ) ^\w+$
-```
-Matches 3x4 table with header and two data rows.
 
-### Matrix Structures
+**Define API Grammar:**
+```stregex
+(?# $api_endpoint=tree: $endpoint($method($response)?)*: .* )
+(?# $api_tree=tree: $api_root($api_endpoint)+: .* )
+```
 
-**2x2 Matrix:**
+**Usage:**
 ```
-(?# matrix: gh|rs ) ^\d+$
+API          ← $api_root matches here
+  /users     ← $endpoint matches here
+    GET      ← $method matches here
+      200    ← $response matches here
+    POST
+      201
+  /orders
+    GET
+      200
 ```
-Matches numeric data in 2x2 arrangement.
 
-**Labeled Matrix:**
-```
-(?# matrix: fg|qr ) ^(X|Y|\d+)$
-```
-Matches labels and numeric matrix data.
+### Complex Tree with Mixed Children
 
-### Key-Value Pairs
+**File System Tree with Various File Types:**
+```stregex
+(?# $folder=tree: m: ^[A-Z][a-zA-Z]*$ )
+(?# $js_file=tree: n: ^[a-z]+\.js$ )
+(?# $css_file=tree: n: ^[a-z]+\.css$ )
+(?# $config=keyvalue: o: ^(port|host|timeout)$ )
+(?# $config_val=keyvalue: p: ^\d+|[a-z.]+$ )
+(?# $config_pair=keyvalue: $config$config_val: .* )
 
-**Horizontal Pairs:**
+(?# $file_tree=tree: $folder(($js_file|$css_file)+($config_pair)*): .* )
 ```
-(?# keyvalue: fg|qr|vw ) ^([a-z]+|[0-9]+)$
-```
-Matches key-value pairs arranged horizontally.
 
-**Vertical Pairs:**
+**Usage:**
 ```
-(?# keyvalue: f|g|q|r ) ^(key|value)$
+Components        ← $folder matches
+  Button.js       ← $js_file matches  
+  Modal.js        ← $js_file matches
+  styles.css      ← $css_file matches
+  port            ← $config matches
+    3000          ← $config_val matches
+  host            ← $config matches  
+    localhost     ← $config_val matches
 ```
-Matches keys in left column, values in right column.
+
+### Database Schema Tree
+
+**Schema with Tables and Relationships:**
+```stregex
+(?# $schema=tree: m: ^[A-Z_]+$ )
+(?# $table_name=tree: n: ^[a-z_]+$ )
+(?# $field=table: o: ^[a-z_]+$ )
+(?# $type=table: p: ^(int|varchar|date)$ )
+(?# $table_def=table: $field$type: .* )
+
+(?# $db_schema=tree: $schema($table_name($table_def)+)+: .* )
+```
+
+**Usage:**
+```
+USER_SCHEMA       ← $schema matches
+  users           ← $table_name matches
+    id            ← $field matches
+      int         ← $type matches  
+    name          ← $field matches
+      varchar     ← $type matches
+    created       ← $field matches
+      date        ← $type matches
+  orders          ← $table_name matches
+    id            ← $field matches
+      int         ← $type matches
+    user_id       ← $field matches  
+      int         ← $type matches
+```
 
 ---
 
@@ -210,48 +267,72 @@ Matches folder with indented files.
 
 ---
 
-## Implementation Examples
+## Grammar Compilation and Execution
 
-### Finding Trees
+### Variable Resolution
+Variables are resolved in order of definition, allowing for progressive grammar building:
+
 ```stregex
-# Simple vertical tree
-(?# tree: m|q|v ) ^[A-Z][a-zA-Z]*$
-
-# Indented hierarchy  
-(?# tree: m|qn|vo|zpa ) ^.+$
-
-# Binary tree structure
-(?# tree: m|ql|qr ) ^(root|left|right|leaf)$
+(?# $root=tree: m: ^[A-Z]+$ )           // Define root pattern
+(?# $child=tree: n: ^\w+$ )             // Define child pattern  
+(?# $leaf=construct: o: ($table|$kv) )  // Reference other variables
+(?# $full_tree=tree: $root($child($leaf)*)*: .* ) // Complete grammar
 ```
 
-### Finding Tables
+### Grammar Execution Pipeline
+
+**Step 1: Variable Collection**
+- Parse all `(?# $var=... )` definitions
+- Build dependency graph between variables
+- Validate circular references
+
+**Step 2: Pattern Compilation**  
+- Resolve variable references to concrete patterns
+- Compile position sequences to spatial coordinates
+- Generate state machine for pattern matching
+
+**Step 3: Grid Matching**
+- Apply compiled grammar to 5x5 grid blocks
+- Match spatial patterns with text constraints
+- Return hierarchical construct tree
+
+### Example: Complete API Grammar
+
 ```stregex
-# Basic table with headers
-(?# table: fgh|qrs ) ^(Name|Age|City|[A-Z][a-z]+|\d+)$
+// Basic constructs
+(?# $table_row=table: fg: ^\w+$ )
+(?# $kv_pair=keyvalue: fg: ^[a-z]+$ )
 
-# Financial table
-(?# table: f|q|v ) ^(Revenue|Q1|Q2|Q3|Q4|\$?\d+)$
+// Tree components  
+(?# $api_root=tree: m: ^API$ )
+(?# $endpoint=tree: n: ^/\w+$ )
+(?# $method=tree: o: ^(GET|POST|PUT|DELETE)$ )
+(?# $param=tree: p: ^\{[a-z]+\}$ )
+(?# $response=tree: q: ^\d{3}$ )
+(?# $schema=construct: r: ($table_row|$kv_pair) )
 
-# Data matrix
-(?# table: fghi|qrst|vwxy ) ^\w+$
+// Complete grammar
+(?# $api_method=tree: $method($param)?($response($schema)?)?: .* )
+(?# $api_endpoint=tree: $endpoint($api_method)+: .* )  
+(?# $api_spec=tree: $api_root($api_endpoint)+: .* )
 ```
 
-### Finding Key-Value Structures
-```stregex
-# Property list
-(?# keyvalue: fg|qr|vw ) ^([a-z]+_?[a-z]*|[^:]+:.*)$
-
-# Configuration pairs
-(?# keyvalue: f|q|v ) ^(host|port|timeout|[a-zA-Z0-9.]+)$
+**Matches:**
 ```
-
-### Finding API Definitions
-```stregex
-# REST API structure
-(?# blueprint: m|qn|vo|zqb ) ^(API|/users|GET|POST|PUT|DELETE)$
-
-# With parameters
-(?# blueprint: m|qn|vop ) ^(API|/users/\{id\}|GET|200|404)$
+API                    ← $api_root
+  /users               ← $endpoint  
+    GET                ← $method
+      200              ← $response
+        name           ← $table_row (part of $schema)
+        email          ← $table_row (part of $schema)
+    POST               ← $method
+      {user}           ← $param
+      201              ← $response
+  /orders              ← $endpoint
+    GET                ← $method
+      200              ← $response
+        total          ← $kv_pair (part of $schema)
+        items          ← $kv_pair (part of $schema)
 ```
 
 ---
