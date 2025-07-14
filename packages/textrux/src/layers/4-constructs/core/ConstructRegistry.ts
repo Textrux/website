@@ -3,14 +3,17 @@ import { TreeSignatureParser } from "../cell-cluster/tree/TreeSignatureParser";
 import { TableSignatureParser } from "../cell-cluster/table/TableSignatureParser";
 import { MatrixSignatureParser } from "../cell-cluster/matrix/MatrixSignatureParser";
 import { KeyValueSignatureParser } from "../cell-cluster/key-value/KeyValueSignatureParser";
+import GridModel from "../../1-substrate/GridModel";
 
 /**
  * Central registry for all construct signature parsers
  */
 export class ConstructRegistry {
   private parsers: Map<string, ConstructSignatureParser<any>> = new Map();
+  private grid?: GridModel;
 
-  constructor() {
+  constructor(grid?: GridModel) {
+    this.grid = grid;
     this.registerDefaultParsers();
   }
 
@@ -18,7 +21,9 @@ export class ConstructRegistry {
    * Register the default set of construct parsers
    */
   private registerDefaultParsers(): void {
-    this.registerParser(new TreeSignatureParser());
+    if (this.grid) {
+      this.registerParser(new TreeSignatureParser(this.grid));
+    }
     this.registerParser(new TableSignatureParser());
     this.registerParser(new MatrixSignatureParser());
     this.registerParser(new KeyValueSignatureParser());

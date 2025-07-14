@@ -5,7 +5,133 @@ import {
 } from "../../interfaces/ConstructInterfaces";
 
 /**
- * Represents a node in the tree structure
+ * Element types for tree components and nested constructs
+ */
+export enum TreeElementType {
+  // Tree structure elements
+  Header = "header",
+  Root = "root", 
+  Parent = "parent",
+  Child = "child",
+  Peer = "peer",
+  Leaf = "leaf",
+  
+  // Matrix elements (when nested in tree)
+  MatrixPrimaryHeader = "matrixPrimaryHeader",
+  MatrixSecondaryHeader = "matrixSecondaryHeader", 
+  MatrixBodyCell = "matrixBodyCell",
+  MatrixSecondaryLine = "matrixSecondaryLine",
+  
+  // Table elements (when nested in tree)
+  TableHeaderCell = "tableHeaderCell",
+  TableBodyCell = "tableBodyCell",
+  
+  // Key-Value elements (when nested in tree)
+  Key = "key",
+  Value = "value"
+}
+
+/**
+ * Domain region for parent nodes - rectangular area containing all descendants
+ */
+export interface DomainRegion {
+  /** Starting row (immediate right/below parent for non-transposed/transposed trees) */
+  topRow: number;
+  
+  /** Ending row (last descendant row) */
+  bottomRow: number;
+  
+  /** Starting column */
+  leftCol: number;
+  
+  /** Ending column (rightmost filled cell of any descendant) */
+  rightCol: number;
+  
+  /** Whether this region contains nested constructs */
+  hasNestedConstructs: boolean;
+  
+  /** Types of nested constructs found in this domain */
+  nestedConstructTypes: string[];
+}
+
+/**
+ * Nested construct within a tree node's domain
+ */
+export interface NestedConstruct {
+  /** Type of nested construct */
+  type: "table" | "matrix" | "key-value";
+  
+  /** Confidence score for this construct identification */
+  confidence: number;
+  
+  /** Bounding region of the nested construct */
+  bounds: {
+    topRow: number;
+    bottomRow: number;
+    leftCol: number;
+    rightCol: number;
+  };
+  
+  /** Elements that comprise this nested construct */
+  elements: TreeElement[];
+  
+  /** Additional metadata specific to construct type */
+  metadata: Record<string, any>;
+}
+
+/**
+ * Enhanced tree element with comprehensive role and region tracking
+ */
+export interface TreeElement {
+  /** Position of this element in the grid */
+  position: ConstructPosition;
+  
+  /** Content of this element */
+  content: string;
+  
+  /** Primary element type */
+  elementType: TreeElementType;
+  
+  /** Secondary element types (for multi-role elements) */
+  secondaryTypes: TreeElementType[];
+  
+  /** Tree hierarchy level (0 = root) */
+  level: number;
+  
+  /** Parent element (null for root/header) */
+  parent: TreeElement | null;
+  
+  /** Child elements */
+  children: TreeElement[];
+  
+  /** Peer elements (same hierarchical level) */
+  peers: TreeElement[];
+  
+  /** Whether this is a leaf element */
+  isLeaf: boolean;
+  
+  /** Indentation amount for this element */
+  indentation: number;
+  
+  /** Domain region for parent elements (area containing all descendants) */
+  domainRegion?: DomainRegion;
+  
+  /** Nested constructs within this element's domain */
+  nestedConstructs: NestedConstruct[];
+  
+  /** Role within nested construct (if part of table/matrix/key-value) */
+  nestedRole?: {
+    constructType: "table" | "matrix" | "key-value";
+    role: string; // e.g., "header", "data", "key", "value", "primaryHeader", "bodyCell"
+    parentElement: TreeElement; // The tree element that contains this nested construct
+  };
+  
+  /** Additional metadata for this element */
+  metadata: Record<string, any>;
+}
+
+/**
+ * Represents a node in the tree structure (legacy interface for compatibility)
  */
 export interface TreeNode {
   /** Position of this node in the grid */
@@ -49,11 +175,14 @@ export default class Tree implements BaseConstruct {
   /** Directional orientation of the tree */
   orientation: DirectionalOrientation;
 
-  /** Root nodes of the tree (there may be multiple) */
-  rootNodes: TreeNode[];
+  /** Root elements of the tree (there may be multiple) */
+  rootElements: TreeElement[];
 
-  /** All nodes in the tree, organized by level */
-  nodesByLevel: Map<number, TreeNode[]>;
+  /** All elements in the tree, organized by level */
+  elementsByLevel: Map<number, TreeElement[]>;
+
+  /** All elements indexed by position for fast lookup */
+  elementsByPosition: Map<string, TreeElement>;
 
   /** Maximum depth of the tree */
   maxDepth: number;
@@ -82,8 +211,9 @@ export default class Tree implements BaseConstruct {
     this.orientation = orientation;
     this.metadata = metadata;
 
-    this.rootNodes = [];
-    this.nodesByLevel = new Map();
+    this.rootElements = [];
+    this.elementsByLevel = new Map();
+    this.elementsByPosition = new Map();
     this.maxDepth = 0;
     this.hasConsistentIndentation = false;
     this.hasVisualConnectors = false;
@@ -91,63 +221,67 @@ export default class Tree implements BaseConstruct {
   }
 
   /**
-   * Add a node to the tree
+   * Add an element to the tree
    */
-  addNode(node: TreeNode): void {
+  addElement(element: TreeElement): void {
     // Add to level mapping
-    if (!this.nodesByLevel.has(node.level)) {
-      this.nodesByLevel.set(node.level, []);
+    if (!this.elementsByLevel.has(element.level)) {
+      this.elementsByLevel.set(element.level, []);
     }
-    this.nodesByLevel.get(node.level)!.push(node);
+    this.elementsByLevel.get(element.level)!.push(element);
+
+    // Add to position mapping
+    const posKey = `${element.position.row},${element.position.col}`;
+    this.elementsByPosition.set(posKey, element);
 
     // Update max depth
-    this.maxDepth = Math.max(this.maxDepth, node.level);
+    this.maxDepth = Math.max(this.maxDepth, element.level);
 
-    // Add to parent's children or to root nodes
-    if (node.parent) {
-      node.parent.children.push(node);
+    // Add to parent's children or to root elements
+    if (element.parent) {
+      element.parent.children.push(element);
     } else {
-      this.rootNodes.push(node);
+      this.rootElements.push(element);
+    }
+
+    // Calculate domain region for parent elements
+    if (element.children.length > 0 || element.elementType === TreeElementType.Parent) {
+      this.calculateDomainRegion(element);
     }
   }
 
   /**
-   * Get all nodes at a specific level
+   * Get all elements at a specific level
    */
-  getNodesAtLevel(level: number): TreeNode[] {
-    return this.nodesByLevel.get(level) || [];
+  getElementsAtLevel(level: number): TreeElement[] {
+    return this.elementsByLevel.get(level) || [];
   }
 
   /**
-   * Get all leaf nodes
+   * Get all leaf elements
    */
-  getLeafNodes(): TreeNode[] {
-    const leafNodes: TreeNode[] = [];
-    this.nodesByLevel.forEach((nodes) => {
-      leafNodes.push(...nodes.filter((node) => node.isLeaf));
+  getLeafElements(): TreeElement[] {
+    const leafElements: TreeElement[] = [];
+    this.elementsByLevel.forEach((elements) => {
+      leafElements.push(...elements.filter((element) => element.isLeaf));
     });
-    return leafNodes;
+    return leafElements;
   }
 
   /**
-   * Find a node by its position
+   * Find an element by its position
    */
-  findNodeByPosition(row: number, col: number): TreeNode | null {
-    for (const nodes of this.nodesByLevel.values()) {
-      const node = nodes.find(
-        (n) => n.position.row === row && n.position.col === col
-      );
-      if (node) return node;
-    }
-    return null;
+  findElementByPosition(row: number, col: number): TreeElement | null {
+    const posKey = `${row},${col}`;
+    return this.elementsByPosition.get(posKey) || null;
   }
 
   /**
-   * Get the path from root to a specific node
+   * Get the path from root to a specific element
    */
-  getPathToNode(node: TreeNode): TreeNode[] {
-    const path: TreeNode[] = [];
-    let current = node;
+  getPathToElement(element: TreeElement): TreeElement[] {
+    const path: TreeElement[] = [];
+    let current = element;
 
     while (current) {
       path.unshift(current);
@@ -168,7 +302,7 @@ export default class Tree implements BaseConstruct {
     this.analyzeVisualConnectors();
 
     // Update metadata
-    this.metadata.totalNodes = this.getTotalNodeCount();
+    this.metadata.totalElements = this.getTotalElementCount();
     this.metadata.branchingFactor = this.calculateAverageBranchingFactor();
     this.metadata.treeHeight = this.maxDepth + 1;
     this.metadata.isBalanced = this.checkIfBalanced();
@@ -179,11 +313,11 @@ export default class Tree implements BaseConstruct {
     let consistent = true;
     const pattern = "";
 
-    this.nodesByLevel.forEach((nodes, level) => {
-      nodes.forEach((node) => {
+    this.elementsByLevel.forEach((elements, level) => {
+      elements.forEach((element) => {
         // Analysis would go here based on the actual content
         // This is a simplified version
-        if (level > 0 && node.indentation === 0) {
+        if (level > 0 && element.indentation === 0) {
           consistent = false;
         }
       });
@@ -197,9 +331,9 @@ export default class Tree implements BaseConstruct {
     // Check for visual connectors like bullets, lines, arrows, etc.
     let hasConnectors = false;
 
-    this.nodesByLevel.forEach((nodes) => {
-      nodes.forEach((node) => {
-        const content = node.content.trim();
+    this.elementsByLevel.forEach((elements) => {
+      elements.forEach((element) => {
+        const content = element.content.trim();
         if (
           content.match(/^[•◦▪▫▸▹→-]/) ||
           content.includes("├") ||
@@ -213,9 +347,9 @@ export default class Tree implements BaseConstruct {
     this.hasVisualConnectors = hasConnectors;
   }
 
-  private getTotalNodeCount(): number {
+  private getTotalElementCount(): number {
     let count = 0;
-    this.nodesByLevel.forEach((nodes) => (count += nodes.length));
+    this.elementsByLevel.forEach((elements) => (count += elements.length));
     return count;
   }
 
@@ -223,10 +357,10 @@ export default class Tree implements BaseConstruct {
     let totalChildren = 0;
     let parentCount = 0;
 
-    this.nodesByLevel.forEach((nodes) => {
-      nodes.forEach((node) => {
-        if (node.children.length > 0) {
-          totalChildren += node.children.length;
+    this.elementsByLevel.forEach((elements) => {
+      elements.forEach((element) => {
+        if (element.children.length > 0) {
+          totalChildren += element.children.length;
           parentCount++;
         }
       });
@@ -237,13 +371,168 @@ export default class Tree implements BaseConstruct {
 
   private checkIfBalanced(): boolean {
     // Simple check - a tree is roughly balanced if the depth difference
-    // between leaf nodes is not too large
-    const leafDepths = this.getLeafNodes().map((node) => node.level);
+    // between leaf elements is not too large
+    const leafDepths = this.getLeafElements().map((element) => element.level);
     if (leafDepths.length === 0) return true;
 
     const minDepth = Math.min(...leafDepths);
     const maxDepth = Math.max(...leafDepths);
 
     return maxDepth - minDepth <= 1;
+  }
+
+  /**
+   * Calculate domain region for a parent element
+   */
+  private calculateDomainRegion(element: TreeElement): void {
+    if (element.children.length === 0) {
+      return;
+    }
+
+    // Get all descendant positions (children and their descendants)
+    const descendants = this.getAllDescendants(element);
+    if (descendants.length === 0) {
+      return;
+    }
+
+    const positions = descendants.map(d => d.position);
+    const minRow = Math.min(...positions.map(p => p.row));
+    const maxRow = Math.max(...positions.map(p => p.row));
+    const minCol = Math.min(...positions.map(p => p.col));
+    const maxCol = Math.max(...positions.map(p => p.col));
+
+    // For trees, domain starts from immediate child position
+    const startRow = this.orientation.primary === "vertical" ? element.position.row + 1 : minRow;
+    const startCol = this.orientation.primary === "horizontal" ? element.position.col + 1 : minCol;
+
+    element.domainRegion = {
+      topRow: startRow,
+      bottomRow: maxRow,
+      leftCol: startCol,
+      rightCol: maxCol,
+      hasNestedConstructs: element.nestedConstructs.length > 0,
+      nestedConstructTypes: element.nestedConstructs.map(nc => nc.type)
+    };
+  }
+
+  /**
+   * Get all descendants of an element
+   */
+  private getAllDescendants(element: TreeElement): TreeElement[] {
+    const descendants: TreeElement[] = [];
+    
+    const collectDescendants = (el: TreeElement) => {
+      for (const child of el.children) {
+        descendants.push(child);
+        collectDescendants(child);
+      }
+    };
+    
+    collectDescendants(element);
+    return descendants;
+  }
+
+  /**
+   * Add a nested construct to an element's domain
+   */
+  addNestedConstruct(parentElement: TreeElement, construct: NestedConstruct): void {
+    parentElement.nestedConstructs.push(construct);
+    
+    // Update domain region to include nested constructs
+    if (parentElement.domainRegion) {
+      parentElement.domainRegion.hasNestedConstructs = true;
+      if (!parentElement.domainRegion.nestedConstructTypes.includes(construct.type)) {
+        parentElement.domainRegion.nestedConstructTypes.push(construct.type);
+      }
+    }
+  }
+
+  /**
+   * Find elements by their type
+   */
+  findElementsByType(elementType: TreeElementType): TreeElement[] {
+    const results: TreeElement[] = [];
+    
+    this.elementsByLevel.forEach((elements) => {
+      elements.forEach((element) => {
+        if (element.elementType === elementType || 
+            element.secondaryTypes.includes(elementType)) {
+          results.push(element);
+        }
+      });
+    });
+    
+    return results;
+  }
+
+  /**
+   * Find elements with nested constructs
+   */
+  findElementsWithNestedConstructs(constructType?: string): TreeElement[] {
+    const results: TreeElement[] = [];
+    
+    this.elementsByLevel.forEach((elements) => {
+      elements.forEach((element) => {
+        if (element.nestedConstructs.length > 0) {
+          if (!constructType || element.nestedConstructs.some(nc => nc.type === constructType)) {
+            results.push(element);
+          }
+        }
+      });
+    });
+    
+    return results;
+  }
+
+  /**
+   * Get the root elements that serve as headers
+   */
+  getHeaderElements(): TreeElement[] {
+    return this.rootElements.filter(element => 
+      element.elementType === TreeElementType.Header
+    );
+  }
+
+  /**
+   * Get all parent elements (elements with children)
+   */
+  getParentElements(): TreeElement[] {
+    const parents: TreeElement[] = [];
+    
+    this.elementsByLevel.forEach((elements) => {
+      elements.forEach((element) => {
+        if (element.children.length > 0) {
+          parents.push(element);
+        }
+      });
+    });
+    
+    return parents;
+  }
+
+  /**
+   * Create a new tree element
+   */
+  static createTreeElement(
+    position: ConstructPosition,
+    content: string,
+    elementType: TreeElementType,
+    level: number,
+    parent: TreeElement | null = null
+  ): TreeElement {
+    return {
+      position,
+      content,
+      elementType,
+      secondaryTypes: [],
+      level,
+      parent,
+      children: [],
+      peers: [],
+      isLeaf: true, // Will be updated when children are added
+      indentation: parent ? parent.indentation + 1 : 0,
+      nestedConstructs: [],
+      metadata: {}
+    };
   }
 }

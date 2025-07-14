@@ -2,6 +2,11 @@ import { CellFormat } from "../../../style/CellFormat";
 import { CellClusterTraits } from "./CellClusterTraits";
 import CellSubcluster from "../cell-subcluster/CellSubcluster";
 import { BaseConstruct } from "../../4-constructs/interfaces/ConstructInterfaces";
+import { TreeSignatureParser } from "../../4-constructs/cell-cluster/tree/TreeSignatureParser";
+import { TableSignatureParser } from "../../4-constructs/cell-cluster/table/TableSignatureParser";
+import { MatrixSignatureParser } from "../../4-constructs/cell-cluster/matrix/MatrixSignatureParser";
+import { KeyValueSignatureParser } from "../../4-constructs/cell-cluster/key-value/KeyValueSignatureParser";
+import GridModel from "../../1-substrate/GridModel";
 
 export default class CellCluster {
   topRow: number;
@@ -52,6 +57,11 @@ export default class CellCluster {
       base: {} as any,
       composite: {} as any,
       derived: {} as any,
+      treeDetection: {} as any,
+      constructDetection: {} as any,
+      corners: {} as any,
+      edges: {} as any,
+      indentation: {} as any,
     };
   }
 
@@ -187,5 +197,82 @@ export default class CellCluster {
    */
   clearConstructs(): void {
     this.constructs = [];
+  }
+
+  /**
+   * Detect and identify constructs using direct parser imports
+   * Uses trait-based detection for optimal performance
+   */
+  detectConstructs(grid: GridModel): void {
+    this.clearConstructs();
+
+    // Create parser instances with grid reference
+    const treeParser = new TreeSignatureParser(grid);
+    const tableParser = new TableSignatureParser();
+    const matrixParser = new MatrixSignatureParser();
+    const keyValueParser = new KeyValueSignatureParser();
+
+    // Try tree detection first (highest priority for user requirements)
+    const trees = treeParser.parseConstruct(this);
+    trees.forEach(tree => this.addConstruct(tree));
+
+    // Only try other constructs if no tree was found with high confidence
+    const highConfidenceTree = trees.find(tree => tree.confidence >= 0.8);
+    if (!highConfidenceTree) {
+      // Try table detection
+      const tables = tableParser.parseConstruct(this);
+      tables.forEach(table => this.addConstruct(table));
+
+      // Try matrix detection
+      const matrices = matrixParser.parseConstruct(this);
+      matrices.forEach(matrix => this.addConstruct(matrix));
+
+      // Try key-value detection
+      const keyValues = keyValueParser.parseConstruct(this);
+      keyValues.forEach(keyValue => this.addConstruct(keyValue));
+    }
+  }
+
+  /**
+   * Get the most likely construct based on confidence scores
+   */
+  getPrimaryConstruct(): BaseConstruct | null {
+    if (this.constructs.length === 0) return null;
+
+    return this.constructs.reduce((best, current) =>
+      current.confidence > best.confidence ? current : best
+    );
+  }
+
+  /**
+   * Check if this cluster represents a tree structure
+   */
+  isTree(): boolean {
+    const tree = this.getBestConstruct("tree");
+    return tree !== null && tree.confidence >= 0.7;
+  }
+
+  /**
+   * Check if this cluster represents a table structure
+   */
+  isTable(): boolean {
+    const table = this.getBestConstruct("table");
+    return table !== null && table.confidence >= 0.7;
+  }
+
+  /**
+   * Check if this cluster represents a matrix structure
+   */
+  isMatrix(): boolean {
+    const matrix = this.getBestConstruct("matrix");
+    return matrix !== null && matrix.confidence >= 0.7;
+  }
+
+  /**
+   * Check if this cluster represents key-value pairs
+   */
+  isKeyValue(): boolean {
+    const keyValue = this.getBestConstruct("key-value");
+    return keyValue !== null && keyValue.confidence >= 0.7;
   }
 }

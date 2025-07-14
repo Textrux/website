@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npx tsx packages/textrux/src/test-trait-parsing.ts && echo '\\n' && npx tsx packages/textrux/src/test-tree-detection.ts",
+    "test:traits": "npx tsx packages/textrux/src/test-trait-parsing.ts",
+    "test:tree": "npx tsx packages/textrux/src/test-tree-detection.ts"
   },
   "dependencies": {
     "prismjs": "^1.30.0",
@@ -30,6 +33,7 @@
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
     "tailwindcss": "^4.0.6",
+    "tsx": "^4.20.3",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.22.0",
     "vite": "^6.1.0",

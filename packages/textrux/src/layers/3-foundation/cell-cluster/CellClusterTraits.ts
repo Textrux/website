@@ -313,6 +313,145 @@ export interface CellClusterDerivedTraits {
 }
 
 /**
+ * Tree Detection Traits - Precise algorithmic constraints for tree identification
+ */
+export interface TreeDetectionTraits {
+  // Primary tree constraints
+  allCellsFilled: boolean;                    // false for trees (would be table if true)
+  filledTopLeftCell: boolean;                 // true for trees (anchor point)
+  
+  // Indentation analysis (critical for trees)
+  maxRowIndentationIncrease: number;          // ≤1 for trees (children max 1 column right of parent)
+  maxColumnIndentationIncrease: number;       // ≤1 for transposed trees
+  
+  // Gap analysis in rows/columns
+  maxGapSizeInAnyRow: number;                 // ≤1 for trees (max contiguous empty cells between filled)
+  maxGapSizeInAnyColumn: number;              // ≤1 for transposed trees
+  maxGapCountInAnyRow: number;                // ≤1 for trees (max number of gap instances)
+  maxGapCountInAnyColumn: number;             // ≤1 for transposed trees
+  
+  // Gap positioning constraints
+  maxFilledCellsBeforeAnyRowGap: number;      // ≤1 for trees (gap only next to parent)
+  maxFilledCellsBeforeAnyColumnGap: number;   // ≤1 for transposed trees
+  
+  // Parent-specific gap constraints
+  nonParentRowsWithGap: number;               // 0 for trees (gaps only on parent rows)
+  nonParentColumnsWithGap: number;            // 0 for transposed trees
+}
+
+/**
+ * Consolidated Corner Analysis from SpatialRelationshipTraits
+ */
+export interface CornerAnalysis {
+  topLeft: {
+    filled: boolean;
+    content?: string;
+    isEmpty: boolean;
+  };
+  topRight: {
+    filled: boolean;
+    content?: string;
+    isEmpty: boolean;
+  };
+  bottomLeft: {
+    filled: boolean;
+    content?: string;
+    isEmpty: boolean;
+  };
+  bottomRight: {
+    filled: boolean;
+    content?: string;
+    isEmpty: boolean;
+  };
+  
+  filledCornerCount: number;
+  emptyCornerCount: number;
+  primaryCorner?: "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+}
+
+/**
+ * Consolidated Edge Analysis from SpatialRelationshipTraits
+ */
+export interface EdgeAnalysis {
+  top: {
+    fillPattern: string;
+    density: number;
+    hasGaps: boolean;
+    isFullyFilled: boolean;
+    firstFilledIndex?: number;
+    lastFilledIndex?: number;
+  };
+  bottom: {
+    fillPattern: string;
+    density: number;
+    hasGaps: boolean;
+    isFullyFilled: boolean;
+    firstFilledIndex?: number;
+    lastFilledIndex?: number;
+  };
+  left: {
+    fillPattern: string;
+    density: number;
+    hasGaps: boolean;
+    isFullyFilled: boolean;
+    firstFilledIndex?: number;
+    lastFilledIndex?: number;
+  };
+  right: {
+    fillPattern: string;
+    density: number;
+    hasGaps: boolean;
+    isFullyFilled: boolean;
+    firstFilledIndex?: number;
+    lastFilledIndex?: number;
+  };
+  
+  fullyFilledEdges: Array<"top" | "bottom" | "left" | "right">;
+  regularEdges: Array<"top" | "bottom" | "left" | "right">;
+}
+
+/**
+ * Consolidated Indentation Analysis from SpatialRelationshipTraits
+ */
+export interface IndentationAnalysis {
+  hasConsistentIndentation: boolean;
+  indentationLevels: number;
+  maxIndentation: number;
+  indentationDirection: Direction;
+  followsTreePattern: boolean;
+  followsListPattern: boolean;
+}
+
+/**
+ * Construct Detection Traits - High-level patterns for different constructs
+ */
+export interface ConstructDetectionTraits {
+  // Tree indicators
+  hasTopLeftAnchor: boolean;
+  hasHierarchicalIndentation: boolean;
+  hasTreeLikeStructure: boolean;
+  
+  // Table indicators  
+  hasTopRowFilled: boolean;
+  hasColumnAlignment: boolean;
+  hasTabularStructure: boolean;
+  
+  // Matrix indicators
+  hasLeftColumnFilled: boolean;
+  hasTopAndLeftEdgesFilled: boolean;
+  hasGridLikeStructure: boolean;
+  
+  // Key-Value indicators
+  hasKeyValuePairs: boolean;
+  hasConsistentRowPairs: boolean;
+  
+  // General structure
+  fillDensity: number;
+  gridLikeness: number;
+  isRegular: boolean;
+}
+
+/**
  * Complete CellClusterTraits combining all categories
  */
 export interface CellClusterTraits {
@@ -320,9 +459,10 @@ export interface CellClusterTraits {
   composite: CellClusterCompositeTraits;
   derived: CellClusterDerivedTraits;
   
-  // Enhanced trait categories for detailed construct detection
-  spatial?: import("./SpatialRelationshipTraits").SpatialRelationshipTraits;
-  content?: import("./ContentPatternTraits").ContentPatternTraits;
-  roles?: import("./CellRoleTraits").CellRoleTraits;
-  arrangement?: import("./ArrangementTraits").ArrangementTraits;
+  // Enhanced trait categories for construct detection
+  treeDetection: TreeDetectionTraits;
+  constructDetection: ConstructDetectionTraits;
+  corners: CornerAnalysis;
+  edges: EdgeAnalysis;
+  indentation: IndentationAnalysis;
 }

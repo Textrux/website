@@ -6,7 +6,13 @@
       "Bash(sed:*)",
       "Bash(npx tsc:*)",
       "Bash(npx ts-node:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(npm run lint)",
+      "Bash(npm install:*)",
+      "Bash(npm test)",
+      "Bash(npm run test:tree:*)"
     ],
     "deny": []
   }
