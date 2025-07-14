@@ -1,327 +1,339 @@
-# Stregex: Structural Regular Expressions for 2D Grids
+# Stregex: Structural Regular Expressions
 
-*A simple, regex-inspired language for finding trees, tables, matrices, and key-value pairs in spatial data*
-
----
-
-## The Problem with Complex Frameworks
-
-The criticism that "simple regex patterns could identify most constructs with far less complexity" is valid. Instead of building elaborate bidirectional discovery systems and multi-phase semantic parsing frameworks, we can create a pattern matching language that directly describes what we're looking for in 2D space.
-
-**Stregex** (Structural Regular Expressions) extends the familiar regex paradigm into two dimensions, allowing developers to write concise patterns that match spatial structures in grids.
+*A regex extension for matching spatial patterns in 2D grids using structured comments and positional encoding*
 
 ---
 
-## Core Concepts
+## Core Concept
 
-### Spatial Coordinates and Movement
-- `@(r,c)` - Match a specific row/column position
-- `@(r+n,c+m)` - Relative movement from current position
-- `@(r*,c*)` - Wildcard positions (any row, any column)
-- `@next` - Move to next cell in reading order
-
-### Cell Content Matching
-- `$"text"` - Cell contains exact text
-- `$/pattern/` - Cell content matches regex pattern
-- `$empty` - Cell is empty
-- `$filled` - Cell contains any content
-- `$num` - Cell contains numeric data
-- `$*` - Any cell (filled or empty)
-
-### Spatial Relationships
-- `→` - Move right (east)
-- `↓` - Move down (south)
-- `↑` - Move up (north)
-- `←` - Move left (west)
-- `↘` - Move diagonally down-right
-- `↖` - Move diagonally up-left
-- `~` - Adjacent to (any direction)
-- `~~` - Near (within 2 cells)
-
-### Quantifiers and Repetition
-- `{n}` - Exactly n repetitions
-- `{n,m}` - Between n and m repetitions
-- `+` - One or more
-- `*` - Zero or more
-- `?` - Zero or one
-
-### Grouping and Capture
-- `(pattern)` - Group and capture spatial region
-- `(?:pattern)` - Group without capture
-- `[name:pattern]` - Named capture group
+Stregex extends traditional regular expressions by adding structured comments that define spatial patterns while maintaining the familiar regex syntax for text matching. The system uses a 5x5 grid as the fundamental spatial unit, with letters representing specific cell positions and numbers controlling navigation through nested grid structures.
 
 ---
 
-## Basic Patterns
+## The 5x5 Grid Foundation
 
-### Simple Content Matching
-```stregex
-$"Hello"                    # Find cell containing "Hello"
-$/^API/                     # Find cell starting with "API"
-$num → $"total"             # Number followed by "total" to the right
-$filled ↓ $empty            # Filled cell with empty cell below
+Every spatial pattern is based on a 5x5 grid where the center cell (position 13, using 1-25 numbering) can be filled and surrounded by empty cells. This represents the minimum "block" size in spatial semantics.
+
+### Letter Encoding (a-y)
+The 25 positions in a 5x5 grid map to letters a-y, reading left to right, top to bottom:
+
+```
+a b c d e
+f g h i j
+k l m n o
+p q r s t
+u v w x y
 ```
 
-### Spatial Sequences
-```stregex
-$"A" → $"B" → $"C"          # Horizontal sequence A-B-C
-$"1" ↓ $"2" ↓ $"3"          # Vertical sequence 1-2-3
-$filled (→ $filled){3}      # Row of 4 filled cells
-$"header" ↓ ($filled)+      # Header with filled cells below
+Where:
+- `m` = center cell (position 13)
+- `z` = represents a completely empty 5x5 grid
+- Each letter represents that specific position relative to a center point
+
+### Number Encoding (0-9)
+Numbers control navigation through nested grid structures:
+
+```
+1 2 3
+4 5 6
+7 8 9
 ```
 
-### Area Matching
-```stregex
-$"Name" → $"Age" → $"City"  # Table header row
-↓                           # Move down
-($filled → $filled → $filled)+ # Multiple data rows
-```
+Where:
+- `5` = enter/descend into the current cell (embedded grid)
+- `0` = exit/ascend up one level (leave embedded grid)
+- `1-4, 6-9` = move to adjacent cells around center (like numpad directions)
 
 ---
 
-## Construct Detection Patterns
+## Stregex Syntax
+
+### Basic Structure
+```
+(?# structural_pattern ) regex_pattern
+```
+
+The structured comment `(?# ... )` defines the spatial pattern, followed by traditional regex for text matching within the identified cells.
+
+### Structural Comment Format
+```
+(?# construct_type: position_sequence )
+```
+
+**Examples:**
+- `(?# tree: m6n6o6 )` - Tree structure moving right and down
+- `(?# table: mgmgmg|qrqrqr )` - Table with header row and data row
+- `(?# keyvalue: mqmq )` - Key-value pairs horizontally
+
+---
+
+## Position Sequences
+
+### Simple Patterns
+- `m` - Match center cell only
+- `mg` - Match center, then cell to its right
+- `mq` - Match center, then cell below
+- `mgq` - Match center, right, then down-left
+
+### Repetition and Grouping
+- `mg+` - Center followed by one or more cells to the right
+- `(mg)*` - Zero or more center-right patterns
+- `mg|mq` - Either center-right OR center-down
+- `m[gqr]` - Center followed by right, down, or down-right
+
+### Multi-Row Patterns
+- `mgm|qrs` - Two rows: center-right-center, then down(q)-down-right(r)-down-down-right(s)
+- `abc|fgh|klm` - Three horizontal rows (top, middle, bottom of 5x5)
+
+### Navigation Sequences
+- `m5mg` - Center, descend into embedded grid, then move within that grid
+- `mg0qr` - Center-right, ascend to parent, then move down-down-right
+- `m2mg` - Center, move to adjacent cell (direction 2), then right
+
+---
+
+## Construct Patterns
 
 ### Tree Structures
 
-**Basic Tree (Down-Right Orientation)**:
-```stregex
-[root: $filled]             # Capture root node
-(↓ ↘? [child: $filled]      # Children below and/or right
-  (↓ ↘? [grandchild: $filled])* # Optional grandchildren
-)*
+**Vertical Tree (growing down):**
 ```
+(?# tree: m|q|v ) ^[A-Z][a-z]+$
+```
+Matches cells in vertical line (center, down, down-down) containing capitalized words.
 
-**Tree with Indentation**:
-```stregex
-[root: $filled]             # Root at leftmost position
-(↓ → [child: $filled]       # Children indented right
-  (↓ → → [grandchild: $filled])* # Grandchildren further indented
-)*
+**Hierarchical Tree (indented):**
 ```
+(?# tree: m|qn|vo ) ^.+$
+```
+Matches root at center, children indented right-down, grandchildren further right.
 
-**Generic Tree (Any Orientation)**:
-```stregex
-[root: $filled]             # Root node
-([branch: ~ $filled]        # Adjacent nodes
-  ([subbranch: ~ $filled])* # Sub-branches
-){2,}                       # At least 2 branches for tree structure
+**Binary Tree:**
 ```
+(?# tree: m|ql|qr ) ^(root|left|right)$
+```
+Matches center root with left and right children.
 
 ### Table Structures
 
-**Simple Table**:
-```stregex
-[headers: ($filled →)+]     # Header row
-↓                           # Move to data
-[data: (($filled →)+ ↓)+]   # Data rows
+**Simple Table:**
 ```
+(?# table: fgh|qrs ) ^[A-Za-z0-9]+$
+```
+Matches 2x3 table pattern with header row and data row.
 
-**Table with Row Headers**:
-```stregex
-[corner: $filled] → [colheaders: ($filled →)+]  # Corner + column headers
-↓                                                # Move down
-([rowheader: $filled] → [rowdata: ($filled →)+] ↓)+ # Row header + data
+**Table with Headers:**
 ```
+(?# table: fg|qr ) ^(Name|Age|Alice|30)$
+```
+Matches column headers in top row, data in second row.
 
-**Bordered Table**:
-```stregex
-$empty → ($empty →)+ ↓      # Top border
-($empty → ($filled →)+ $empty ↓)+ # Bordered rows
-$empty → ($empty →)+        # Bottom border
+**Extended Table:**
 ```
+(?# table: fghi|qrst|vwxy ) ^\w+$
+```
+Matches 3x4 table with header and two data rows.
 
 ### Matrix Structures
 
-**Labeled Matrix**:
-```stregex
-$empty → [collabels: ($filled →)+]     # Column labels
-↓
-([rowlabel: $filled] → [data: ($num →)+] ↓)+  # Row labels + numeric data
+**2x2 Matrix:**
 ```
+(?# matrix: gh|rs ) ^\d+$
+```
+Matches numeric data in 2x2 arrangement.
 
-**Correlation Matrix**:
-```stregex
-[variables: ($filled →)+]              # Variable names
-↓
-([var: $filled] → [correlations: ($num →)+] ↓)+  # Same variables + correlations
+**Labeled Matrix:**
 ```
+(?# matrix: fg|qr ) ^(X|Y|\d+)$
+```
+Matches labels and numeric matrix data.
 
 ### Key-Value Pairs
 
-**Horizontal Key-Value**:
-```stregex
-([key: $filled] → [value: $filled] ↓)+  # Key-value pairs in rows
+**Horizontal Pairs:**
 ```
+(?# keyvalue: fg|qr|vw ) ^([a-z]+|[0-9]+)$
+```
+Matches key-value pairs arranged horizontally.
 
-**Vertical Key-Value**:
-```stregex
-[keys: ($filled ↓)+]        # Column of keys
-→                           # Move right
-[values: ($filled ↓)+]      # Column of values
+**Vertical Pairs:**
 ```
-
-**Property List**:
-```stregex
-([key: $/.*:$/] → [value: $filled] ↓)+  # Keys ending with colon
+(?# keyvalue: f|g|q|r ) ^(key|value)$
 ```
+Matches keys in left column, values in right column.
 
 ---
 
 ## Advanced Features
 
-### Conditional Matching
-```stregex
-$filled → (?($num) $num | $filled)  # If number, next must be number
-[root: $filled] → {                 # Complex tree condition
-  ?([child: $filled ↓]+)            # If has children below
-  |                                 # OR
-  ?([child: $filled →]+)            # If has children right
-}
-```
+### Nested Grid Navigation
 
-### Distance and Proximity
-```stregex
-$"API" ~~{1,3} $/GET|POST|PUT/      # "API" within 3 cells of HTTP method
-$filled ->{2,5} $"total"            # Filled cell 2-5 positions right of "total"
+**Embedded CSV Pattern:**
 ```
+(?# embedded: m5fgh ) ^[A-Z]+$
+```
+Match center cell, descend into embedded grid, match top row.
 
-### Lookahead and Lookbehind
-```stregex
-$filled (?= → $"END")               # Filled cell followed by "END" to right
-(?<= ↑ $"HEADER") $filled           # Filled cell with "HEADER" above
+**Multi-Level Navigation:**
 ```
+(?# deep: m5q5fg0r ) ^\w+$
+```
+Center → descend → down → descend → top-left-center → ascend → down-right.
 
-### Pattern Combination
-```stregex
-(?<tree>                            # Named tree pattern
-  [root: $filled]
-  (↓ ↘? [child: $filled])*
-)
-|                                   # OR
-(?<table>                           # Named table pattern
-  [headers: ($filled →)+] ↓
-  [data: (($filled →)+ ↓)+]
-)
+### Conditional Patterns
+
+**Tree with Optional Branches:**
 ```
+(?# tree: m(|q)(|r) ) ^(root|child)?$
+```
+Match root with optional children down or down-right.
+
+**Table with Variable Columns:**
+```
+(?# table: f[gh]?|q[rs]? ) ^\w*$
+```
+Match table with 1-2 columns, header and data rows.
+
+### Pattern Combinations
+
+**API Definition:**
+```
+(?# blueprint: m|qn|vo ) ^(API|GET|POST)$
+```
+Matches API root with indented HTTP methods.
+
+**File Structure:**
+```
+(?# blueprint: m|qg|vh ) ^(folder|file\.js|readme\.md)$
+```
+Matches folder with indented files.
 
 ---
 
-## Implementation Strategy
+## Implementation Examples
 
-### Phase 1: Core Engine
-1. **Lexer**: Parse stregex patterns into tokens
-2. **Parser**: Build abstract syntax tree from tokens
-3. **Matcher**: Execute patterns against 2D grids
-4. **Captures**: Extract matched regions and named groups
+### Finding Trees
+```stregex
+# Simple vertical tree
+(?# tree: m|q|v ) ^[A-Z][a-zA-Z]*$
 
-### Phase 2: Pattern Library
-1. **Built-in Patterns**: Common constructs (tree, table, matrix, key-value)
-2. **User Patterns**: Custom pattern definitions
-3. **Pattern Composition**: Combine simple patterns into complex ones
-4. **Pattern Optimization**: Compile patterns for performance
+# Indented hierarchy  
+(?# tree: m|qn|vo|zpa ) ^.+$
 
-### Phase 3: Integration
-1. **Grid Preprocessing**: Convert CSV to searchable grid format
-2. **Multi-Pattern Matching**: Find all construct types in single pass
-3. **Conflict Resolution**: Handle overlapping matches
-4. **Result Export**: Convert matches to semantic structure
+# Binary tree structure
+(?# tree: m|ql|qr ) ^(root|left|right|leaf)$
+```
 
----
+### Finding Tables
+```stregex
+# Basic table with headers
+(?# table: fgh|qrs ) ^(Name|Age|City|[A-Z][a-z]+|\d+)$
 
-## Performance Characteristics
+# Financial table
+(?# table: f|q|v ) ^(Revenue|Q1|Q2|Q3|Q4|\$?\d+)$
 
-### Advantages Over Complex Frameworks
-- **Linear Complexity**: Most patterns scan grid once
-- **Predictable Performance**: No bidirectional discovery loops
-- **Cacheable Results**: Patterns can be compiled and reused
-- **Debuggable**: Clear pattern → match relationship
+# Data matrix
+(?# table: fghi|qrst|vwxy ) ^\w+$
+```
 
-### Optimization Techniques
-- **Early Termination**: Stop matching when pattern fails
-- **Spatial Indexing**: Pre-index filled cells and content types
-- **Pattern Compilation**: Convert patterns to optimized state machines
-- **Incremental Matching**: Re-match only changed regions
+### Finding Key-Value Structures
+```stregex
+# Property list
+(?# keyvalue: fg|qr|vw ) ^([a-z]+_?[a-z]*|[^:]+:.*)$
 
----
-
-## Comparison with Semantic Parsing Framework
-
-| Aspect | SPF (Complex) | Stregex (Simple) |
-|--------|---------------|------------------|
-| **Pattern Definition** | Multi-phase trait analysis | Single regex-like pattern |
-| **Execution Model** | Bidirectional discovery | Direct pattern matching |
-| **Performance** | Potentially exponential | Linear with input size |
-| **Debuggability** | Complex constraint networks | Clear pattern trace |
-| **Extensibility** | Self-defining constructs | User-defined patterns |
-| **Learning Curve** | Steep (5 phases, multiple concepts) | Gentle (extends familiar regex) |
-
-### What We Gain
-- **Simplicity**: Pattern → match, no complex frameworks
-- **Performance**: Predictable linear scanning
-- **Familiarity**: Builds on regex knowledge
-- **Debugging**: Clear execution trace
-
-### What We Lose
-- **Self-Definition**: Patterns are static, not discovered from data
-- **Bidirectional Discovery**: No constraint propagation between traits/constructs
-- **Multi-Role Elements**: Single pattern matches single construct type
-- **Dynamic Adaptation**: No learning from spatial arrangements
-
----
-
-## Example Usage
+# Configuration pairs
+(?# keyvalue: f|q|v ) ^(host|port|timeout|[a-zA-Z0-9.]+)$
+```
 
 ### Finding API Definitions
 ```stregex
-[api: $/^API/] ↓            # Find "API" header
-([endpoint: $/^(GET|POST|PUT|DELETE)/] → [path: $/^\/.*$/] ↓)+  # HTTP methods + paths
-```
+# REST API structure
+(?# blueprint: m|qn|vo|zqb ) ^(API|/users|GET|POST|PUT|DELETE)$
 
-### Detecting File Structures
-```stregex
-[folder: $filled] ↓         # Folder name
-(→ [file: $/.*\.(js|ts|css)$/] ↓)+  # Indented files with extensions
-```
-
-### Finding Financial Tables
-```stregex
-$/Revenue|Sales|Income/ → ($filled →)+ ↓    # Revenue row
-($filled → ($num →)+ ↓)+                    # Data rows with numbers
-$/Total/ → ($num →)+                        # Total row
+# With parameters
+(?# blueprint: m|qn|vop ) ^(API|/users/\{id\}|GET|200|404)$
 ```
 
 ---
 
-## Integration with Existing Systems
+## Pattern Compilation
 
-### CSV Processing Pipeline
-1. **Load CSV**: Parse into 2D grid structure
-2. **Apply Patterns**: Run stregex patterns against grid
-3. **Extract Constructs**: Convert matches to semantic objects
-4. **Format UI**: Apply construct-specific formatting
-5. **Enable Actions**: Bind construct-appropriate interactions
+### Phase 1: Parse Structural Comment
+1. Extract construct type and position sequence
+2. Validate position letters (a-y) and numbers (0-9)
+3. Build spatial navigation map
+4. Identify grid entry/exit points
 
-### Backward Compatibility
-- **Fallback Parsing**: Use stregex for common cases, SPF for complex ones
-- **Pattern Migration**: Convert trait-based rules to stregex patterns
-- **Progressive Enhancement**: Start with stregex, add SPF when needed
+### Phase 2: Compile Position Sequence
+1. Convert letters to 5x5 coordinates
+2. Process navigation numbers for grid traversal
+3. Generate cell visitation order
+4. Handle repetition and alternation
 
-### Tool Integration
-- **Pattern Debugger**: Visual tool for testing stregex patterns
-- **Pattern Library**: Repository of common construct patterns
-- **Pattern Generator**: AI-assisted pattern creation from examples
+### Phase 3: Apply Text Matching
+1. For each spatial pattern match
+2. Extract text from identified cells
+3. Apply regex pattern to cell contents
+4. Validate complete pattern match
+
+### Phase 4: Return Structured Results
+1. Capture spatial boundaries of match
+2. Extract text content from matched cells
+3. Return construct type and confidence
+4. Provide cell-level match details
 
 ---
 
-## Conclusion
+## Usage Patterns
 
-Stregex addresses the valid criticism that complex frameworks may be overengineered for the core problem of finding spatial constructs. By extending the familiar regex paradigm into 2D space, we can:
+### Basic Matching
+```javascript
+const pattern = /(?# tree: m|qn|vo ) ^[A-Z][a-z]+$/;
+const matches = grid.match(pattern);
+// Returns tree structures with capitalized labels
+```
 
-1. **Simplify dramatically**: Single patterns replace multi-phase frameworks
-2. **Improve performance**: Linear scanning replaces constraint solving
-3. **Reduce complexity**: Direct pattern matching replaces bidirectional discovery
-4. **Maintain power**: Complex spatial patterns remain expressible
+### Multiple Construct Detection
+```javascript
+const patterns = [
+  /(?# tree: m|q+ ) ^\w+$/,      // Vertical trees
+  /(?# table: f+|q+ ) ^\w+$/,    // Tables  
+  /(?# keyvalue: fg|qr ) ^\w+$/, // Key-value pairs
+];
+const constructs = patterns.map(p => grid.match(p)).flat();
+```
 
-While we lose some theoretical elegance and self-defining capabilities, we gain practical usability and predictable performance. For the July 21st conference submission, focusing on stregex-based construct detection provides a much more defensible and implementable approach than the full SPF framework.
+### Blueprint Matching
+```javascript
+const apiPattern = /(?# blueprint: m|qn|vo ) ^(API|GET|POST|PUT|DELETE)$/;
+const apis = grid.match(apiPattern);
+// Finds API definition structures
+```
 
-The system can always be enhanced later with SPF-style capabilities for edge cases that stregex cannot handle, but starting with simple, working pattern matching establishes a solid foundation for spatial semantic analysis.
+---
+
+## Grid Processing Pipeline
+
+### 1. Grid Preparation
+- Parse CSV into 5x5 block structure
+- Index filled vs empty cells
+- Build navigation maps for nested grids
+
+### 2. Pattern Application
+- Compile stregex patterns into spatial matchers
+- Apply patterns to grid systematically
+- Handle overlapping matches with priority rules
+
+### 3. Result Processing
+- Extract matched regions and text content
+- Classify construct types and confidence scores
+- Generate semantic structure from spatial matches
+
+### 4. UI Integration
+- Apply construct-specific formatting
+- Enable pattern-aware interactions
+- Provide visual feedback for matched structures
+
+---
+
+Stregex provides a concise, regex-familiar syntax for describing spatial patterns while leveraging the 5x5 grid foundation and navigation system to handle complex nested structures and precise positional matching in 2D space.
