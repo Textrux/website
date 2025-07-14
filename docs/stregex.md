@@ -417,4 +417,113 @@ const apis = grid.match(apiPattern);
 
 ---
 
+## Integration with Foundation Trait Analysis
+
+### Two-Phase Discovery Approach
+
+Rather than using Stregex for initial construct detection, a more practical approach combines **trait-based classification** with **Stregex element parsing**:
+
+**Phase 1: Trait-Based Construct Classification**
+- Analyze foundation elements (blocks, cell clusters) for spatial traits
+- Extract characteristics like hierarchy depth, grid-likeness, pair patterns
+- Classify as likely tree, table, matrix, or key-value with confidence scores
+- Use simple heuristics rather than complex pattern matching
+
+**Phase 2: Stregex Element Decomposition**  
+- Apply construct-specific Stregex grammars to identified candidates
+- Parse detailed element structure (root nodes, headers, keys, values)
+- Extract precise semantic relationships and roles
+- Handle orientation variations and edge cases
+
+### Trait-Guided Stregex Selection
+
+**Tree Traits → Tree Grammar**
+```javascript
+if (foundation.traits.hasHierarchy && foundation.traits.consistentIndentation) {
+  applyGrammar($tree_indented);
+} else if (foundation.traits.hasHierarchy && foundation.traits.verticalAlignment) {
+  applyGrammar($tree_vertical);
+} else if (foundation.traits.hasBranching) {
+  applyGrammar($tree_branched);
+}
+```
+
+**Table Traits → Table Grammar**
+```javascript
+if (foundation.traits.gridLikeness > 0.8 && foundation.traits.hasHeaders) {
+  applyGrammar($table_with_headers);
+} else if (foundation.traits.gridLikeness > 0.6) {
+  applyGrammar($table_simple);
+}
+```
+
+### Example: Tree Element Parsing
+
+**Step 1: Foundation Analysis**
+```
+Foundation: CellCluster {
+  traits: {
+    hasHierarchy: true,
+    hierarchyDepth: 3,
+    orientation: "down-right", 
+    consistentIndentation: true,
+    gridLikeness: 0.2
+  }
+  confidence: 0.85
+}
+```
+
+**Step 2: Apply Tree Grammar**
+```stregex
+// Selected based on down-right + indentation traits
+(?# $root=tree: m: ^[A-Z][a-zA-Z]*$ )
+(?# $child_l1=tree: n: ^[a-z][a-zA-Z]*$ )  
+(?# $child_l2=tree: o: ^[a-z][a-zA-Z]*$ )
+(?# $indented_tree=tree: $root($child_l1($child_l2)*)*: .* )
+```
+
+**Step 3: Element Extraction**
+```
+TreeElements: {
+  root: { cell: "A1", content: "Components", level: 0 }
+  children: [
+    { cell: "B2", content: "Button", level: 1, parent: "A1" },
+    { cell: "C3", content: "Primary", level: 2, parent: "B2" },
+    { cell: "C4", content: "Secondary", level: 2, parent: "B2" },
+    { cell: "B5", content: "Modal", level: 1, parent: "A1" }
+  ]
+}
+```
+
+### Benefits of Hybrid Approach
+
+**Simplified Pattern Matching**:
+- Traits eliminate need for complex construct detection patterns
+- Stregex focuses on element parsing, not construct recognition
+- Much faster than trying every possible grammar
+
+**Better Accuracy**:
+- Trait analysis handles orientation and layout variations
+- Stregex provides precise element boundaries and relationships
+- Confidence scores guide grammar selection
+
+**Practical Implementation**:
+- Build on existing foundation/trait infrastructure
+- Add Stregex as element parsing layer
+- Avoid complex bidirectional discovery systems
+
+### Recommended Architecture
+
+```
+1. Foundation Analysis → Extract spatial traits
+2. Construct Classification → Identify likely construct type
+3. Grammar Selection → Choose appropriate Stregex grammar  
+4. Element Parsing → Apply grammar to extract elements
+5. Semantic Assembly → Build complete construct model
+```
+
+This approach uses Stregex where it excels (precise element parsing) while relying on simpler trait analysis for initial construct detection, providing the best of both approaches without over-engineering.
+
+---
+
 Stregex provides a concise, regex-familiar syntax for describing spatial patterns while leveraging the 5x5 grid foundation and navigation system to handle complex nested structures and precise positional matching in 2D space.
