@@ -425,9 +425,157 @@ Rather than using Stregex for initial construct detection, a more practical appr
 
 **Phase 1: Trait-Based Construct Classification**
 - Analyze foundation elements (blocks, cell clusters) for spatial traits
-- Extract characteristics like hierarchy depth, grid-likeness, pair patterns
+- Extract specific algorithmic characteristics that indicate construct types
 - Classify as likely tree, table, matrix, or key-value with confidence scores
-- Use simple heuristics rather than complex pattern matching
+- Use precise spatial measurements rather than complex pattern matching
+
+### Detailed Trait Categories
+
+#### Positional Traits
+**Anchor Analysis**:
+- `hasTopLeftAnchor`: Top-left cell of cluster is filled (strong tree indicator)
+- `hasTopRowFilled`: Entire top row is filled (table header indicator)
+- `hasLeftColumnFilled`: Entire left column is filled (matrix row labels)
+- `cornerCellState`: State of corner positions (empty, filled, mixed)
+
+**Boundary Characteristics**:
+- `dimensionRatio`: Width-to-height ratio of filled area
+- `fillDensity`: Percentage of cells that are filled
+- `hasMultipleRows`: More than one row with filled cells
+- `hasMultipleColumns`: More than one column with filled cells
+
+#### Structural Traits  
+**Indentation Patterns** (Critical for Trees):
+- `maxIndentationIncrease`: Maximum increase in "first filled column" between consecutive rows
+  - Tree characteristic: ≤ 1 (children can be at most 1 column right of parent)
+  - Table characteristic: = 0 (consistent left alignment)
+- `hasIndentationDecrease`: Can "first filled column" decrease between rows?
+  - Tree: Yes (moving from deep child back to root-level sibling)
+  - Table: No (consistent column structure)
+- `maxConsecutiveIndent`: Longest sequence of increasing indentation
+  - Indicates maximum tree depth
+
+**Row Analysis**:
+- `maxGapInRow`: Maximum empty cells between filled cells in any single row
+  - Tree: ≤ 1 (allows for tree-node + matrix header pattern)
+  - Table: = 0 (no gaps in data rows) or consistent gaps
+  - Matrix: = 0 (dense grid pattern)
+- `consistentRowLength`: Do all rows have similar filled cell counts?
+- `hasIsolatedCells`: Are there filled cells with no adjacent filled cells?
+
+**Vertical Relationships**:
+- `hasVerticalAlignment`: Are cells vertically aligned in columns?
+- `columnConsistency`: Do columns maintain consistent fill patterns?
+- `hasVerticalGaps`: Are there empty rows between filled rows?
+
+#### Relationship Traits
+**Connectivity Patterns**:
+- `adjacencyType`: How are filled cells connected? (4-connected, 8-connected, isolated)
+- `clusterCohesion`: Are filled cells grouped into clear clusters?
+- `hasLinearProgression`: Do filled cells follow predictable patterns?
+
+**Hierarchical Indicators**:
+- `depthVariation`: Range of indentation levels present
+- `branchingFactor`: Average number of "children" per "parent" position
+- `hasNestingPattern`: Are there clear parent-child spatial relationships?
+
+**Grid Characteristics**:
+- `gridLikeness`: How well do filled cells align to a regular grid? (0.0-1.0)
+- `hasRegularSpacing`: Are filled cells evenly distributed?
+- `matrixCompliance`: Do filled cells form a complete rectangular matrix?
+
+### Construct-Specific Trait Signatures
+
+#### Tree Signature
+```
+hasTopLeftAnchor = true
+hasMultipleRows = true  
+hasMultipleColumns = true
+fillDensity < 0.8
+maxIndentationIncrease ≤ 1
+hasIndentationDecrease = true
+maxGapInRow ≤ 1
+gridLikeness < 0.5
+depthVariation > 1
+```
+
+#### Table Signature  
+```
+hasTopRowFilled = true OR hasTopLeftAnchor = true
+fillDensity > 0.6
+maxIndentationIncrease = 0
+hasIndentationDecrease = false
+maxGapInRow = 0 OR consistent gaps
+gridLikeness > 0.7
+columnConsistency = true
+```
+
+#### Matrix Signature
+```
+hasTopRowFilled = true AND hasLeftColumnFilled = true
+fillDensity > 0.8
+maxIndentationIncrease = 0
+maxGapInRow = 0
+gridLikeness > 0.9
+matrixCompliance = true
+hasRegularSpacing = true
+```
+
+#### Key-Value Signature
+```
+hasMultipleRows = true
+consistentRowLength = true (2 cells per row)
+maxIndentationIncrease = 0
+maxGapInRow ≤ 1 (allows key-value separation)
+fillDensity > 0.4
+dimensionRatio ≈ 2:1 (twice as wide as tall)
+```
+
+### Trait Calculation Examples
+
+#### Tree Analysis Example
+```
+Grid Pattern:
+Components     ← Row 1, first filled = col 1
+  Button       ← Row 2, first filled = col 3 (+2, violates tree rule!)
+    Primary    ← Row 3, first filled = col 5 (+2, violates tree rule!)  
+  Modal        ← Row 4, first filled = col 3 (decreased from 5 to 3 ✓)
+
+Analysis:
+- hasTopLeftAnchor: true ✓
+- maxIndentationIncrease: 2 ✗ (exceeds tree limit of 1)
+- hasIndentationDecrease: true ✓
+- Conclusion: NOT a tree (indentation too aggressive)
+```
+
+#### Corrected Tree Example  
+```
+Grid Pattern:
+Components     ← Row 1, first filled = col 1
+ Button        ← Row 2, first filled = col 2 (+1 ✓)
+  Primary      ← Row 3, first filled = col 3 (+1 ✓)
+ Modal         ← Row 4, first filled = col 2 (decreased ✓)
+
+Analysis:
+- hasTopLeftAnchor: true ✓
+- maxIndentationIncrease: 1 ✓
+- hasIndentationDecrease: true ✓  
+- maxGapInRow: 0 ✓
+- Conclusion: Strong tree candidate (confidence: 0.9)
+```
+
+#### Tree with Matrix Child
+```
+Grid Pattern:
+API           ← Row 1, col 1
+ /users       ← Row 2, col 2  
+  GET Status  ← Row 3, col 3 + col 5 (gap = 1 ✓)
+  200 OK      ← Row 4, col 3 + col 5 (gap = 1 ✓)
+
+Analysis:
+- maxGapInRow: 1 ✓ (allows tree node + matrix header)
+- Tree pattern with embedded matrix structure
+```
 
 **Phase 2: Stregex Element Decomposition**  
 - Apply construct-specific Stregex grammars to identified candidates
