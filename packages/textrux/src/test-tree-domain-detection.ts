@@ -28,7 +28,7 @@ function testTreeWithTableDomain() {
   
   // Create tree with table in parent domain (avoid key-value pattern)
   grid.setCellRaw(1, 1, "Project");           // Root
-  grid.setCellRaw(2, 2, "Team Members");      // Parent (indented to break key-value pattern)
+  grid.setCellRaw(2, 1, "Team Members");      // Parent (same column to break key-value pattern)
   grid.setCellRaw(3, 3, "Name");              // Table header
   grid.setCellRaw(3, 4, "Role");              // Table header
   grid.setCellRaw(3, 5, "Level");             // Table header
@@ -38,15 +38,15 @@ function testTreeWithTableDomain() {
   grid.setCellRaw(5, 3, "Bob");               // Table data
   grid.setCellRaw(5, 4, "Designer");          // Table data
   grid.setCellRaw(5, 5, "Junior");            // Table data
-  grid.setCellRaw(6, 2, "Budget");            // Next parent (boundary)
+  grid.setCellRaw(6, 1, "Budget");            // Next parent (boundary)
 
   const cluster = new CellCluster(0, 9, 0, 9, [
     { row: 1, col: 1 },
-    { row: 2, col: 2 },
+    { row: 2, col: 1 },
     { row: 3, col: 3 }, { row: 3, col: 4 }, { row: 3, col: 5 },
     { row: 4, col: 3 }, { row: 4, col: 4 }, { row: 4, col: 5 },
     { row: 5, col: 3 }, { row: 5, col: 4 }, { row: 5, col: 5 },
-    { row: 6, col: 2 },
+    { row: 6, col: 1 },
   ]);
 
   const detected = cluster.detectConstructType(grid);
@@ -86,7 +86,7 @@ function testTreeWithMatrixDomain() {
   
   // Create tree with matrix in parent domain (avoid key-value pattern)
   grid.setCellRaw(1, 1, "Sales Report");      // Root
-  grid.setCellRaw(2, 2, "Quarterly Data");    // Parent (indented)
+  grid.setCellRaw(2, 1, "Quarterly Data");    // Parent (same column)
   grid.setCellRaw(3, 3, "");                  // Matrix empty corner
   grid.setCellRaw(3, 4, "Q1");                // Matrix primary header
   grid.setCellRaw(3, 5, "Q2");                // Matrix primary header
@@ -96,15 +96,15 @@ function testTreeWithMatrixDomain() {
   grid.setCellRaw(5, 3, "Product B");         // Matrix secondary header
   grid.setCellRaw(5, 4, "80");                // Matrix data
   grid.setCellRaw(5, 5, "90");                // Matrix data
-  grid.setCellRaw(6, 2, "Summary");           // Next parent (boundary)
+  grid.setCellRaw(6, 1, "Summary");           // Next parent (boundary)
 
   const cluster = new CellCluster(0, 9, 0, 9, [
     { row: 1, col: 1 },
-    { row: 2, col: 2 },
+    { row: 2, col: 1 },
     { row: 3, col: 4 }, { row: 3, col: 5 },
     { row: 4, col: 3 }, { row: 4, col: 4 }, { row: 4, col: 5 },
     { row: 5, col: 3 }, { row: 5, col: 4 }, { row: 5, col: 5 },
-    { row: 6, col: 2 },
+    { row: 6, col: 1 },
   ]);
 
   const detected = cluster.detectConstructType(grid);
@@ -128,21 +128,25 @@ function testTreeWithKeyValueDomain() {
   // Create tree with key-value in parent domain (avoid triggering key-value detection at tree level)
   grid.setCellRaw(1, 1, "Configuration");     // Root
   grid.setCellRaw(2, 2, "Database Settings"); // Parent (indented)
-  grid.setCellRaw(3, 3, "Server");            // Key-value pattern
-  grid.setCellRaw(4, 3, "Port");              // Key-value pattern
-  grid.setCellRaw(5, 3, "Database");          // Key-value pattern
-  grid.setCellRaw(3, 5, "localhost");         // Key-value values
-  grid.setCellRaw(4, 5, "5432");              // Key-value values
-  grid.setCellRaw(5, 5, "myapp");             // Key-value values
-  grid.setCellRaw(6, 2, "Security");          // Next parent (boundary)
+  // Key-value domain: R1C1=Settings, R2C1=empty, R1C2=empty, R2C2=first key
+  grid.setCellRaw(3, 3, "Settings");          // R1C1 of key-value domain (relative to domain)
+  grid.setCellRaw(4, 4, "Server");            // R2C2 of key-value domain - first key
+  grid.setCellRaw(5, 4, "Port");              // R3C2 - second key  
+  grid.setCellRaw(6, 4, "Database");          // R4C2 - third key
+  grid.setCellRaw(3, 5, "Values");            // R1C3 - values header
+  grid.setCellRaw(4, 5, "localhost");         // R2C3 - value for Server
+  grid.setCellRaw(5, 5, "5432");              // R3C3 - value for Port
+  grid.setCellRaw(6, 5, "myapp");             // R4C3 - value for Database
+  grid.setCellRaw(7, 2, "Security");          // Next parent (boundary)
 
   const cluster = new CellCluster(0, 9, 0, 9, [
     { row: 1, col: 1 },
     { row: 2, col: 2 },
     { row: 3, col: 3 }, { row: 3, col: 5 },
-    { row: 4, col: 3 }, { row: 4, col: 5 },
-    { row: 5, col: 3 }, { row: 5, col: 5 },
-    { row: 6, col: 2 },
+    { row: 4, col: 4 }, { row: 4, col: 5 },
+    { row: 5, col: 4 }, { row: 5, col: 5 },
+    { row: 6, col: 4 }, { row: 6, col: 5 },
+    { row: 7, col: 2 },
   ]);
 
   const detected = cluster.detectConstructType(grid);
@@ -182,10 +186,13 @@ function testTreeWithMultipleNestedConstructs() {
   
   // Third parent with key-value domain
   grid.setCellRaw(8, 2, "Config");            // Parent 3 (indented)
-  grid.setCellRaw(9, 3, "Host");              // Key-value
-  grid.setCellRaw(10, 3, "Port");             // Key-value
-  grid.setCellRaw(9, 5, "api.com");           // Key-value
-  grid.setCellRaw(10, 5, "443");              // Key-value
+  // Key-value domain: R1C1=Settings, R2C1=empty, R1C2=empty, R2C2=first key
+  grid.setCellRaw(9, 3, "Settings");          // R1C1 of key-value domain
+  grid.setCellRaw(10, 4, "Host");             // R2C2 - first key
+  grid.setCellRaw(11, 4, "Port");             // R3C2 - second key
+  grid.setCellRaw(9, 5, "Values");            // R1C3 - values header
+  grid.setCellRaw(10, 5, "api.com");          // R2C3 - value for Host
+  grid.setCellRaw(11, 5, "443");              // R3C3 - value for Port
 
   const cluster = new CellCluster(0, 14, 0, 14, [
     { row: 1, col: 1 },
@@ -197,7 +204,8 @@ function testTreeWithMultipleNestedConstructs() {
     { row: 7, col: 3 }, { row: 7, col: 4 },
     { row: 8, col: 2 },
     { row: 9, col: 3 }, { row: 9, col: 5 },
-    { row: 10, col: 3 }, { row: 10, col: 5 },
+    { row: 10, col: 4 }, { row: 10, col: 5 },
+    { row: 11, col: 4 }, { row: 11, col: 5 },
   ]);
 
   const detected = cluster.detectConstructType(grid);

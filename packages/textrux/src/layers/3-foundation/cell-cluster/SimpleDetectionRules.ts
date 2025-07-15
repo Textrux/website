@@ -49,9 +49,9 @@ export class SimpleDetectionRules {
       };
     }
 
-    // Rule 3: Key-Value detection - R1C1 filled, R2C1 filled, R1C2 empty, R2C2 empty
-    // AND there must be values in other columns (indicating key-value pairs)
-    if (analysis.r1c1Filled && analysis.r2c1Filled && !analysis.r1c2Filled && !analysis.r2c2Filled) {
+    // Rule 3: Key-Value detection - R1C1 filled (header), R2C1 empty, R1C2 empty, R2C2 filled (first key)
+    // Pattern: gaps at R2C1 and R1C2, with first key always at R2C2
+    if (analysis.r1c1Filled && !analysis.r2c1Filled && !analysis.r1c2Filled && analysis.r2c2Filled) {
       // Additional check: must have values beyond the key column to be key-value
       const hasValuesInOtherColumns = this.hasValuesInOtherColumns(cluster);
       if (hasValuesInOtherColumns) {

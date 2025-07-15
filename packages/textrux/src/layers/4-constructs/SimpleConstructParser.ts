@@ -190,10 +190,13 @@ export class SimpleConstructParser {
           
           if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
             cellType = "main-header"; // R1C1 is main header
-          } else if (col === cluster.leftCol + 1) {
-            cellType = "key"; // First column contains keys
+          } else if (col === cluster.leftCol + 2) {
+            cellType = "key"; // Second column contains keys (starting at R2C2)
+          } else if (col > cluster.leftCol + 2) {
+            cellType = "value"; // Columns beyond second contain values
           } else {
-            cellType = "value"; // Other columns contain values
+            // Skip gap cells (R2C1, R1C2)
+            continue;
           }
           
           const cell = SimpleKeyValue.createCell(
@@ -220,10 +223,13 @@ export class SimpleConstructParser {
           
           if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
             cellType = "main-header"; // R1C1 is main header
-          } else if (row === cluster.topRow + 1) {
-            cellType = "key"; // First row contains keys
+          } else if (row === cluster.topRow + 2) {
+            cellType = "key"; // Second row contains keys (starting at R2C2)
+          } else if (row > cluster.topRow + 2) {
+            cellType = "value"; // Rows beyond second contain values
           } else {
-            cellType = "value"; // Other rows contain values
+            // Skip gap cells (R1C2, R2C1)
+            continue;
           }
           
           const cell = SimpleKeyValue.createCell(

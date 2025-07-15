@@ -48,8 +48,8 @@ if (analysis.allCellsFilled) return { constructType: "table", confidence: 1.0 };
 if (analysis.unfilledCellCount === 1 && !analysis.r1c1Filled) 
   return { constructType: "matrix", confidence: 1.0 };
 
-// Rule 3: Key-Value - Specific corner pattern
-if (analysis.r1c1Filled && analysis.r2c1Filled && !analysis.r1c2Filled && !analysis.r2c2Filled)
+// Rule 3: Key-Value - Specific corner pattern with gaps
+if (analysis.r1c1Filled && !analysis.r2c1Filled && !analysis.r1c2Filled && analysis.r2c2Filled)
   return { constructType: "key-value", confidence: 1.0 };
 
 // Rule 4: Tree - Everything else  

@@ -109,18 +109,20 @@ function testKeyValueComplete() {
   
   const grid = new GridModel(5, 5);
   
-  // Create key-values
-  grid.setCellRaw(1, 1, "Person");
-  grid.setCellRaw(2, 1, "Name");
-  grid.setCellRaw(3, 1, "Age");
-  grid.setCellRaw(1, 3, "Details");
-  grid.setCellRaw(2, 3, "John");
-  grid.setCellRaw(3, 3, "25");
+  // Create key-values with correct pattern: R1C1 filled, R2C1 empty, R1C2 empty, R2C2 filled (first key)
+  grid.setCellRaw(1, 1, "Person");     // R1C1 - Header
+  // R2C1 empty (gap)
+  // R1C2 empty (gap)  
+  grid.setCellRaw(2, 2, "Name");       // R2C2 - First key
+  grid.setCellRaw(3, 2, "Age");        // R3C2 - Second key
+  grid.setCellRaw(1, 3, "Details");    // R1C3 - Values header
+  grid.setCellRaw(2, 3, "John");       // R2C3 - Value for Name
+  grid.setCellRaw(3, 3, "25");         // R3C3 - Value for Age
 
   const cluster = new CellCluster(0, 2, 0, 2, [
     { row: 1, col: 1 },
-    { row: 2, col: 1 },
-    { row: 3, col: 1 },
+    { row: 2, col: 2 },
+    { row: 3, col: 2 },
     { row: 1, col: 3 },
     { row: 2, col: 3 },
     { row: 3, col: 3 },

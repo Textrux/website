@@ -50,18 +50,20 @@ East | 80  | 90
 
 ### Rule 3: Key-Value Detection
 **Purpose**: Identify key-value pair structures  
-**Logic**: `if (R1C1Filled && R2C1Filled && !R1C2Filled && !R2C2Filled && hasValuesInOtherColumns)`  
+**Logic**: `if (R1C1Filled && !R2C1Filled && !R1C2Filled && R2C2Filled && hasValuesInOtherColumns)`  
 **Pattern**: 
-- R1C1 + R2C1 filled (keys column)
-- R1C2 + R2C2 empty (gap column) 
-- Values exist in columns beyond the gap
+- R1C1 filled (header/marker)
+- R2C1 empty (gap)
+- R1C2 empty (gap)
+- R2C2 filled (first key - keys always start here)
+- Values exist in columns beyond second column
 **Confidence**: 100%
 
 **Example**:
 ```
 Person    Details
-Name      John
-Age       25
+  Name    John
+  Age     25
 ```
 
 ### Rule 4: Tree Detection

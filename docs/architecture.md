@@ -112,7 +112,7 @@ Based on foundation analysis, this layer identifies high-level semantic construc
 
 1. **Table Detection**: `allCellsFilled` → Completely filled rectangular areas
 2. **Matrix Detection**: `unfilledCellCount === 1 && R1C1Empty` → Cross-tabulation with empty corner  
-3. **Key-Value Detection**: `R1C1+R2C1 filled, R1C2+R2C2 empty, values elsewhere` → Associative pairs
+3. **Key-Value Detection**: `R1C1 filled, R2C1+R1C2 empty, R2C2 filled, values beyond` → Associative pairs
 4. **Tree Detection**: `everything else` → Hierarchical spatial relationships
 
 #### Advanced Features
