@@ -153,15 +153,11 @@ export default class CellCluster {
   }
 
   /**
-   * Get the highest confidence construct of a specific type
+   * Get the first construct of a specific type (since binary key system provides certainty)
    */
   getBestConstruct(type: string): BaseConstruct | null {
     const constructs = this.getConstructsByType(type);
-    if (constructs.length === 0) return null;
-
-    return constructs.reduce((best, current) =>
-      current.confidence > best.confidence ? current : best
-    );
+    return constructs.length > 0 ? constructs[0] : null;
   }
 
   /**
@@ -210,10 +206,10 @@ export default class CellCluster {
   }
 
   /**
-   * Get detection confidence
+   * Get detection key
    */
-  getDetectionConfidence(): number {
-    return this.detectionResult?.confidence || 0;
+  getDetectionKey(): number | string | null {
+    return this.detectionResult?.key || null;
   }
 
   /**
@@ -246,14 +242,10 @@ export default class CellCluster {
   }
 
   /**
-   * Get the most likely construct based on confidence scores
+   * Get the primary construct (since binary key system provides certainty)
    */
   getPrimaryConstruct(): BaseConstruct | null {
-    if (this.constructs.length === 0) return null;
-
-    return this.constructs.reduce((best, current) =>
-      current.confidence > best.confidence ? current : best
-    );
+    return this.constructs.length > 0 ? this.constructs[0] : null;
   }
 
   /**

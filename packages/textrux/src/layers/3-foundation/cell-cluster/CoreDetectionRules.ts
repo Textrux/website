@@ -8,7 +8,6 @@ import CellCluster from "./CellCluster";
 export interface DetectionResult {
   constructType: "table" | "matrix" | "key-value" | "tree" | "list";
   orientation?: "regular" | "transposed";
-  confidence: number;
   key: number | string;
   hasChildHeader?: boolean;
 }
@@ -37,7 +36,6 @@ export class CoreDetectionRules {
       return {
         constructType: "list",
         orientation: key === "VL" ? "regular" : "transposed",
-        confidence: 1.0,
         key
       };
     }
@@ -55,14 +53,12 @@ export class CoreDetectionRules {
       case 7:
         return {
           constructType: "matrix",
-          confidence: 1.0,
           key
         };
       
       case 9:
         return {
           constructType: "key-value",
-          confidence: 1.0,
           key
         };
       
@@ -70,7 +66,6 @@ export class CoreDetectionRules {
         return {
           constructType: "tree",
           orientation: "regular",
-          confidence: 1.0,
           key,
           hasChildHeader: false
         };
@@ -79,7 +74,6 @@ export class CoreDetectionRules {
         return {
           constructType: "tree",
           orientation: "regular",
-          confidence: 1.0,
           key,
           hasChildHeader: true
         };
@@ -88,7 +82,6 @@ export class CoreDetectionRules {
         return {
           constructType: "tree",
           orientation: "transposed",
-          confidence: 1.0,
           key,
           hasChildHeader: false
         };
@@ -97,7 +90,6 @@ export class CoreDetectionRules {
         return {
           constructType: "tree",
           orientation: "transposed",
-          confidence: 1.0,
           key,
           hasChildHeader: true
         };
@@ -108,7 +100,6 @@ export class CoreDetectionRules {
       case 15:
         return {
           constructType: "table",
-          confidence: 1.0,
           key
         };
       

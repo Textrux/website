@@ -5,14 +5,11 @@ export interface BaseConstruct {
   /** Unique identifier for the construct instance */
   id: string;
 
-  /** Type of construct (tree, table, matrix, key-value) */
+  /** Type of construct (tree, table, matrix, key-value, list) */
   type: string;
 
-  /** Confidence score (0-1) of the construct identification */
-  confidence: number;
-
-  /** The signature imprint that identified this construct */
-  signatureImprint: string;
+  /** The key pattern that identified this construct */
+  keyPattern: string;
 
   /** Bounding box of the construct within the cell cluster */
   bounds: {
@@ -101,53 +98,21 @@ export interface EnhancedConstruct
 }
 
 /**
- * Interface for construct signatures
+ * Interface for binary key-based construct detection
+ * Replaces complex signature parsers with elegant key system
  */
-export interface ConstructSignature {
-  /** Name of the signature imprint */
-  name: string;
+export interface KeyBasedDetection {
+  /** Binary key or string pattern that identifies the construct */
+  key: number | string;
 
-  /** Description of what this signature identifies */
-  description: string;
+  /** Construct type identified by this key */
+  constructType: "table" | "matrix" | "key-value" | "tree" | "list";
 
-  /** Minimum confidence threshold for this signature */
-  minConfidence: number;
+  /** Orientation if applicable */
+  orientation?: "regular" | "transposed";
 
-  /** Required traits for this signature */
-  requiredTraits: string[];
-
-  /** Optional traits that boost confidence */
-  optionalTraits: string[];
-
-  /** Trait weight mappings for confidence calculation */
-  traitWeights: Record<string, number>;
-
-  /** Custom validation function for complex patterns */
-  validate?: (traits: any, cluster: any) => boolean;
-}
-
-/**
- * Interface for signature parsers
- */
-export interface ConstructSignatureParser<T extends BaseConstruct> {
-  /** Type of construct this parser creates */
-  constructType: string;
-
-  /** All available signatures for this construct type */
-  signatures: ConstructSignature[];
-
-  /** Parse a cell cluster and return construct instances if found */
-  parseConstruct(cluster: any): T[];
-
-  /** Calculate confidence score for a specific signature */
-  calculateConfidence(signature: ConstructSignature, traits: any): number;
-
-  /** Create construct instance from signature match */
-  createConstruct(
-    signature: ConstructSignature,
-    cluster: any,
-    confidence: number
-  ): T;
+  /** Additional flags for construct variants */
+  hasChildHeader?: boolean;
 }
 
 /**

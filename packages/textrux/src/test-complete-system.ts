@@ -1,10 +1,10 @@
 import GridModel from "./layers/1-substrate/GridModel";
 import CellCluster from "./layers/3-foundation/cell-cluster/CellCluster";
-import { CoreTree } from "./layers/4-constructs/cell-cluster/tree/CoreTree";
-import { CoreTable } from "./layers/4-constructs/cell-cluster/table/CoreTable";
-import { CoreMatrix } from "./layers/4-constructs/cell-cluster/matrix/CoreMatrix";
-import { CoreKeyValue } from "./layers/4-constructs/cell-cluster/key-value/CoreKeyValue";
-import { CoreList } from "./layers/4-constructs/cell-cluster/list/CoreList";
+import { CoreTree } from "./layers/4-constructs/cell-cluster/CoreTree";
+import { CoreTable } from "./layers/4-constructs/cell-cluster/CoreTable";
+import { CoreMatrix } from "./layers/4-constructs/cell-cluster/CoreMatrix";
+import { CoreKeyValue } from "./layers/4-constructs/cell-cluster/CoreKeyValue";
+import { CoreList } from "./layers/4-constructs/cell-cluster/CoreList";
 
 /**
  * Complete System Test: End-to-End Core Detection + Construction
@@ -60,7 +60,7 @@ function testTableComplete() {
 
   // Test detection
   const detected = cluster.detectConstructType(grid);
-  console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
+  console.log(`   Detection: ${detected?.constructType} (Key: ${detected?.key})`);
 
   // Test construction
   const construct = cluster.createConstruct(grid) as CoreTable;
@@ -97,7 +97,7 @@ function testMatrixComplete() {
   ]);
 
   const detected = cluster.detectConstructType(grid);
-  console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
+  console.log(`   Detection: ${detected?.constructType} (Key: ${detected?.key})`);
 
   const construct = cluster.createConstruct(grid) as CoreMatrix;
   console.log(`   Construct: ${construct?.type} with ${construct?.cells.length} cells`);
@@ -131,7 +131,7 @@ function testKeyValueComplete() {
   ]);
 
   const detected = cluster.detectConstructType(grid);
-  console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
+  console.log(`   Detection: ${detected?.constructType} (Key: ${detected?.key})`);
   console.log(`   Orientation: ${detected?.orientation}`);
 
   const construct = cluster.createConstruct(grid) as CoreKeyValue;
@@ -164,7 +164,7 @@ function testListComplete() {
   
   const verticalConstruct = verticalCluster.createConstruct(verticalGrid) as CoreList;
   
-  console.log(`    Detection: ${verticalCluster.getConstructType()} (${Math.round(verticalCluster.getDetectionConfidence() * 100)}%)`);
+  console.log(`    Detection: ${verticalCluster.getConstructType()} (Key: VL)`);
   console.log(`    Orientation: ${verticalConstruct.orientation}`);
   console.log(`    Header: "${verticalConstruct.getHeaderContent()}"`);
   console.log(`    Items: ${verticalConstruct.itemCount} [${verticalConstruct.getItemContents().join(", ")}]`);
@@ -188,7 +188,7 @@ function testListComplete() {
   
   const horizontalConstruct = horizontalCluster.createConstruct(horizontalGrid) as CoreList;
   
-  console.log(`    Detection: ${horizontalCluster.getConstructType()} (${Math.round(horizontalCluster.getDetectionConfidence() * 100)}%)`);
+  console.log(`    Detection: ${horizontalCluster.getConstructType()} (Key: HL)`);
   console.log(`    Orientation: ${horizontalConstruct.orientation}`);
   console.log(`    Header: "${horizontalConstruct.getHeaderContent()}"`);
   console.log(`    Items: ${horizontalConstruct.itemCount} [${horizontalConstruct.getItemContents().join(", ")}]`);
@@ -217,7 +217,7 @@ function testTreeComplete() {
   ]);
 
   const detected = cluster.detectConstructType(grid);
-  console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
+  console.log(`   Detection: ${detected?.constructType} (Key: ${detected?.key})`);
   console.log(`   Orientation: ${detected?.orientation}`);
 
   const construct = cluster.createConstruct(grid) as CoreTree;

@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
+import { BaseConstruct } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core Key-Value construct based on Cell Cluster Key system
@@ -22,8 +22,7 @@ export interface KeyValuePair {
 export class CoreKeyValue implements BaseConstruct {
   id: string;
   type: string = "key-value";
-  confidence: number;
-  signatureImprint: string;
+  keyPattern: string;
   bounds: {
     topRow: number;
     bottomRow: number;
@@ -43,14 +42,12 @@ export class CoreKeyValue implements BaseConstruct {
 
   constructor(
     id: string,
-    confidence: number,
-    signatureImprint: string,
+    keyPattern: string,
     bounds: { topRow: number; bottomRow: number; leftCol: number; rightCol: number },
     orientation: KeyValueOrientation = "regular"
   ) {
     this.id = id;
-    this.confidence = confidence;
-    this.signatureImprint = signatureImprint;
+    this.keyPattern = keyPattern;
     this.bounds = bounds;
     this.orientation = orientation;
     this.cells = [];

@@ -28,18 +28,17 @@ export { default as BlockCluster } from "./layers/3-foundation/block-cluster/Blo
 // Export construct system
 export type {
   BaseConstruct,
-  ConstructSignature,
-  ConstructSignatureParser,
+  KeyBasedDetection,
   DirectionalOrientation,
   ConstructPosition,
 } from "./layers/4-constructs/interfaces/ConstructInterfaces";
 
 // NEW: Core Construct System with Binary Key Detection (75% reduction!)
-export { CoreTree } from "./layers/4-constructs/cell-cluster/tree/CoreTree";
-export { CoreTable } from "./layers/4-constructs/cell-cluster/table/CoreTable";
-export { CoreMatrix } from "./layers/4-constructs/cell-cluster/matrix/CoreMatrix";
-export { CoreKeyValue } from "./layers/4-constructs/cell-cluster/key-value/CoreKeyValue";
-export { CoreList } from "./layers/4-constructs/cell-cluster/list/CoreList";
+export { CoreTree } from "./layers/4-constructs/cell-cluster/CoreTree";
+export { CoreTable } from "./layers/4-constructs/cell-cluster/CoreTable";
+export { CoreMatrix } from "./layers/4-constructs/cell-cluster/CoreMatrix";
+export { CoreKeyValue } from "./layers/4-constructs/cell-cluster/CoreKeyValue";
+export { CoreList } from "./layers/4-constructs/cell-cluster/CoreList";
 
 // Core detection rules using Cell Cluster Key system (replaces complex trait system)
 export { CoreDetectionRules } from "./layers/3-foundation/cell-cluster/CoreDetectionRules";

@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
+import { BaseConstruct } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core Table construct based on Cell Cluster Key system
@@ -24,8 +24,7 @@ export interface TableEntity {
 export class CoreTable implements BaseConstruct {
   id: string;
   type: string = "table";
-  confidence: number;
-  signatureImprint: string;
+  keyPattern: string;
   bounds: {
     topRow: number;
     bottomRow: number;
@@ -44,13 +43,11 @@ export class CoreTable implements BaseConstruct {
 
   constructor(
     id: string,
-    confidence: number,
-    signatureImprint: string,
+    keyPattern: string,
     bounds: { topRow: number; bottomRow: number; leftCol: number; rightCol: number }
   ) {
     this.id = id;
-    this.confidence = confidence;
-    this.signatureImprint = signatureImprint;
+    this.keyPattern = keyPattern;
     this.bounds = bounds;
     this.cells = [];
     this.headerCells = [];

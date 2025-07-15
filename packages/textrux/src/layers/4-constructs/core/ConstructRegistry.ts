@@ -1,88 +1,96 @@
-import { ConstructSignatureParser } from "../interfaces/ConstructInterfaces";
-// Legacy signature parsers removed - replaced by unified CoreConstructParser
 import GridModel from "../../1-substrate/GridModel";
+import CellCluster from "../../3-foundation/cell-cluster/CellCluster";
 import { CoreConstructParser } from "../CoreConstructParser";
+import { BaseConstruct } from "../interfaces/ConstructInterfaces";
 
 /**
- * Central registry for all construct signature parsers
+ * Central registry for Core construct parsing using Cell Cluster Key system
+ * Replaces complex signature parser system with elegant binary key detection
  */
 export class ConstructRegistry {
-  private parsers: Map<string, ConstructSignatureParser<any>> = new Map();
+  private coreParser?: CoreConstructParser;
   private grid?: GridModel;
 
   constructor(grid?: GridModel) {
     this.grid = grid;
-    this.registerDefaultParsers();
-  }
-
-  /**
-   * Register the default set of construct parsers
-   */
-  private registerDefaultParsers(): void {
-    if (this.grid) {
-      // Legacy signature parsers replaced by unified CoreConstructParser
-      const coreParser = new CoreConstructParser(this.grid);
+    if (grid) {
+      this.coreParser = new CoreConstructParser(grid);
     }
-    // this.registerParser(new TableSignatureParser()); // Legacy removed
-    // this.registerParser(new MatrixSignatureParser()); // Legacy removed  
-    // this.registerParser(new KeyValueSignatureParser()); // Legacy removed
   }
 
   /**
-   * Register a construct parser
+   * Set the grid model and initialize the core parser
    */
-  registerParser(parser: ConstructSignatureParser<any>): void {
-    this.parsers.set(parser.constructType, parser);
+  setGrid(grid: GridModel): void {
+    this.grid = grid;
+    this.coreParser = new CoreConstructParser(grid);
   }
 
   /**
-   * Unregister a construct parser
+   * Parse a cell cluster using the Core construct system
+   * Returns the detected and constructed BaseConstruct or null
    */
-  unregisterParser(constructType: string): boolean {
-    return this.parsers.delete(constructType);
+  parseConstruct(cluster: CellCluster): BaseConstruct | null {
+    if (!this.coreParser) {
+      console.warn("ConstructRegistry: No grid set, cannot parse constructs");
+      return null;
+    }
+
+    return this.coreParser.parseConstruct(cluster);
   }
 
   /**
-   * Get a specific parser by construct type
+   * Parse all cell clusters in the current grid
+   * Returns array of all detected constructs
+   * Note: This method requires grid to be parsed first with parseAndFormatGrid()
    */
-  getParser(constructType: string): ConstructSignatureParser<any> | undefined {
-    return this.parsers.get(constructType);
+  parseAllConstructs(): BaseConstruct[] {
+    if (!this.grid || !this.coreParser) {
+      console.warn("ConstructRegistry: No grid set, cannot parse constructs");
+      return [];
+    }
+
+    const constructs: BaseConstruct[] = [];
+    
+    // TODO: Implement getAllCellClusters() on GridModel or get clusters from blocks
+    // For now, this method requires clusters to be parsed individually
+    console.warn("ConstructRegistry.parseAllConstructs(): Not yet implemented - use parseConstruct() on individual clusters");
+    
+    return constructs;
   }
 
   /**
-   * Get all registered parsers
+   * Get the core parser instance
    */
-  getAllParsers(): ConstructSignatureParser<any>[] {
-    return Array.from(this.parsers.values());
+  getCoreParser(): CoreConstructParser | undefined {
+    return this.coreParser;
   }
 
   /**
-   * Get all registered construct types
+   * Check if the registry is ready for parsing
    */
-  getConstructTypes(): string[] {
-    return Array.from(this.parsers.keys());
+  isReady(): boolean {
+    return !!(this.grid && this.coreParser);
   }
 
   /**
-   * Check if a construct type is registered
+   * Get supported construct types
    */
-  hasParser(constructType: string): boolean {
-    return this.parsers.has(constructType);
+  getSupportedConstructTypes(): string[] {
+    return ["table", "matrix", "key-value", "tree", "list"];
   }
 
   /**
-   * Clear all registered parsers
+   * Parse specific construct type from cluster (for testing/debugging)
    */
-  clear(): void {
-    this.parsers.clear();
-  }
-
-  /**
-   * Reset to default parsers
-   */
-  reset(): void {
-    this.clear();
-    this.registerDefaultParsers();
+  parseSpecificType(cluster: CellCluster, expectedType: string): BaseConstruct | null {
+    const construct = this.parseConstruct(cluster);
+    
+    if (construct && construct.type === expectedType) {
+      return construct;
+    }
+    
+    return null;
   }
 }
 

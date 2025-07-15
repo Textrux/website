@@ -1,7 +1,6 @@
-import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
-import GridModel from "../../../1-substrate/GridModel";
-import CellCluster from "../../../3-foundation/cell-cluster/CellCluster";
-import { CoreConstructParser } from "../../CoreConstructParser";
+import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import GridModel from "../../1-substrate/GridModel";
+import CellCluster from "../../3-foundation/cell-cluster/CellCluster";
 
 /**
  * Core Tree construct based on Cell Cluster Key system
@@ -35,8 +34,7 @@ export interface DomainRegion {
 export class CoreTree implements BaseConstruct {
   id: string;
   type: string = "tree";
-  confidence: number;
-  signatureImprint: string;
+  keyPattern: string;
   bounds: {
     topRow: number;
     bottomRow: number;
@@ -55,14 +53,12 @@ export class CoreTree implements BaseConstruct {
 
   constructor(
     id: string,
-    confidence: number,
-    signatureImprint: string,
+    keyPattern: string,
     bounds: { topRow: number; bottomRow: number; leftCol: number; rightCol: number },
     orientation: TreeOrientation = "regular"
   ) {
     this.id = id;
-    this.confidence = confidence;
-    this.signatureImprint = signatureImprint;
+    this.keyPattern = keyPattern;
     this.bounds = bounds;
     this.orientation = orientation;
     this.elements = [];
@@ -246,10 +242,10 @@ export class CoreTree implements BaseConstruct {
   /**
    * Recursively parse domain regions into nested constructs
    */
-  parseNestedConstructsInDomains(grid: GridModel): void {
+  parseNestedConstructsInDomains(grid: GridModel, parser: any): void {
     for (const parent of this.parentElements) {
       if (parent.domainRegion) {
-        this.parseNestedConstructInDomain(parent, grid);
+        this.parseNestedConstructInDomain(parent, grid, parser);
       }
     }
   }
@@ -257,7 +253,7 @@ export class CoreTree implements BaseConstruct {
   /**
    * Parse a specific domain region into a nested construct
    */
-  private parseNestedConstructInDomain(parentElement: TreeElement, grid: GridModel): void {
+  private parseNestedConstructInDomain(parentElement: TreeElement, grid: GridModel, parser: any): void {
     const domain = parentElement.domainRegion;
     if (!domain) return;
 
@@ -296,7 +292,6 @@ export class CoreTree implements BaseConstruct {
 
     // Try to parse the domain as a nested construct
     try {
-      const parser = new CoreConstructParser(grid);
       const nestedConstruct = parser.parseConstruct(domainCluster);
       
       if (nestedConstruct) {

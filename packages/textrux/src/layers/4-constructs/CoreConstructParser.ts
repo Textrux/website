@@ -1,11 +1,11 @@
 import GridModel from "../1-substrate/GridModel";
 import CellCluster from "../3-foundation/cell-cluster/CellCluster";
 import { CoreDetectionRules, DetectionResult } from "../3-foundation/cell-cluster/CoreDetectionRules";
-import { CoreTree, TreeElement, TreeElementType } from "./cell-cluster/tree/CoreTree";
-import { CoreTable, TableCell } from "./cell-cluster/table/CoreTable";
-import { CoreMatrix, MatrixCell } from "./cell-cluster/matrix/CoreMatrix";
-import { CoreKeyValue, KeyValueCell } from "./cell-cluster/key-value/CoreKeyValue";
-import { CoreList, ListCell } from "./cell-cluster/list/CoreList";
+import { CoreTree, TreeElement, TreeElementType } from "./cell-cluster/CoreTree";
+import { CoreTable, TableCell } from "./cell-cluster/CoreTable";
+import { CoreMatrix, MatrixCell } from "./cell-cluster/CoreMatrix";
+import { CoreKeyValue, KeyValueCell } from "./cell-cluster/CoreKeyValue";
+import { CoreList, ListCell } from "./cell-cluster/CoreList";
 import { BaseConstruct } from "./interfaces/ConstructInterfaces";
 
 /**
@@ -54,7 +54,6 @@ export class CoreConstructParser {
     
     const table = new CoreTable(
       tableId,
-      detection.confidence,
       `core-table-key-${detection.key}`,
       {
         topRow: cluster.topRow,
@@ -99,7 +98,6 @@ export class CoreConstructParser {
     
     const matrix = new CoreMatrix(
       matrixId,
-      detection.confidence,
       `core-matrix-key-${detection.key}`,
       {
         topRow: cluster.topRow,
@@ -155,7 +153,6 @@ export class CoreConstructParser {
     
     const keyValue = new CoreKeyValue(
       keyValueId,
-      detection.confidence,
       `core-keyvalue-key-${detection.key}`,
       {
         topRow: cluster.topRow,
@@ -255,7 +252,6 @@ export class CoreConstructParser {
     
     const list = new CoreList(
       listId,
-      detection.confidence,
       `core-list-key-${detection.key}`,
       {
         topRow: cluster.topRow,
@@ -349,7 +345,6 @@ export class CoreConstructParser {
     
     const tree = new CoreTree(
       treeId,
-      detection.confidence,
       `core-tree-key-${detection.key}`,
       {
         topRow: cluster.topRow,
@@ -415,7 +410,7 @@ export class CoreConstructParser {
     
     // Calculate advanced domain regions and parse nested constructs
     this.calculateAdvancedDomains(tree);
-    tree.parseNestedConstructsInDomains(this.grid);
+    tree.parseNestedConstructsInDomains(this.grid, this);
   }
 
   /**

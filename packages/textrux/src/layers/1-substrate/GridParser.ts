@@ -227,21 +227,18 @@ export function parseAndFormatGrid(grid: GridModel): {
     blockCluster.traits = blockClusterTraitParser.parseTraits(blockCluster);
   }
 
-  // Parse constructs in cell clusters
-  const constructParsers = defaultConstructRegistry.getAllParsers();
+  // Parse constructs in cell clusters using Core system
+  defaultConstructRegistry.setGrid(grid);
 
   for (const block of blocks) {
     if (block.cellClusters) {
       for (const cellCluster of block.cellClusters) {
-        // Legacy trait check removed - now using simple detection
         if (cellCluster) {
-          // Try each construct parser on this cell cluster
-          constructParsers.forEach((parser) => {
-            const constructs = parser.parseConstruct(cellCluster);
-            constructs.forEach((construct) => {
-              cellCluster.addConstruct(construct);
-            });
-          });
+          // Use the unified Core construct parser
+          const construct = defaultConstructRegistry.parseConstruct(cellCluster);
+          if (construct) {
+            cellCluster.addConstruct(construct);
+          }
         }
       }
     }

@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
+import { BaseConstruct } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core List construct based on Cell Cluster Key system
@@ -19,8 +19,7 @@ export interface ListCell {
 export class CoreList implements BaseConstruct {
   id: string;
   type: string = "list";
-  confidence: number;
-  signatureImprint: string;
+  keyPattern: string;
   bounds: {
     topRow: number;
     bottomRow: number;
@@ -38,14 +37,12 @@ export class CoreList implements BaseConstruct {
 
   constructor(
     id: string,
-    confidence: number,
-    signatureImprint: string,
+    keyPattern: string,
     bounds: { topRow: number; bottomRow: number; leftCol: number; rightCol: number },
     orientation: ListOrientation = "regular"
   ) {
     this.id = id;
-    this.confidence = confidence;
-    this.signatureImprint = signatureImprint;
+    this.keyPattern = keyPattern;
     this.bounds = bounds;
     this.orientation = orientation;
     this.cells = [];
