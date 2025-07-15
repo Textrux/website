@@ -1,7 +1,7 @@
 import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
 
 /**
- * Simple Table construct based on slide specifications
+ * Core Table construct based on Cell Cluster Key system
  * Tables have all cells filled and contain headers + body cells
  */
 
@@ -21,7 +21,7 @@ export interface TableEntity {
   bodyCells: TableCell[];
 }
 
-export class SimpleTable implements BaseConstruct {
+export class CoreTable implements BaseConstruct {
   id: string;
   type: string = "table";
   confidence: number;

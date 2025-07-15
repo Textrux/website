@@ -9,7 +9,7 @@ import {
   Direction,
   RootCellPosition,
   DynamicCorePattern,
-} from "../cell-cluster/CellClusterTraits";
+} from "../block-cluster/BlockClusterTraits"; // Updated import path
 
 // Block-specific enums
 export enum BlockType {

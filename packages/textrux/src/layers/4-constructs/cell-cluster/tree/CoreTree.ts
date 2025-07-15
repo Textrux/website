@@ -1,10 +1,10 @@
 import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
 import GridModel from "../../../1-substrate/GridModel";
 import CellCluster from "../../../3-foundation/cell-cluster/CellCluster";
-import { SimpleConstructParser } from "../../SimpleConstructParser";
+import { CoreConstructParser } from "../../CoreConstructParser";
 
 /**
- * Simple Tree construct based on slide specifications
+ * Core Tree construct based on Cell Cluster Key system
  * Replaces the over-engineered Tree.ts with elegant simplicity
  */
 
@@ -32,7 +32,7 @@ export interface DomainRegion {
   parsedSuccessfully?: boolean;
 }
 
-export class SimpleTree implements BaseConstruct {
+export class CoreTree implements BaseConstruct {
   id: string;
   type: string = "tree";
   confidence: number;
@@ -296,7 +296,7 @@ export class SimpleTree implements BaseConstruct {
 
     // Try to parse the domain as a nested construct
     try {
-      const parser = new SimpleConstructParser(grid);
+      const parser = new CoreConstructParser(grid);
       const nestedConstruct = parser.parseConstruct(domainCluster);
       
       if (nestedConstruct) {

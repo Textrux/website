@@ -3,7 +3,7 @@ import {
   Direction,
   RootCellPosition,
   DynamicCorePattern,
-} from "../cell-cluster/CellClusterTraits";
+} from "../block-cluster/BlockClusterTraits"; // Updated import path
 import { BlockType, BlockShape } from "../block/BlockTraits";
 
 // BlockSubcluster-specific enums

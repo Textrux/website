@@ -1,7 +1,7 @@
 import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
 
 /**
- * Simple Matrix construct based on slide specifications
+ * Core Matrix construct based on Cell Cluster Key system
  * Matrices have empty top-left corner (R1C1) and dual headers
  */
 
@@ -21,7 +21,7 @@ export interface MatrixEntity {
   bodyCells: MatrixCell[];
 }
 
-export class SimpleMatrix implements BaseConstruct {
+export class CoreMatrix implements BaseConstruct {
   id: string;
   type: string = "matrix";
   confidence: number;

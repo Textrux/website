@@ -2,11 +2,11 @@ import GridModel from "./layers/1-substrate/GridModel";
 import CellCluster from "./layers/3-foundation/cell-cluster/CellCluster";
 
 /**
- * Test the new Simple Detection Rules system
- * This replaces the complex trait-based system with elegant pattern matching
+ * Test the new Core Detection Rules system
+ * This replaces the complex trait-based system with elegant binary key detection
  */
-function testSimpleDetection() {
-  console.log("🚀 Testing Simple Detection Rules System\n");
+function testCoreDetection() {
+  console.log("🚀 Testing Core Detection Rules System\n");
 
   // Test 1: Table Detection (all cells filled)
   console.log("📋 Test 1: Table Detection");
@@ -23,13 +23,18 @@ function testSimpleDetection() {
   testKeyValueDetection();
   console.log();
 
-  // Test 4: Tree Detection (everything else)
-  console.log("🌳 Test 4: Tree Detection");
+  // Test 4: List Detection (2-cell patterns)
+  console.log("📜 Test 4: List Detection");
+  testListDetection();
+  console.log();
+
+  // Test 5: Tree Detection (everything else)
+  console.log("🌳 Test 5: Tree Detection");
   testTreeDetection();
   console.log();
 
-  // Test 5: Size Filter (too small clusters)
-  console.log("📏 Test 5: Size Filter");
+  // Test 6: Size Filter (too small clusters)
+  console.log("📏 Test 6: Size Filter");
   testSizeFilter();
   console.log();
 }
@@ -122,6 +127,72 @@ function testKeyValueDetection() {
   }
 }
 
+function testListDetection() {
+  // Test vertical list (VL key)
+  console.log("  Testing Vertical List (VL key):");
+  const verticalGrid = new GridModel(4, 2);
+  
+  // Create vertical list: single column with header + items
+  verticalGrid.setCellRaw(1, 1, "Colors");
+  verticalGrid.setCellRaw(2, 1, "Red");
+  verticalGrid.setCellRaw(3, 1, "Blue");
+  
+  const verticalCluster = new CellCluster(0, 2, 0, 0, [
+    { row: 0, col: 0 },
+    { row: 1, col: 0 },
+    { row: 2, col: 0 }
+  ]);
+  
+  const verticalResult = verticalCluster.detectConstructType(verticalGrid);
+  console.log(`    Pattern: Single column (3 rows x 1 col)`);
+  console.log(`    Detection: ${verticalResult?.constructType} (${Math.round((verticalResult?.confidence || 0) * 100)}%)`);
+  console.log(`    Orientation: ${verticalResult?.orientation}`);
+  console.log(`    Key: ${verticalResult?.key}`);
+  
+  // Test horizontal list (HL key)
+  console.log("\n  Testing Horizontal List (HL key):");
+  const horizontalGrid = new GridModel(2, 4);
+  
+  // Create horizontal list: single row with header + items
+  horizontalGrid.setCellRaw(1, 1, "Days");
+  horizontalGrid.setCellRaw(1, 2, "Monday");
+  horizontalGrid.setCellRaw(1, 3, "Tuesday");
+  
+  const horizontalCluster = new CellCluster(0, 0, 0, 2, [
+    { row: 0, col: 0 },
+    { row: 0, col: 1 },
+    { row: 0, col: 2 }
+  ]);
+  
+  const horizontalResult = horizontalCluster.detectConstructType(horizontalGrid);
+  console.log(`    Pattern: Single row (1 row x 3 cols)`);
+  console.log(`    Detection: ${horizontalResult?.constructType} (${Math.round((horizontalResult?.confidence || 0) * 100)}%)`);
+  console.log(`    Orientation: ${horizontalResult?.orientation}`);
+  console.log(`    Key: ${horizontalResult?.key}`);
+  
+  // Test NOT a list (multi-row, multi-col)
+  console.log("\n  Testing NOT a List (multi-row, multi-col):");
+  const notListGrid = new GridModel(3, 3);
+  
+  // Create multi-row, multi-col structure
+  notListGrid.setCellRaw(1, 1, "A");
+  notListGrid.setCellRaw(2, 1, "B");
+  notListGrid.setCellRaw(1, 2, "C");
+  notListGrid.setCellRaw(2, 2, "D");
+  
+  const notListCluster = new CellCluster(0, 1, 0, 1, [
+    { row: 0, col: 0 },
+    { row: 1, col: 0 },
+    { row: 0, col: 1 },
+    { row: 1, col: 1 }
+  ]);
+  
+  const notListResult = notListCluster.detectConstructType(notListGrid);
+  console.log(`    Pattern: Multi-row, multi-col (2 rows x 2 cols)`);
+  console.log(`    Detection: ${notListResult?.constructType} (should be table/matrix/tree, not list)`);
+  console.log(`    Key: ${notListResult?.key}`);
+}
+
 function testTreeDetection() {
   const grid = new GridModel(5, 5);
   
@@ -170,7 +241,7 @@ function testSizeFilter() {
 
 // Run the test if this file is executed directly
 if (typeof window === "undefined") {
-  testSimpleDetection();
+  testCoreDetection();
 }
 
-export default testSimpleDetection;
+export default testCoreDetection;

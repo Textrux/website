@@ -197,7 +197,7 @@ export function parseAndFormatGrid(grid: GridModel): {
   const blockSubclusterTraitParser = new BlockSubclusterTraitParser(grid);
   const blockClusterTraitParser = new BlockClusterTraitParser(grid);
   const blockJoinTraitParser = new BlockJoinTraitParser(grid);
-  const cellClusterTraitParser = new CellClusterTraitParser(grid);
+  // const cellClusterTraitParser = new CellClusterTraitParser(grid); // Legacy trait system removed
 
   // Parse traits for blocks and their cell clusters
   for (const block of blocks) {

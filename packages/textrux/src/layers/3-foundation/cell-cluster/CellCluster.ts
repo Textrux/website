@@ -1,8 +1,8 @@
 import { CellFormat } from "../../../style/CellFormat";
 import CellSubcluster from "../cell-subcluster/CellSubcluster";
 import { BaseConstruct } from "../../4-constructs/interfaces/ConstructInterfaces";
-import { SimpleDetectionRules, DetectionResult } from "./SimpleDetectionRules";
-import { SimpleConstructParser } from "../../4-constructs/SimpleConstructParser";
+import { CoreDetectionRules, DetectionResult } from "./CoreDetectionRules";
+import { CoreConstructParser } from "../../4-constructs/CoreConstructParser";
 import GridModel from "../../1-substrate/GridModel";
 
 export default class CellCluster {
@@ -19,9 +19,9 @@ export default class CellCluster {
   /** Formatting for empty cells within the cluster */
   clusterEmptyFormat: CellFormat;
 
-  /** Legacy traits removed - replaced by simple detection rules */
+  /** Legacy traits removed - replaced by Cell Cluster Key system */
 
-  /** Simple detection result using pattern matching */
+  /** Core detection result using binary key matching */
   detectionResult?: DetectionResult;
 
   /** Identified constructs within this cell cluster */
@@ -49,7 +49,7 @@ export default class CellCluster {
     this.constructs = [];
   }
 
-  // Legacy initializeTraits method removed - replaced by simple detection rules
+  // Legacy initializeTraits method removed - replaced by Cell Cluster Key system
 
   /**
    * Set custom formatting for this cluster's empty cells
@@ -186,11 +186,11 @@ export default class CellCluster {
   }
 
   /**
-   * Detect construct type using simple pattern matching
-   * Replaces complex trait-based system with elegant 4-rule detection
+   * Detect construct type using Cell Cluster Key system
+   * Replaces complex trait-based system with elegant binary key detection
    */
   detectConstructType(grid: GridModel): DetectionResult | null {
-    const detector = new SimpleDetectionRules(grid);
+    const detector = new CoreDetectionRules(grid);
     this.detectionResult = detector.detectConstruct(this);
     return this.detectionResult;
   }
@@ -217,7 +217,7 @@ export default class CellCluster {
   }
 
   /**
-   * Create the actual construct instance using simple pattern-based construction
+   * Create the actual construct instance using binary key-based construction
    */
   createConstruct(grid: GridModel): BaseConstruct | null {
     // First detect the construct type
@@ -227,8 +227,8 @@ export default class CellCluster {
       return null;
     }
 
-    // Use the simple parser to create the construct
-    const parser = new SimpleConstructParser(grid);
+    // Use the core parser to create the construct
+    const parser = new CoreConstructParser(grid);
     const construct = parser.parseConstruct(this);
     
     if (construct) {

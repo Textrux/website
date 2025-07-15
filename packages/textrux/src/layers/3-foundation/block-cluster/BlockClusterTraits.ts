@@ -1,9 +1,15 @@
-import {
-  Orientation,
-  Direction,
-  RootCellPosition,
-  DynamicCorePattern,
-} from "../cell-cluster/CellClusterTraits";
+// import {
+//   Orientation,
+//   Direction,
+//   RootCellPosition,
+//   DynamicCorePattern,
+// } from "../cell-cluster/CellClusterTraits"; // Legacy trait system removed
+
+// Temporary type definitions for legacy compatibility
+export enum Orientation { Primary = "primary", Secondary = "secondary" }
+export enum Direction { Down = "down", Right = "right", Up = "up", Left = "left" }
+export enum RootCellPosition { TopLeft = "topleft", TopRight = "topright", BottomLeft = "bottomleft", BottomRight = "bottomright" }
+export enum DynamicCorePattern { Tree = "tree", Table = "table", Matrix = "matrix", KeyValue = "keyvalue" }
 import { BlockType, BlockShape } from "../block/BlockTraits";
 
 // BlockCluster-specific enums (now for groups of BlockSubclusters)

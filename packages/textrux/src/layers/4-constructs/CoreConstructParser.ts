@@ -1,30 +1,31 @@
 import GridModel from "../1-substrate/GridModel";
 import CellCluster from "../3-foundation/cell-cluster/CellCluster";
-import { SimpleDetectionRules, DetectionResult } from "../3-foundation/cell-cluster/SimpleDetectionRules";
-import { SimpleTree, TreeElement, TreeElementType } from "./cell-cluster/tree/SimpleTree";
-import { SimpleTable, TableCell } from "./cell-cluster/table/SimpleTable";
-import { SimpleMatrix, MatrixCell } from "./cell-cluster/matrix/SimpleMatrix";
-import { SimpleKeyValue, KeyValueCell } from "./cell-cluster/key-value/SimpleKeyValue";
+import { CoreDetectionRules, DetectionResult } from "../3-foundation/cell-cluster/CoreDetectionRules";
+import { CoreTree, TreeElement, TreeElementType } from "./cell-cluster/tree/CoreTree";
+import { CoreTable, TableCell } from "./cell-cluster/table/CoreTable";
+import { CoreMatrix, MatrixCell } from "./cell-cluster/matrix/CoreMatrix";
+import { CoreKeyValue, KeyValueCell } from "./cell-cluster/key-value/CoreKeyValue";
+import { CoreList, ListCell } from "./cell-cluster/list/CoreList";
 import { BaseConstruct } from "./interfaces/ConstructInterfaces";
 
 /**
- * Unified Simple Construct Parser
- * Replaces all complex signature parsers with elegant pattern-based construction
+ * Core Construct Parser using Cell Cluster Key system
+ * Replaces complex signature parsers with elegant key-based construction
  */
-export class SimpleConstructParser {
+export class CoreConstructParser {
   private grid: GridModel;
-  private detector: SimpleDetectionRules;
+  private detector: CoreDetectionRules;
 
   constructor(grid: GridModel) {
     this.grid = grid;
-    this.detector = new SimpleDetectionRules(grid);
+    this.detector = new CoreDetectionRules(grid);
   }
 
   /**
-   * Parse a cell cluster and create the appropriate construct
+   * Parse a cell cluster and create the appropriate construct using key-based detection
    */
   parseConstruct(cluster: CellCluster): BaseConstruct | null {
-    // Detect construct type using simple rules
+    // Detect construct type using binary key system
     const detection = this.detector.detectConstruct(cluster);
     if (!detection) return null;
 
@@ -38,21 +39,23 @@ export class SimpleConstructParser {
         return this.createKeyValue(cluster, detection);
       case "tree":
         return this.createTree(cluster, detection);
+      case "list":
+        return this.createList(cluster, detection);
       default:
         return null;
     }
   }
 
   /**
-   * Create a Simple Table construct
+   * Create a Core Table construct
    */
-  private createTable(cluster: CellCluster, detection: DetectionResult): SimpleTable {
+  private createTable(cluster: CellCluster, detection: DetectionResult): CoreTable {
     const tableId = `table_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
     
-    const table = new SimpleTable(
+    const table = new CoreTable(
       tableId,
       detection.confidence,
-      "simple-table",
+      `core-table-key-${detection.key}`,
       {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
@@ -61,7 +64,7 @@ export class SimpleConstructParser {
       }
     );
 
-    // Add all cells (tables have all cells filled)
+    // Add all cells (tables have all cells filled by definition of key=15)
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
         const content = this.grid.getCellRaw(row, col);
@@ -71,7 +74,7 @@ export class SimpleConstructParser {
           const isHeaderCol = col === cluster.leftCol + 1;
           const cellType = (isHeaderRow || isHeaderCol) ? "header" : "body";
           
-          const cell = SimpleTable.createCell(
+          const cell = CoreTable.createCell(
             { row: row - 1, col: col - 1 }, // Convert to 0-indexed
             content.trim(),
             cellType
@@ -89,15 +92,15 @@ export class SimpleConstructParser {
   }
 
   /**
-   * Create a Simple Matrix construct
+   * Create a Core Matrix construct
    */
-  private createMatrix(cluster: CellCluster, detection: DetectionResult): SimpleMatrix {
+  private createMatrix(cluster: CellCluster, detection: DetectionResult): CoreMatrix {
     const matrixId = `matrix_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
     
-    const matrix = new SimpleMatrix(
+    const matrix = new CoreMatrix(
       matrixId,
       detection.confidence,
-      "simple-matrix",
+      `core-matrix-key-${detection.key}`,
       {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
@@ -106,10 +109,10 @@ export class SimpleConstructParser {
       }
     );
 
-    // Add all cells except the empty corner (R1C1)
+    // Add all cells except the empty corner (R1C1) by definition of key=7
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
-        // Skip R1C1 (empty corner)
+        // Skip R1C1 (empty corner) - this is what makes it key=7
         if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
           continue;
         }
@@ -127,7 +130,7 @@ export class SimpleConstructParser {
             cellType = "body"; // Body cells
           }
           
-          const cell = SimpleMatrix.createCell(
+          const cell = CoreMatrix.createCell(
             { row: row - 1, col: col - 1 }, // Convert to 0-indexed
             content.trim(),
             cellType
@@ -145,15 +148,15 @@ export class SimpleConstructParser {
   }
 
   /**
-   * Create a Simple Key-Value construct
+   * Create a Core Key-Value construct
    */
-  private createKeyValue(cluster: CellCluster, detection: DetectionResult): SimpleKeyValue {
+  private createKeyValue(cluster: CellCluster, detection: DetectionResult): CoreKeyValue {
     const keyValueId = `keyvalue_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
     
-    const keyValue = new SimpleKeyValue(
+    const keyValue = new CoreKeyValue(
       keyValueId,
       detection.confidence,
-      "simple-key-value",
+      `core-keyvalue-key-${detection.key}`,
       {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
@@ -163,7 +166,7 @@ export class SimpleConstructParser {
       detection.orientation || "regular"
     );
 
-    // Process cells based on orientation
+    // Process cells based on key=9 pattern: R1C1 filled, R2C1+R1C2 empty, R2C2 filled (first key)
     if (detection.orientation === "regular") {
       // Vertical key-values: keys in first column, values in other columns
       this.processVerticalKeyValues(cluster, keyValue);
@@ -179,9 +182,9 @@ export class SimpleConstructParser {
   }
 
   /**
-   * Process vertical (regular) key-value structure
+   * Process vertical (regular) key-value structure based on key=9 pattern
    */
-  private processVerticalKeyValues(cluster: CellCluster, keyValue: SimpleKeyValue): void {
+  private processVerticalKeyValues(cluster: CellCluster, keyValue: CoreKeyValue): void {
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
         const content = this.grid.getCellRaw(row, col);
@@ -195,11 +198,11 @@ export class SimpleConstructParser {
           } else if (col > cluster.leftCol + 2) {
             cellType = "value"; // Columns beyond second contain values
           } else {
-            // Skip gap cells (R2C1, R1C2)
+            // Skip gap cells (R2C1, R1C2) - these are empty by definition of key=9
             continue;
           }
           
-          const cell = SimpleKeyValue.createCell(
+          const cell = CoreKeyValue.createCell(
             { row: row - 1, col: col - 1 },
             content.trim(),
             cellType
@@ -212,9 +215,9 @@ export class SimpleConstructParser {
   }
 
   /**
-   * Process horizontal (transposed) key-value structure
+   * Process horizontal (transposed) key-value structure based on key=9 pattern
    */
-  private processHorizontalKeyValues(cluster: CellCluster, keyValue: SimpleKeyValue): void {
+  private processHorizontalKeyValues(cluster: CellCluster, keyValue: CoreKeyValue): void {
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
         const content = this.grid.getCellRaw(row, col);
@@ -228,11 +231,11 @@ export class SimpleConstructParser {
           } else if (row > cluster.topRow + 2) {
             cellType = "value"; // Rows beyond second contain values
           } else {
-            // Skip gap cells (R1C2, R2C1)
+            // Skip gap cells (R1C2, R2C1) - these are empty by definition of key=9
             continue;
           }
           
-          const cell = SimpleKeyValue.createCell(
+          const cell = CoreKeyValue.createCell(
             { row: row - 1, col: col - 1 },
             content.trim(),
             cellType
@@ -245,15 +248,15 @@ export class SimpleConstructParser {
   }
 
   /**
-   * Create a Simple Tree construct
+   * Create a Core List construct
    */
-  private createTree(cluster: CellCluster, detection: DetectionResult): SimpleTree {
-    const treeId = `tree_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
+  private createList(cluster: CellCluster, detection: DetectionResult): CoreList {
+    const listId = `list_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
     
-    const tree = new SimpleTree(
-      treeId,
+    const list = new CoreList(
+      listId,
       detection.confidence,
-      "simple-tree",
+      `core-list-key-${detection.key}`,
       {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
@@ -262,6 +265,105 @@ export class SimpleConstructParser {
       },
       detection.orientation || "regular"
     );
+
+    // Process cells based on 2-cell key pattern
+    if (detection.orientation === "regular") {
+      // Vertical list: header at R1C1, items starting at R2C1
+      this.processVerticalList(cluster, list);
+    } else {
+      // Horizontal list: header at R1C1, items starting at R1C2
+      this.processHorizontalList(cluster, list);
+    }
+
+    // Organize items and calculate metrics
+    list.organizeItems();
+    
+    return list;
+  }
+
+  /**
+   * Process vertical (regular) list structure
+   * Cluster is guaranteed to be single column with at least 2 cells
+   */
+  private processVerticalList(cluster: CellCluster, list: CoreList): void {
+    const col = cluster.leftCol + 1; // Single column for vertical lists
+    
+    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
+      const content = this.grid.getCellRaw(row, col);
+      
+      if (content && content.trim()) {
+        let cellType: "header" | "item";
+        
+        if (row === cluster.topRow + 1) {
+          cellType = "header"; // R1C1 is header
+        } else {
+          cellType = "item"; // R2C1 and beyond are items
+        }
+        
+        const cell = CoreList.createCell(
+          { row: row - 1, col: col - 1 }, // Convert to 0-indexed
+          content.trim(),
+          cellType
+        );
+        
+        list.addCell(cell);
+      }
+    }
+  }
+
+  /**
+   * Process horizontal (transposed) list structure
+   * Cluster is guaranteed to be single row with at least 2 cells
+   */
+  private processHorizontalList(cluster: CellCluster, list: CoreList): void {
+    const row = cluster.topRow + 1; // Single row for horizontal lists
+    
+    for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
+      const content = this.grid.getCellRaw(row, col);
+      
+      if (content && content.trim()) {
+        let cellType: "header" | "item";
+        
+        if (col === cluster.leftCol + 1) {
+          cellType = "header"; // R1C1 is header
+        } else {
+          cellType = "item"; // R1C2 and beyond are items
+        }
+        
+        const cell = CoreList.createCell(
+          { row: row - 1, col: col - 1 }, // Convert to 0-indexed
+          content.trim(),
+          cellType
+        );
+        
+        list.addCell(cell);
+      }
+    }
+  }
+
+  /**
+   * Create a Core Tree construct
+   */
+  private createTree(cluster: CellCluster, detection: DetectionResult): CoreTree {
+    const treeId = `tree_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
+    
+    const tree = new CoreTree(
+      treeId,
+      detection.confidence,
+      `core-tree-key-${detection.key}`,
+      {
+        topRow: cluster.topRow,
+        bottomRow: cluster.bottomRow,
+        leftCol: cluster.leftCol,
+        rightCol: cluster.rightCol
+      },
+      detection.orientation || "regular"
+    );
+
+    // Set child header flag based on key
+    if (detection.hasChildHeader) {
+      tree.metadata.hasChildHeader = true;
+    }
 
     // Process tree elements based on spatial hierarchy
     this.processTreeElements(cluster, tree, detection.orientation || "regular");
@@ -272,7 +374,7 @@ export class SimpleConstructParser {
   /**
    * Process tree elements and establish hierarchy
    */
-  private processTreeElements(cluster: CellCluster, tree: SimpleTree, orientation: string): void {
+  private processTreeElements(cluster: CellCluster, tree: CoreTree, orientation: string): void {
     const elements: TreeElement[] = [];
     
     // Collect all filled cells and analyze hierarchy
@@ -288,7 +390,7 @@ export class SimpleConstructParser {
             content, row, col, level, cluster
           );
           
-          const element = SimpleTree.createElement(
+          const element = CoreTree.createElement(
             { row: row - 1, col: col - 1 }, // Convert to 0-indexed
             content.trim(),
             elementType,
@@ -365,7 +467,7 @@ export class SimpleConstructParser {
   /**
    * Establish parent-child relationships in tree
    */
-  private establishTreeHierarchy(elements: TreeElement[], tree: SimpleTree): void {
+  private establishTreeHierarchy(elements: TreeElement[], tree: CoreTree): void {
     const levelStack: TreeElement[] = [];
 
     for (const element of elements) {
@@ -403,7 +505,7 @@ export class SimpleConstructParser {
   /**
    * Calculate advanced domain regions using next peer/ancestor algorithm
    */
-  private calculateAdvancedDomains(tree: SimpleTree): void {
+  private calculateAdvancedDomains(tree: CoreTree): void {
     for (const parent of tree.parentElements) {
       tree.calculateAdvancedDomainRegion(parent, this.grid);
     }

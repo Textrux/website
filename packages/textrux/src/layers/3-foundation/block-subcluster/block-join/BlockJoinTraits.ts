@@ -1,4 +1,4 @@
-import { Direction } from "../../cell-cluster/CellClusterTraits";
+import { Direction } from "../../block-cluster/BlockClusterTraits"; // Updated import path
 
 // BlockJoin-specific enums
 export enum JoinType {

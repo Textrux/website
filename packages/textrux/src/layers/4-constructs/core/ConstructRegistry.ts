@@ -1,7 +1,7 @@
 import { ConstructSignatureParser } from "../interfaces/ConstructInterfaces";
-// Legacy signature parsers removed - replaced by unified SimpleConstructParser
+// Legacy signature parsers removed - replaced by unified CoreConstructParser
 import GridModel from "../../1-substrate/GridModel";
-import { SimpleConstructParser } from "../SimpleConstructParser";
+import { CoreConstructParser } from "../CoreConstructParser";
 
 /**
  * Central registry for all construct signature parsers
@@ -20,8 +20,8 @@ export class ConstructRegistry {
    */
   private registerDefaultParsers(): void {
     if (this.grid) {
-      // Legacy signature parsers replaced by unified SimpleConstructParser
-      const simpleParser = new SimpleConstructParser(this.grid);
+      // Legacy signature parsers replaced by unified CoreConstructParser
+      const coreParser = new CoreConstructParser(this.grid);
     }
     // this.registerParser(new TableSignatureParser()); // Legacy removed
     // this.registerParser(new MatrixSignatureParser()); // Legacy removed  

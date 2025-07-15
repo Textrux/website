@@ -14,7 +14,10 @@
       "Bash(npm test)",
       "Bash(npm run test:tree:*)",
       "Bash(npx tsx:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

@@ -1,6 +1,6 @@
 import GridModel from "./layers/1-substrate/GridModel";
 import CellCluster from "./layers/3-foundation/cell-cluster/CellCluster";
-import { SimpleTree } from "./layers/4-constructs/cell-cluster/tree/SimpleTree";
+import { CoreTree } from "./layers/4-constructs/cell-cluster/tree/CoreTree";
 
 /**
  * Test Tree Domain Detection: Advanced Algorithm + Recursive Parsing
@@ -52,7 +52,7 @@ function testTreeWithTableDomain() {
   const detected = cluster.detectConstructType(grid);
   console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
 
-  const tree = cluster.createConstruct(grid) as SimpleTree;
+  const tree = cluster.createConstruct(grid) as CoreTree;
   console.log(`   Tree elements: ${tree?.elements.length}`);
   console.log(`   Parents with domains: ${tree?.getParentsWithDomains().length}`);
   
@@ -110,7 +110,7 @@ function testTreeWithMatrixDomain() {
   const detected = cluster.detectConstructType(grid);
   console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
 
-  const tree = cluster.createConstruct(grid) as SimpleTree;
+  const tree = cluster.createConstruct(grid) as CoreTree;
   console.log(`   Tree elements: ${tree?.elements.length}`);
   console.log(`   Parents with domains: ${tree?.getParentsWithDomains().length}`);
   console.log(`   Parents with nested constructs: ${tree?.getParentsWithNestedConstructs().length}`);
@@ -152,7 +152,7 @@ function testTreeWithKeyValueDomain() {
   const detected = cluster.detectConstructType(grid);
   console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
 
-  const tree = cluster.createConstruct(grid) as SimpleTree;
+  const tree = cluster.createConstruct(grid) as CoreTree;
   console.log(`   Tree elements: ${tree?.elements.length}`);
   console.log(`   Parents with domains: ${tree?.getParentsWithDomains().length}`);
   console.log(`   Parents with nested constructs: ${tree?.getParentsWithNestedConstructs().length}`);
@@ -211,7 +211,7 @@ function testTreeWithMultipleNestedConstructs() {
   const detected = cluster.detectConstructType(grid);
   console.log(`   Detection: ${detected?.constructType} (${(detected?.confidence || 0) * 100}%)`);
 
-  const tree = cluster.createConstruct(grid) as SimpleTree;
+  const tree = cluster.createConstruct(grid) as CoreTree;
   console.log(`   Tree elements: ${tree?.elements.length}`);
   console.log(`   Parents with domains: ${tree?.getParentsWithDomains().length}`);
   console.log(`   Parents with nested constructs: ${tree?.getParentsWithNestedConstructs().length}`);

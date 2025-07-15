@@ -1,8 +1,8 @@
 import { BaseConstruct } from "../../interfaces/ConstructInterfaces";
 
 /**
- * Simple Key-Value construct based on slide specifications
- * Key-values have R1C1+R2C1 filled, R1C2+R2C2 empty, with values in other columns
+ * Core Key-Value construct based on Cell Cluster Key system
+ * Key-values have R1C1 filled, R2C1+R1C2 empty, R2C2 filled (first key)
  */
 
 export type KeyValueOrientation = "regular" | "transposed"; // vertical or horizontal
@@ -19,7 +19,7 @@ export interface KeyValuePair {
   values: KeyValueCell[];
 }
 
-export class SimpleKeyValue implements BaseConstruct {
+export class CoreKeyValue implements BaseConstruct {
   id: string;
   type: string = "key-value";
   confidence: number;
