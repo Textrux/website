@@ -1,5 +1,4 @@
 import { CellFormat } from "../../../style/CellFormat";
-import { CellClusterTraits } from "./CellClusterTraits";
 import CellSubcluster from "../cell-subcluster/CellSubcluster";
 import { BaseConstruct } from "../../4-constructs/interfaces/ConstructInterfaces";
 import { SimpleDetectionRules, DetectionResult } from "./SimpleDetectionRules";
@@ -20,8 +19,7 @@ export default class CellCluster {
   /** Formatting for empty cells within the cluster */
   clusterEmptyFormat: CellFormat;
 
-  /** Traits for this cell cluster (legacy - kept for compatibility) */
-  traits?: CellClusterTraits;
+  /** Legacy traits removed - replaced by simple detection rules */
 
   /** Simple detection result using pattern matching */
   detectionResult?: DetectionResult;
@@ -51,20 +49,7 @@ export default class CellCluster {
     this.constructs = [];
   }
 
-  private initializeTraits(): CellClusterTraits {
-    // TODO: Implement trait analysis and population
-    // For now, return a basic structure with default values
-    return {
-      base: {} as any,
-      composite: {} as any,
-      derived: {} as any,
-      treeDetection: {} as any,
-      constructDetection: {} as any,
-      corners: {} as any,
-      edges: {} as any,
-      indentation: {} as any,
-    };
-  }
+  // Legacy initializeTraits method removed - replaced by simple detection rules
 
   /**
    * Set custom formatting for this cluster's empty cells

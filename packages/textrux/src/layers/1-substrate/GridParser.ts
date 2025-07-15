@@ -12,7 +12,7 @@ import { BlockTraitParser } from "../3-foundation/block/BlockTraitParser";
 import { BlockSubclusterTraitParser } from "../3-foundation/block-subcluster/BlockSubclusterTraitParser";
 import { BlockClusterTraitParser } from "../3-foundation/block-cluster/BlockClusterTraitParser";
 import { BlockJoinTraitParser } from "../3-foundation/block-subcluster/block-join/BlockJoinTraitParser";
-import { CellClusterTraitParser } from "../3-foundation/cell-cluster/CellClusterTraitParser";
+// CellClusterTraitParser removed - replaced by simple detection rules
 import { defaultConstructRegistry } from "../4-constructs/core/ConstructRegistry";
 
 /** Key = "R{row}C{col}" => array of class names */
@@ -203,10 +203,10 @@ export function parseAndFormatGrid(grid: GridModel): {
   for (const block of blocks) {
     block.traits = blockTraitParser.parseTraits(block);
 
-    // Parse traits for cell clusters within each block
+    // Legacy trait parsing removed - now using simple detection rules
     if (block.cellClusters) {
       for (const cellCluster of block.cellClusters) {
-        cellCluster.traits = cellClusterTraitParser.parseTraits(cellCluster);
+        // cellCluster.traits = cellClusterTraitParser.parseTraits(cellCluster);
       }
     }
   }
@@ -233,7 +233,8 @@ export function parseAndFormatGrid(grid: GridModel): {
   for (const block of blocks) {
     if (block.cellClusters) {
       for (const cellCluster of block.cellClusters) {
-        if (cellCluster.traits) {
+        // Legacy trait check removed - now using simple detection
+        if (cellCluster) {
           // Try each construct parser on this cell cluster
           constructParsers.forEach((parser) => {
             const constructs = parser.parseConstruct(cellCluster);

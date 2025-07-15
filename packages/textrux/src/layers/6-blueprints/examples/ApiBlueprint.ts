@@ -237,10 +237,10 @@ export interface ApiWorkflowExample {
   structure: {
     id: "api-structure-1";
     components: {
-      rootEntity: { type: "data", content: "employee", dataType: "object" };
+      rootEntity: { type: "data", content: "employee", dataType: "object" },
       fields: [
-        { type: "data", content: "firstName", dataType: "string" };
-        { type: "data", content: "lastName", dataType: "string" };
+        { type: "data", content: "firstName", dataType: "string" },
+        { type: "data", content: "lastName", dataType: "string" },
       ];
       constraints: { type: "data", content: "validation rules", dataType: "constraints" };
     };
