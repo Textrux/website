@@ -2,10 +2,8 @@ import { CellFormat } from "../../../style/CellFormat";
 import { CellClusterTraits } from "./CellClusterTraits";
 import CellSubcluster from "../cell-subcluster/CellSubcluster";
 import { BaseConstruct } from "../../4-constructs/interfaces/ConstructInterfaces";
-import { TreeSignatureParser } from "../../4-constructs/cell-cluster/tree/TreeSignatureParser";
-import { TableSignatureParser } from "../../4-constructs/cell-cluster/table/TableSignatureParser";
-import { MatrixSignatureParser } from "../../4-constructs/cell-cluster/matrix/MatrixSignatureParser";
-import { KeyValueSignatureParser } from "../../4-constructs/cell-cluster/key-value/KeyValueSignatureParser";
+import { SimpleDetectionRules, DetectionResult } from "./SimpleDetectionRules";
+import { SimpleConstructParser } from "../../4-constructs/SimpleConstructParser";
 import GridModel from "../../1-substrate/GridModel";
 
 export default class CellCluster {
@@ -22,8 +20,11 @@ export default class CellCluster {
   /** Formatting for empty cells within the cluster */
   clusterEmptyFormat: CellFormat;
 
-  /** Traits for this cell cluster */
+  /** Traits for this cell cluster (legacy - kept for compatibility) */
   traits?: CellClusterTraits;
+
+  /** Simple detection result using pattern matching */
+  detectionResult?: DetectionResult;
 
   /** Identified constructs within this cell cluster */
   constructs: BaseConstruct[];
@@ -200,37 +201,63 @@ export default class CellCluster {
   }
 
   /**
-   * Detect and identify constructs using direct parser imports
-   * Uses trait-based detection for optimal performance
+   * Detect construct type using simple pattern matching
+   * Replaces complex trait-based system with elegant 4-rule detection
    */
-  detectConstructs(grid: GridModel): void {
-    this.clearConstructs();
+  detectConstructType(grid: GridModel): DetectionResult | null {
+    const detector = new SimpleDetectionRules(grid);
+    this.detectionResult = detector.detectConstruct(this);
+    return this.detectionResult;
+  }
 
-    // Create parser instances with grid reference
-    const treeParser = new TreeSignatureParser(grid);
-    const tableParser = new TableSignatureParser();
-    const matrixParser = new MatrixSignatureParser();
-    const keyValueParser = new KeyValueSignatureParser();
+  /**
+   * Get the detected construct type
+   */
+  getConstructType(): string | null {
+    return this.detectionResult?.constructType || null;
+  }
 
-    // Try tree detection first (highest priority for user requirements)
-    const trees = treeParser.parseConstruct(this);
-    trees.forEach(tree => this.addConstruct(tree));
+  /**
+   * Get the detected orientation (for trees and key-values)
+   */
+  getOrientation(): string | null {
+    return this.detectionResult?.orientation || null;
+  }
 
-    // Only try other constructs if no tree was found with high confidence
-    const highConfidenceTree = trees.find(tree => tree.confidence >= 0.8);
-    if (!highConfidenceTree) {
-      // Try table detection
-      const tables = tableParser.parseConstruct(this);
-      tables.forEach(table => this.addConstruct(table));
+  /**
+   * Get detection confidence
+   */
+  getDetectionConfidence(): number {
+    return this.detectionResult?.confidence || 0;
+  }
 
-      // Try matrix detection
-      const matrices = matrixParser.parseConstruct(this);
-      matrices.forEach(matrix => this.addConstruct(matrix));
-
-      // Try key-value detection
-      const keyValues = keyValueParser.parseConstruct(this);
-      keyValues.forEach(keyValue => this.addConstruct(keyValue));
+  /**
+   * Create the actual construct instance using simple pattern-based construction
+   */
+  createConstruct(grid: GridModel): BaseConstruct | null {
+    // First detect the construct type
+    this.detectConstructType(grid);
+    
+    if (!this.detectionResult) {
+      return null;
     }
+
+    // Use the simple parser to create the construct
+    const parser = new SimpleConstructParser(grid);
+    const construct = parser.parseConstruct(this);
+    
+    if (construct) {
+      this.addConstruct(construct);
+    }
+    
+    return construct;
+  }
+
+  /**
+   * Parse and create construct in one step
+   */
+  parseToConstruct(grid: GridModel): BaseConstruct | null {
+    return this.createConstruct(grid);
   }
 
   /**
@@ -248,31 +275,41 @@ export default class CellCluster {
    * Check if this cluster represents a tree structure
    */
   isTree(): boolean {
-    const tree = this.getBestConstruct("tree");
-    return tree !== null && tree.confidence >= 0.7;
+    return this.detectionResult?.constructType === "tree";
   }
 
   /**
    * Check if this cluster represents a table structure
    */
   isTable(): boolean {
-    const table = this.getBestConstruct("table");
-    return table !== null && table.confidence >= 0.7;
+    return this.detectionResult?.constructType === "table";
   }
 
   /**
    * Check if this cluster represents a matrix structure
    */
   isMatrix(): boolean {
-    const matrix = this.getBestConstruct("matrix");
-    return matrix !== null && matrix.confidence >= 0.7;
+    return this.detectionResult?.constructType === "matrix";
   }
 
   /**
    * Check if this cluster represents key-value pairs
    */
   isKeyValue(): boolean {
-    const keyValue = this.getBestConstruct("key-value");
-    return keyValue !== null && keyValue.confidence >= 0.7;
+    return this.detectionResult?.constructType === "key-value";
+  }
+
+  /**
+   * Check if this cluster is a regular (non-transposed) construct
+   */
+  isRegular(): boolean {
+    return this.detectionResult?.orientation === "regular" || this.detectionResult?.orientation === undefined;
+  }
+
+  /**
+   * Check if this cluster is a transposed construct
+   */
+  isTransposed(): boolean {
+    return this.detectionResult?.orientation === "transposed";
   }
 }

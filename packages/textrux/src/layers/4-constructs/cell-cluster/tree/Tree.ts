@@ -47,7 +47,8 @@ export interface DomainRegion {
   /** Ending column (rightmost filled cell of any descendant) */
   rightCol: number;
   
-  /** Whether this region contains nested constructs */
+  /** Whether this
+   *  region contains nested constructs */
   hasNestedConstructs: boolean;
   
   /** Types of nested constructs found in this domain */

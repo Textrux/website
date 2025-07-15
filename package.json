@@ -8,9 +8,15 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "npx tsx packages/textrux/src/test-trait-parsing.ts && echo '\\n' && npx tsx packages/textrux/src/test-tree-detection.ts",
+    "test": "npx tsx packages/textrux/src/test-complete-system.ts",
+    "test:detection": "npx tsx packages/textrux/src/test-simple-detection.ts",
+    "test:complete": "npx tsx packages/textrux/src/test-complete-system.ts",
+    "test:domains": "npx tsx packages/textrux/src/test-tree-domain-detection.ts",
+    "test:all": "npx tsx packages/textrux/src/test-complete-system.ts && echo '\\n' && npx tsx packages/textrux/src/test-tree-domain-detection.ts",
+    "test:legacy": "npx tsx packages/textrux/src/test-trait-parsing.ts && echo '\\n' && npx tsx packages/textrux/src/test-tree-detection.ts",
     "test:traits": "npx tsx packages/textrux/src/test-trait-parsing.ts",
-    "test:tree": "npx tsx packages/textrux/src/test-tree-detection.ts"
+    "test:tree": "npx tsx packages/textrux/src/test-tree-detection.ts",
+    "test:simple": "npx tsx packages/textrux/src/test-simple-detection.ts"
   },
   "dependencies": {
     "prismjs": "^1.30.0",

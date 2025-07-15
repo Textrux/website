@@ -12,7 +12,9 @@
       "Bash(npm run lint)",
       "Bash(npm install:*)",
       "Bash(npm test)",
-      "Bash(npm run test:tree:*)"
+      "Bash(npm run test:tree:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run test:*)"
     ],
     "deny": []
   }
