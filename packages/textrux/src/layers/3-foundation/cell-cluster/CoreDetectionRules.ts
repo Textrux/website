@@ -36,7 +36,7 @@ export class CoreDetectionRules {
       return {
         constructType: "list",
         orientation: key === "VL" ? "regular" : "transposed",
-        key
+        key,
       };
     }
 
@@ -49,61 +49,65 @@ export class CoreDetectionRules {
     switch (key) {
       case 6:
         return null; // Corner Marker - not a construct itself
-      
+
       case 7:
         return {
           constructType: "matrix",
-          key
+          key,
         };
-      
+
+      case 8:
+        return null; // Single corner cell - not a construct itself
+
       case 9:
         return {
           constructType: "key-value",
-          key
+          key,
         };
-      
+
       case 10:
         return {
           constructType: "tree",
           orientation: "regular",
           key,
-          hasChildHeader: false
+          hasChildHeader: false,
         };
-      
+
       case 11:
         return {
           constructType: "tree",
           orientation: "regular",
           key,
-          hasChildHeader: true
+          hasChildHeader: true,
         };
-      
+
       case 12:
         return {
           constructType: "tree",
           orientation: "transposed",
           key,
-          hasChildHeader: false
+          hasChildHeader: false,
         };
-      
+
       case 13:
         return {
           constructType: "tree",
           orientation: "transposed",
           key,
-          hasChildHeader: true
+          hasChildHeader: true,
         };
-      
+
       case 14:
         return null; // Root Marker - not a construct itself
-      
+
       case 15:
         return {
           constructType: "table",
-          key
+          key,
         };
-      
+
       default:
+        console.log(`⚠️ Unknown key detected: ${key}`);
         return null; // Unknown key
     }
   }
@@ -114,7 +118,7 @@ export class CoreDetectionRules {
    */
   private calculateCellClusterKey(cluster: CellCluster): number | string {
     // Handle special cases first
-    
+
     // SC: Single Cell
     if (cluster.filledPoints.length === 1) {
       return "SC";
@@ -126,15 +130,51 @@ export class CoreDetectionRules {
       return listPattern;
     }
 
-    // Calculate 2x2 binary key from R1C1-R2C2 region
-    const r1c1 = this.isCellFilled(cluster.topRow + 1, cluster.leftCol + 1) ? 1 : 0;
-    const r1c2 = this.isCellFilled(cluster.topRow + 1, cluster.leftCol + 2) ? 1 : 0;
-    const r2c1 = this.isCellFilled(cluster.topRow + 2, cluster.leftCol + 1) ? 1 : 0;
-    const r2c2 = this.isCellFilled(cluster.topRow + 2, cluster.leftCol + 2) ? 1 : 0;
+    // Calculate 2x2 binary key from R1C1-R2C2 region relative to the cluster
+    // Check if each position in the cluster's 2x2 top-left region has a filled point
+    const filledPointsSet = new Set(
+      cluster.filledPoints.map((p) => `${p.row},${p.col}`)
+    );
+
+    // CRITICAL FIX: Cluster bounds are 0-indexed, but filled points are 1-indexed
+    // Convert cluster bounds to 1-indexed grid coordinates for R1C1-R2C2 mapping
+    const r1c1Row = cluster.topRow + 1; // Convert to 1-indexed grid coordinate
+    const r1c1Col = cluster.leftCol + 1; // Convert to 1-indexed grid coordinate
+
+    const r1c1 = filledPointsSet.has(`${r1c1Row},${r1c1Col}`) ? 1 : 0;
+    const r1c2 = filledPointsSet.has(`${r1c1Row},${r1c1Col + 1}`) ? 1 : 0;
+    const r2c1 = filledPointsSet.has(`${r1c1Row + 1},${r1c1Col}`) ? 1 : 0;
+    const r2c2 = filledPointsSet.has(`${r1c1Row + 1},${r1c1Col + 1}`) ? 1 : 0;
 
     // Convert to binary number (top row first, then bottom row)
     // Binary: R1C1 R1C2 R2C1 R2C2
-    return (r1c1 << 3) | (r1c2 << 2) | (r2c1 << 1) | r2c2;
+    const key = (r1c1 << 3) | (r1c2 << 2) | (r2c1 << 1) | r2c2;
+
+    // Debug logging
+    console.log(
+      `Cell Cluster Key Debug:
+    Cluster bounds (0-indexed): topRow=${cluster.topRow}, leftCol=${cluster.leftCol}, bottomRow=${cluster.bottomRow}, rightCol=${cluster.rightCol}
+    Cluster filled points (${cluster.filledPoints.length}):`,
+      cluster.filledPoints.map((p) => `(${p.row},${p.col})`)
+    );
+    console.log(`Grid coordinates for R1C1-R2C2 region: r1c1Row=${r1c1Row}, r1c1Col=${r1c1Col}
+    Checking binary key cells:
+    - R1C1 (${r1c1Row},${r1c1Col}): ${
+      r1c1 ? "filled" : "empty"
+    } content="${this.grid.getCellRaw(r1c1Row, r1c1Col)}"
+    - R1C2 (${r1c1Row},${r1c1Col + 1}): ${
+      r1c2 ? "filled" : "empty"
+    } content="${this.grid.getCellRaw(r1c1Row, r1c1Col + 1)}"
+    - R2C1 (${r1c1Row + 1},${r1c1Col}): ${
+      r2c1 ? "filled" : "empty"
+    } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col)}"
+    - R2C2 (${r1c1Row + 1},${r1c1Col + 1}): ${
+      r2c2 ? "filled" : "empty"
+    } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col + 1)}"
+    Binary pattern: ${r1c1}${r1c2}\\n${r2c1}${r2c2}
+    Calculated key: ${key}`);
+
+    return key;
   }
 
   /**
@@ -170,8 +210,11 @@ export class CoreDetectionRules {
     if (height < 2) return false;
 
     // Check if first two cells in the column are filled (header + first item)
-    const r1c1Filled = this.isCellFilled(cluster.topRow + 1, cluster.leftCol + 1);
-    const r2c1Filled = this.isCellFilled(cluster.topRow + 2, cluster.leftCol + 1);
+    // FIXED: Cluster bounds are 0-indexed, convert to 1-indexed grid coordinates
+    const baseRow = cluster.topRow + 1; // Convert to 1-indexed
+    const baseCol = cluster.leftCol + 1; // Convert to 1-indexed
+    const r1c1Filled = this.isCellFilled(baseRow, baseCol);
+    const r2c1Filled = this.isCellFilled(baseRow + 1, baseCol);
 
     // Must have header and first item
     return r1c1Filled && r2c1Filled;
@@ -192,8 +235,11 @@ export class CoreDetectionRules {
     if (width < 2) return false;
 
     // Check if first two cells in the row are filled (header + first item)
-    const r1c1Filled = this.isCellFilled(cluster.topRow + 1, cluster.leftCol + 1);
-    const r1c2Filled = this.isCellFilled(cluster.topRow + 1, cluster.leftCol + 2);
+    // FIXED: Cluster bounds are 0-indexed, convert to 1-indexed grid coordinates
+    const baseRow = cluster.topRow + 1; // Convert to 1-indexed
+    const baseCol = cluster.leftCol + 1; // Convert to 1-indexed
+    const r1c1Filled = this.isCellFilled(baseRow, baseCol);
+    const r1c2Filled = this.isCellFilled(baseRow, baseCol + 1);
 
     // Must have header and first item
     return r1c1Filled && r1c2Filled;
@@ -212,20 +258,39 @@ export class CoreDetectionRules {
    */
   getKeyDescription(key: number | string): string {
     switch (key) {
-      case "SC": return "Single Cell";
-      case "VL": return "Vertical List";
-      case "HL": return "Horizontal List";
-      case 0: case 1: case 2: case 3: case 4: case 5: return `Extended Key ${key}`;
-      case 6: return "Corner Marker";
-      case 7: return "Matrix";
-      case 9: return "Key-Value";
-      case 10: return "Tree (Regular)";
-      case 11: return "Tree (Regular, with Header)";
-      case 12: return "Tree (Transposed)";
-      case 13: return "Tree (Transposed, with Header)";
-      case 14: return "Root Marker";
-      case 15: return "Table";
-      default: return `Unknown Key ${key}`;
+      case "SC":
+        return "Single Cell";
+      case "VL":
+        return "Vertical List";
+      case "HL":
+        return "Horizontal List";
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+        return `Extended Key ${key}`;
+      case 6:
+        return "Corner Marker";
+      case 7:
+        return "Matrix";
+      case 9:
+        return "Key-Value";
+      case 10:
+        return "Tree (Regular)";
+      case 11:
+        return "Tree (Regular, with Header)";
+      case 12:
+        return "Tree (Transposed)";
+      case 13:
+        return "Tree (Transposed, with Header)";
+      case 14:
+        return "Root Marker";
+      case 15:
+        return "Table";
+      default:
+        return `Unknown Key ${key}`;
     }
   }
 
@@ -235,13 +300,17 @@ export class CoreDetectionRules {
   getBinaryKeyPattern(key: number | string): string {
     if (typeof key === "string") {
       switch (key) {
-        case "SC": return "1";
-        case "VL": return "1\n1";
-        case "HL": return "11";
-        default: return "N/A";
+        case "SC":
+          return "1";
+        case "VL":
+          return "1\n1";
+        case "HL":
+          return "11";
+        default:
+          return "N/A";
       }
     }
-    
+
     if (typeof key !== "number" || key < 0 || key > 15) {
       return "N/A";
     }

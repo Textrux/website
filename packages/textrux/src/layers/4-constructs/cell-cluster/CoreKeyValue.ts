@@ -197,6 +197,123 @@ export class CoreKeyValue implements BaseConstruct {
   }
 
   /**
+   * Get cells by type
+   */
+  getCellsByType(cellType: KeyValueCellType): KeyValueCell[] {
+    return this.cells.filter(cell => cell.cellType === cellType);
+  }
+
+  /**
+   * Get all key cells
+   */
+  getKeyCells(): KeyValueCell[] {
+    return this.keyCells;
+  }
+
+  /**
+   * Get all value cells
+   */
+  getValueCells(): KeyValueCell[] {
+    return this.valueCells;
+  }
+
+  /**
+   * Get all marker cells
+   */
+  getMarkerCells(): KeyValueCell[] {
+    return this.cells.filter(cell => cell.cellType === "marker");
+  }
+
+  /**
+   * Get all main header cells
+   */
+  getMainHeaderCells(): KeyValueCell[] {
+    return this.cells.filter(cell => cell.cellType === "main-header");
+  }
+
+  /**
+   * Get cell content at position (convenience method)
+   */
+  getCellContent(row: number, col: number): string {
+    const cell = this.getCellAt(row, col);
+    return cell ? cell.content : "";
+  }
+
+  /**
+   * Get all key contents
+   */
+  getAllKeyContents(): string[] {
+    return this.keyCells.map(cell => cell.content);
+  }
+
+  /**
+   * Get all value contents for a key
+   */
+  getAllValuesForKey(keyContent: string): string[] {
+    const values = this.getValuesForKey(keyContent);
+    return values.map(cell => cell.content);
+  }
+
+  /**
+   * Get all positions in the key-value construct
+   */
+  getAllPositions(): Array<{ row: number; col: number }> {
+    return this.cells.map(cell => cell.position);
+  }
+
+  /**
+   * Check if position is within key-value bounds
+   */
+  containsPosition(row: number, col: number): boolean {
+    return row >= this.bounds.topRow &&
+           row <= this.bounds.bottomRow &&
+           col >= this.bounds.leftCol &&
+           col <= this.bounds.rightCol;
+  }
+
+  /**
+   * Find key by content
+   */
+  findKeyByContent(content: string): KeyValueCell | null {
+    return this.keyCells.find(cell => cell.content === content) || null;
+  }
+
+  /**
+   * Check if has main header
+   */
+  hasMainHeader(): boolean {
+    return this.getMainHeaderCells().length > 0;
+  }
+
+  /**
+   * Get first value for a key
+   */
+  getFirstValueForKey(keyContent: string): string {
+    const values = this.getValuesForKey(keyContent);
+    return values.length > 0 ? values[0].content : "";
+  }
+
+  /**
+   * Get key-value as simple object
+   */
+  toObject(): Record<string, string | string[]> {
+    const result: Record<string, string | string[]> = {};
+    
+    for (const pair of this.keyValuePairs) {
+      const key = pair.key.content;
+      const values = pair.values.map(v => v.content);
+      
+      if (values.length === 1) {
+        result[key] = values[0];
+      } else {
+        result[key] = values;
+      }
+    }
+    
+    return result;
+  }
+
+  /**
    * Create a key-value cell
    */
   static createCell(

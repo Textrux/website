@@ -162,6 +162,112 @@ export class CoreTable implements BaseConstruct {
   }
 
   /**
+   * Get cells by type (header or body)
+   */
+  getCellsByType(cellType: TableCellType): TableCell[] {
+    return this.cells.filter(cell => cell.cellType === cellType);
+  }
+
+  /**
+   * Get all header cells in a specific row
+   */
+  getRowHeaderCells(rowIndex: number): TableCell[] {
+    return this.getRowCells(rowIndex).filter(cell => cell.cellType === "header");
+  }
+
+  /**
+   * Get all header cells in a specific column
+   */
+  getColumnHeaderCells(colIndex: number): TableCell[] {
+    return this.getColumnCells(colIndex).filter(cell => cell.cellType === "header");
+  }
+
+  /**
+   * Get all body cells in a specific row
+   */
+  getRowBodyCells(rowIndex: number): TableCell[] {
+    return this.getRowCells(rowIndex).filter(cell => cell.cellType === "body");
+  }
+
+  /**
+   * Get all body cells in a specific column
+   */
+  getColumnBodyCells(colIndex: number): TableCell[] {
+    return this.getColumnCells(colIndex).filter(cell => cell.cellType === "body");
+  }
+
+  /**
+   * Get entity (row) by index
+   */
+  getEntity(index: number): TableEntity | null {
+    return this.entities[index] || null;
+  }
+
+  /**
+   * Get attribute (column) by index
+   */
+  getAttribute(index: number): TableEntity | null {
+    return this.attributes[index] || null;
+  }
+
+  /**
+   * Find entity index by row position
+   */
+  findEntityByRow(row: number): TableEntity | null {
+    const rowIndex = row - this.bounds.topRow;
+    return this.getEntity(rowIndex);
+  }
+
+  /**
+   * Find attribute index by column position
+   */
+  findAttributeByColumn(col: number): TableEntity | null {
+    const colIndex = col - this.bounds.leftCol;
+    return this.getAttribute(colIndex);
+  }
+
+  /**
+   * Get cell content at position (convenience method)
+   */
+  getCellContent(row: number, col: number): string {
+    const cell = this.getCellAt(row, col);
+    return cell ? cell.content : "";
+  }
+
+  /**
+   * Get header content for a specific column
+   */
+  getColumnHeader(colIndex: number): string {
+    const headerCells = this.getColumnHeaderCells(colIndex);
+    return headerCells.length > 0 ? headerCells[0].content : "";
+  }
+
+  /**
+   * Get header content for a specific row
+   */
+  getRowHeader(rowIndex: number): string {
+    const headerCells = this.getRowHeaderCells(rowIndex);
+    return headerCells.length > 0 ? headerCells[0].content : "";
+  }
+
+  /**
+   * Get all cell positions
+   */
+  getAllPositions(): Array<{ row: number; col: number }> {
+    return this.cells.map(cell => cell.position);
+  }
+
+  /**
+   * Check if position is within table bounds
+   */
+  containsPosition(row: number, col: number): boolean {
+    return row >= this.bounds.topRow &&
+           row <= this.bounds.bottomRow &&
+           col >= this.bounds.leftCol &&
+           col <= this.bounds.rightCol;
+  }
+
+  /**
    * Create a table cell
    */
   static createCell(

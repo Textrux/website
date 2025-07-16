@@ -1114,6 +1114,33 @@ export function GridView({
       const { styleMap: sm, blockList } = parseAndFormatGrid(grid);
       setStyleMap(sm);
       blockListRef.current = blockList;
+      
+      // 🔍 DEBUG: Log parsed constructs to console
+      console.group("🔍 Textrux Parse Results");
+      console.log("📊 Blocks found:", blockList.length);
+      
+      blockList.forEach((block, blockIndex) => {
+        if (block.cellClusters && block.cellClusters.length > 0) {
+          console.group(`📦 Block ${blockIndex + 1} (${block.cellClusters.length} clusters)`);
+          
+          block.cellClusters.forEach((cluster, clusterIndex) => {
+            const detectionResult = cluster.detectConstructType(grid);
+            if (detectionResult) {
+              console.log(`🎯 Cluster ${clusterIndex + 1}: ${detectionResult.constructType} (Key: ${detectionResult.key})`);
+              console.log(`   Bounds: R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
+              console.log(`   Cells: ${cluster.filledPoints.length} filled`);
+              
+              if (cluster.constructs.length > 0) {
+                console.log(`   ✅ Constructed: ${cluster.constructs[0].type}`);
+              }
+            }
+          });
+          
+          console.groupEnd();
+        }
+      });
+      
+      console.groupEnd();
     } else {
       setStyleMap({});
       blockListRef.current = [];
@@ -1127,7 +1154,341 @@ export function GridView({
   // Run parse whenever version changes
   useEffect(() => {
     reparse();
-  }, [version, reparse]);
+    
+    // 🔍 Update global debug interface with current grid context
+    if (typeof window !== 'undefined' && window.textruxDebug) {
+      window.textruxDebug.parseGrid = () => {
+        console.log("🔄 Re-parsing grid...");
+        reparse();
+      };
+      
+      window.textruxDebug.inspectCell = (row: number, col: number) => {
+        const content = grid.getCellRaw(row, col);
+        console.group(`🔍 Cell R${row}C${col}`);
+        console.log("Content:", content ? `"${content}"` : "(empty)");
+        
+        // Find which block/cluster contains this cell
+        const blocks = blockListRef.current;
+        for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+          const block = blocks[blockIndex];
+          if (block.cellClusters) {
+            for (let clusterIndex = 0; clusterIndex < block.cellClusters.length; clusterIndex++) {
+              const cluster = block.cellClusters[clusterIndex];
+              const isInCluster = cluster.filledPoints.some(p => p.row === row && p.col === col);
+              if (isInCluster) {
+                const detection = cluster.detectConstructType(grid);
+                console.log(`📦 In Block ${blockIndex + 1}, Cluster ${clusterIndex + 1}`);
+                console.log(`🎯 Construct: ${detection?.constructType || 'unknown'} (Key: ${detection?.key || 'N/A'})`);
+                break;
+              }
+            }
+          }
+        }
+        console.groupEnd();
+      };
+      
+      window.textruxDebug.showAllConstructs = () => {
+        console.group("📋 All Detected Constructs");
+        const blocks = blockListRef.current;
+        let totalConstructs = 0;
+        
+        blocks.forEach((block, blockIndex) => {
+          if (block.cellClusters && block.cellClusters.length > 0) {
+            block.cellClusters.forEach((cluster, clusterIndex) => {
+              const detection = cluster.detectConstructType(grid);
+              if (detection) {
+                totalConstructs++;
+                console.log(`${totalConstructs}. ${detection.constructType} (Key: ${detection.key}) at R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
+              }
+            });
+          }
+        });
+        
+        if (totalConstructs === 0) {
+          console.log("No constructs found. Try adding some data to the grid!");
+        }
+        console.groupEnd();
+      };
+      
+      window.textruxDebug.getGridData = () => {
+        const csv = sheetToCsv(grid);
+        console.group("📊 Grid Data (CSV)");
+        console.log(csv);
+        console.groupEnd();
+        return csv;
+      };
+
+      (window.textruxDebug as any).inspectElements = (row?: number, col?: number) => {
+        console.group("🔬 Element-Level Inspection");
+        const blocks = blockListRef.current;
+        
+        blocks.forEach((block, blockIndex) => {
+          if (block.cellClusters && block.cellClusters.length > 0) {
+            block.cellClusters.forEach((cluster, clusterIndex) => {
+              const construct = cluster.createConstruct(grid);
+              if (construct) {
+                // Filter by specific cell if provided
+                if (row !== undefined && col !== undefined) {
+                  const isInCluster = cluster.filledPoints.some(p => p.row === row && p.col === col);
+                  if (!isInCluster) return;
+                }
+                
+                console.group(`🎯 ${construct.type.toUpperCase()} at R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
+                
+                if (construct.type === 'table') {
+                  const table = construct as any; // Type assertion for table properties
+                  console.log(`📊 Table Elements:`);
+                  console.log(`  • Total cells: ${table.cells?.length || 0}`);
+                  console.log(`  • Header cells: ${table.headerCells?.length || 0}`);
+                  console.log(`  • Body cells: ${table.bodyCells?.length || 0}`);
+                  if (table.headerCells?.length > 0) {
+                    console.log(`  • Headers:`, table.headerCells.map((h: any) => `(${h.position.row},${h.position.col}): "${h.content}"`));
+                  }
+                  console.log(`  • Entities (rows): ${table.entities?.length || 0}`);
+                  console.log(`  • Attributes (columns): ${table.attributes?.length || 0}`);
+                }
+                
+                else if (construct.type === 'tree') {
+                  const tree = construct as any; // Type assertion for tree properties
+                  console.log(`🌳 Tree Elements:`);
+                  console.log(`  • Total elements: ${tree.elements?.length || 0}`);
+                  console.log(`  • Anchor: ${tree.anchorElement ? `(${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"` : 'none'}`);
+                  console.log(`  • Parents: ${tree.parentElements?.length || 0}`);
+                  console.log(`  • Children: ${tree.childElements?.length || 0}`);
+                  console.log(`  • Max depth: ${tree.getMaxDepth ? tree.getMaxDepth() : 0}`);
+                  
+                  if (tree.elements?.length > 0) {
+                    console.log(`  • Element details:`);
+                    tree.elements.forEach((el: any) => {
+                      const roles = [];
+                      if (el.isAnchor?.()) roles.push('anchor');
+                      if (el.isParent?.()) roles.push('parent');
+                      if (el.isChild?.()) roles.push('child');
+                      if (el.isChildHeader?.()) roles.push('child-header');
+                      if (el.isPeer?.()) roles.push('peer');
+                      console.log(`    (${el.position.row},${el.position.col}): "${el.content}" [${roles.join(', ')}, level ${el.level}]`);
+                    });
+                  }
+                }
+                
+                else if (construct.type === 'matrix') {
+                  const matrix = construct as any; // Type assertion for matrix properties
+                  console.log(`🔢 Matrix Elements:`);
+                  console.log(`  • Total cells: ${matrix.cells?.length || 0}`);
+                  console.log(`  • Primary headers: ${matrix.primaryHeaders?.length || 0}`);
+                  console.log(`  • Secondary headers: ${matrix.secondaryHeaders?.length || 0}`);
+                  console.log(`  • Body cells: ${matrix.bodyCells?.length || 0}`);
+                }
+                
+                else if (construct.type === 'key-value') {
+                  const keyValue = construct as any; // Type assertion for key-value properties
+                  console.log(`🗝️ Key-Value Elements:`);
+                  console.log(`  • Total cells: ${keyValue.cells?.length || 0}`);
+                  console.log(`  • Key cells: ${keyValue.keyCells?.length || 0}`);
+                  console.log(`  • Value cells: ${keyValue.valueCells?.length || 0}`);
+                  console.log(`  • Key-value pairs: ${keyValue.keyValuePairs?.length || 0}`);
+                  console.log(`  • Main header: "${keyValue.getMainHeaderText ? keyValue.getMainHeaderText() : 'N/A'}"`);
+                }
+                
+                else if (construct.type === 'list') {
+                  const list = construct as any; // Type assertion for list properties
+                  console.log(`📜 List Elements:`);
+                  console.log(`  • Orientation: ${list.orientation || 'N/A'}`);
+                  console.log(`  • Header: "${list.getHeaderContent ? list.getHeaderContent() : 'N/A'}"`);
+                  console.log(`  • Items: ${list.itemCount || 0} [${list.getItemContents ? list.getItemContents().join(', ') : 'N/A'}]`);
+                }
+                
+                console.groupEnd();
+              }
+            });
+          }
+        });
+        console.groupEnd();
+      };
+
+      (window.textruxDebug as any).inspectCellElements = (row: number, col: number) => {
+        console.log(`🔬 Inspecting elements at R${row}C${col}:`);
+        (window.textruxDebug as any).inspectElements(row, col);
+      };
+
+      (window.textruxDebug as any).showElementSummary = () => {
+        console.group("📈 Element Summary");
+        const blocks = blockListRef.current;
+        const summary = {
+          tables: 0,
+          trees: 0,
+          matrices: 0,
+          keyValues: 0,
+          lists: 0,
+          totalElements: 0
+        };
+        
+        blocks.forEach((block) => {
+          if (block.cellClusters) {
+            block.cellClusters.forEach((cluster) => {
+              const construct = cluster.createConstruct(grid);
+              if (construct) {
+                const anyConstruct = construct as any; // Type assertion for properties
+                switch (construct.type) {
+                  case 'table':
+                    summary.tables++;
+                    summary.totalElements += anyConstruct.cells?.length || 0;
+                    break;
+                  case 'tree':
+                    summary.trees++;
+                    summary.totalElements += anyConstruct.elements?.length || 0;
+                    break;
+                  case 'matrix':
+                    summary.matrices++;
+                    summary.totalElements += anyConstruct.cells?.length || 0;
+                    break;
+                  case 'key-value':
+                    summary.keyValues++;
+                    summary.totalElements += anyConstruct.cells?.length || 0;
+                    break;
+                  case 'list':
+                    summary.lists++;
+                    summary.totalElements += anyConstruct.cells?.length || 0;
+                    break;
+                }
+              }
+            });
+          }
+        });
+        
+        console.log(`📊 Construct Summary:`);
+        console.log(`  • Tables: ${summary.tables}`);
+        console.log(`  • Trees: ${summary.trees}`);
+        console.log(`  • Matrices: ${summary.matrices}`);
+        console.log(`  • Key-Values: ${summary.keyValues}`);
+        console.log(`  • Lists: ${summary.lists}`);
+        console.log(`  • Total elements across all constructs: ${summary.totalElements}`);
+        console.groupEnd();
+      };
+
+      (window.textruxDebug as any).testFormattingPerformance = () => {
+        console.group("⚡ Formatting Performance Test");
+        const startTime = performance.now();
+        
+        // Test formatting for a range of cells
+        const testRows = 50;
+        const testCols = 20;
+        let formatCalls = 0;
+        
+        console.log(`Testing formatting for ${testRows}x${testCols} grid (${testRows * testCols} cells)...`);
+        
+        for (let row = 1; row <= testRows; row++) {
+          for (let col = 1; col <= testCols; col++) {
+            grid.getCellFormat(row, col);
+            formatCalls++;
+          }
+        }
+        
+        const endTime = performance.now();
+        const duration = endTime - startTime;
+        const callsPerMs = formatCalls / duration;
+        
+        console.log(`📊 Performance Results:`);
+        console.log(`  • Total format calls: ${formatCalls}`);
+        console.log(`  • Duration: ${duration.toFixed(2)}ms`);
+        console.log(`  • Calls per millisecond: ${callsPerMs.toFixed(2)}`);
+        console.log(`  • Average time per call: ${(duration / formatCalls).toFixed(4)}ms`);
+        
+        if (duration < 100) {
+          console.log("✅ Excellent performance!");
+        } else if (duration < 500) {
+          console.log("⚠️ Good performance");
+        } else {
+          console.log("❌ Performance needs improvement");
+        }
+        
+        console.groupEnd();
+      };
+
+      (window.textruxDebug as any).testThemeAwareFormatting = () => {
+        console.group("🎨 Theme-Aware Formatting Test");
+        
+        // Test different themes and modes
+        const themes = ["default", "modern", "minimal", "bold"];
+        const modes = [false, true]; // light and dark mode
+        
+        // Get some sample constructs
+        const blocks = blockListRef.current;
+        const testConstruct = blocks.find(block => 
+          block.cellClusters?.some(cluster => cluster.createConstruct(grid))
+        )?.cellClusters?.find(cluster => cluster.createConstruct(grid));
+        
+        if (!testConstruct) {
+          console.log("❌ No constructs found to test formatting. Add some data to the grid first!");
+          console.groupEnd();
+          return;
+        }
+        
+        const construct = testConstruct.createConstruct(grid);
+        const firstCell = testConstruct.filledPoints[0];
+        
+        console.log(`🎯 Testing formatting on ${construct?.type || 'unknown'} construct at R${firstCell.row}C${firstCell.col}`);
+        console.log("");
+        
+        themes.forEach(theme => {
+          modes.forEach(isDark => {
+            const modeLabel = isDark ? "Dark" : "Light";
+            console.group(`${theme.toUpperCase()} theme (${modeLabel} mode)`);
+            
+            // Test the current grid's formatter
+            const currentFormat = grid.getCellFormat(firstCell.row, firstCell.col);
+            console.log("Current format:", currentFormat ? {
+              backgroundColor: currentFormat.backgroundColor,
+              color: currentFormat.color,
+              fontWeight: currentFormat.fontWeight,
+              borderStyle: currentFormat.borderStyle
+            } : "none");
+            
+            // Test the ConstructFormatter directly
+            const formatter = grid.getConstructFormatter();
+            if (formatter) {
+              const oldOptions = formatter.getOptions();
+              formatter.updateOptions({ theme: theme as any, darkMode: isDark });
+              
+              const testFormat = formatter.getFormatForPosition(
+                firstCell.row, 
+                firstCell.col, 
+                grid.getAllConstructs()
+              );
+              
+              console.log("Direct formatter result:", testFormat ? {
+                backgroundColor: testFormat.backgroundColor,
+                color: testFormat.color,
+                fontWeight: testFormat.fontWeight,
+                borderStyle: testFormat.borderStyle
+              } : "none");
+              
+              // Restore original options
+              formatter.updateOptions(oldOptions);
+            }
+            
+            console.groupEnd();
+          });
+        });
+        
+        console.log("✅ Theme testing complete!");
+        console.groupEnd();
+      };
+      
+      // 🎉 Show helpful console message
+      console.log("🔍 Textrux Debug Interface Ready!");
+      console.log("Available commands:");
+      console.log("• textruxDebug.parseGrid() - Re-parse the current grid");
+      console.log("• textruxDebug.inspectCell(row, col) - Inspect a specific cell");
+      console.log("• textruxDebug.showAllConstructs() - Show all detected constructs");
+      console.log("• textruxDebug.inspectElements() - Show detailed element breakdown for all constructs");
+      console.log("• textruxDebug.inspectCellElements(row, col) - Show elements for constructs containing specific cell");
+      console.log("• textruxDebug.showElementSummary() - Show summary of all elements");
+      console.log("• textruxDebug.testFormattingPerformance() - Test formatting system performance");
+      console.log("• textruxDebug.testThemeAwareFormatting() - Test theme-aware formatting across all themes");
+      console.log("• textruxDebug.getGridData() - Get current grid as CSV");
+    }
+  }, [version, reparse, grid]);
 
   // Document-level mouse up/move for drag selection
 
@@ -4876,6 +5237,52 @@ export function GridView({
         )}
     </div>
   );
+}
+
+// 🔍 GLOBAL DEBUG INTERFACE - Expose to window for console access
+declare global {
+  interface Window {
+    textruxDebug: {
+      parseGrid: () => void;
+      inspectCell: (row: number, col: number) => void;
+      showAllConstructs: () => void;
+      getGridData: () => string;
+    };
+  }
+}
+
+// Add debugging interface to window when in development
+if (typeof window !== 'undefined') {
+  (window as any).textruxDebug = {
+    parseGrid: () => {
+      console.log("🔄 Re-parsing grid...");
+      // Note: This will be overridden by the actual reparse function in the component
+    },
+    inspectCell: (row: number, col: number) => {
+      console.log(`🔍 Inspecting cell R${row}C${col}`);
+      console.log("Use this in the browser console after the grid loads");
+    },
+    showAllConstructs: () => {
+      console.log("📋 Use this in the browser console after the grid loads");
+    },
+    inspectElements: (row?: number, col?: number) => {
+      console.log("🔬 Use this in the browser console after the grid loads");
+    },
+    inspectCellElements: (row: number, col: number) => {
+      console.log(`🔬 Inspecting elements at R${row}C${col}`);
+      console.log("Use this in the browser console after the grid loads");
+    },
+    showElementSummary: () => {
+      console.log("📈 Use this in the browser console after the grid loads");
+    },
+    testFormattingPerformance: () => {
+      console.log("⚡ Use this in the browser console after the grid loads");
+    },
+    getGridData: () => {
+      console.log("📊 Use this in the browser console after the grid loads");
+      return "";
+    }
+  };
 }
 
 /** Helper: find row index by a given Y offset */

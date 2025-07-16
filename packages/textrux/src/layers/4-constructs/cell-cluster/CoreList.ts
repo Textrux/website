@@ -167,6 +167,118 @@ export class CoreList implements BaseConstruct {
   }
 
   /**
+   * Get cell at specific position
+   */
+  getCellAt(row: number, col: number): ListCell | null {
+    return this.cells.find(
+      cell => cell.position.row === row && cell.position.col === col
+    ) || null;
+  }
+
+  /**
+   * Get cells by type
+   */
+  getCellsByType(cellType: ListCellType): ListCell[] {
+    return this.cells.filter(cell => cell.cellType === cellType);
+  }
+
+  /**
+   * Get header cell
+   */
+  getHeaderCell(): ListCell | null {
+    return this.headerCell;
+  }
+
+  /**
+   * Get all item cells
+   */
+  getItemCells(): ListCell[] {
+    return this.itemCells;
+  }
+
+  /**
+   * Get cell content at position (convenience method)
+   */
+  getCellContent(row: number, col: number): string {
+    const cell = this.getCellAt(row, col);
+    return cell ? cell.content : "";
+  }
+
+  /**
+   * Get item content by index
+   */
+  getItemContent(index: number): string {
+    const item = this.getItemAt(index);
+    return item ? item.content : "";
+  }
+
+  /**
+   * Get all positions in the list
+   */
+  getAllPositions(): Array<{ row: number; col: number }> {
+    return this.cells.map(cell => cell.position);
+  }
+
+  /**
+   * Check if position is within list bounds
+   */
+  containsPosition(row: number, col: number): boolean {
+    return row >= this.bounds.topRow &&
+           row <= this.bounds.bottomRow &&
+           col >= this.bounds.leftCol &&
+           col <= this.bounds.rightCol;
+  }
+
+  /**
+   * Find item by content
+   */
+  findItemByContent(content: string): ListCell | null {
+    return this.itemCells.find(cell => cell.content === content) || null;
+  }
+
+  /**
+   * Get item index by content
+   */
+  getItemIndex(content: string): number {
+    return this.itemCells.findIndex(cell => cell.content === content);
+  }
+
+  /**
+   * Check if list has header
+   */
+  hasHeader(): boolean {
+    return this.headerCell !== null;
+  }
+
+  /**
+   * Check if list is empty (no items)
+   */
+  isEmpty(): boolean {
+    return this.itemCount === 0;
+  }
+
+  /**
+   * Get first item
+   */
+  getFirstItem(): ListCell | null {
+    return this.getItemAt(0);
+  }
+
+  /**
+   * Get last item
+   */
+  getLastItem(): ListCell | null {
+    return this.getItemAt(this.itemCount - 1);
+  }
+
+  /**
+   * Get list as simple array
+   */
+  toArray(): string[] {
+    return this.getItemContents();
+  }
+
+  /**
    * Add a new item to the list
    */
   addItem(content: string, position?: { row: number; col: number }): ListCell {

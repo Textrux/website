@@ -1,5 +1,10 @@
 import BlockCluster from "../3-foundation/block-cluster/BlockCluster";
 import { CellFormat } from "../../style/CellFormat";
+import {
+  ConstructFormatter,
+  ConstructFormattingOptions,
+} from "../4-constructs/formatters/ConstructFormatter";
+import { BaseConstruct } from "../4-constructs/interfaces/ConstructInterfaces";
 import { Parser } from "expr-eval";
 
 // Add sizing types
@@ -77,6 +82,26 @@ export default class GridModel {
   private formatsMap: Record<string, CellFormat>;
 
   /**
+   * Construct formatter for applying theme-aware formatting
+   */
+  private constructFormatter: ConstructFormatter;
+
+  /**
+   * Cache of parsed constructs for formatting
+   */
+  private cachedConstructs: BaseConstruct[] = [];
+
+  /**
+   * Cache of computed construct formats to avoid redundant calculations
+   */
+  private constructFormatCache: Map<string, CellFormat | null> = new Map();
+
+  /**
+   * Bounds-optimized construct lookup cache for faster access
+   */
+  private constructBoundsCache: Map<string, BaseConstruct[]> = new Map();
+
+  /**
    * Stores formulas separately for quick lookup.
    */
   private formulas: Record<string, string>;
@@ -126,6 +151,13 @@ export default class GridModel {
     this.formulas = {};
     this.history = [];
     this.future = [];
+
+    // Initialize construct formatter with default options
+    this.constructFormatter = new ConstructFormatter({
+      theme: "default",
+      darkMode: false,
+      enableFormatting: false, // Disabled by default to improve performance
+    });
   }
 
   /** Export *all* relevant grid state as a single object. */
@@ -360,14 +392,98 @@ export default class GridModel {
 
   /** Retrieve a cell's formatting, returning a default if none exists. */
   getCellFormat(row: number, col: number): CellFormat {
-    return this.formatsMap[`R${row}C${col}`] || new CellFormat();
+    const userFormat = this.formatsMap[`R${row}C${col}`] || new CellFormat();
+
+    // Check cache first to avoid redundant formatting calculations
+    const cacheKey = `R${row}C${col}`;
+    if (this.constructFormatCache.has(cacheKey)) {
+      const cachedConstructFormat = this.constructFormatCache.get(cacheKey);
+      if (cachedConstructFormat) {
+        return userFormat.merge(cachedConstructFormat);
+      }
+      return userFormat;
+    }
+
+    // Performance optimization: Get relevant constructs for this position
+    const relevantConstructs = this.getRelevantConstructsForPosition(row, col);
+
+    // Apply construct formatting if enabled (only to relevant constructs)
+    const constructFormat = this.constructFormatter.getFormatForPosition(
+      row,
+      col,
+      relevantConstructs
+    );
+
+    // Cache the result
+    this.constructFormatCache.set(cacheKey, constructFormat);
+
+    if (constructFormat) {
+      return userFormat.merge(constructFormat);
+    }
+
+    return userFormat;
+  }
+
+  /**
+   * Get constructs that potentially contain this position (bounds pre-filtering)
+   */
+  private getRelevantConstructsForPosition(row: number, col: number): BaseConstruct[] {
+    const cacheKey = `${row},${col}`;
+    
+    // Check bounds cache first
+    if (this.constructBoundsCache.has(cacheKey)) {
+      return this.constructBoundsCache.get(cacheKey)!;
+    }
+
+    // Filter constructs by bounds
+    const relevant = this.cachedConstructs.filter(construct => 
+      row >= construct.bounds.topRow &&
+      row <= construct.bounds.bottomRow &&
+      col >= construct.bounds.leftCol &&
+      col <= construct.bounds.rightCol
+    );
+
+    // Cache for future use
+    this.constructBoundsCache.set(cacheKey, relevant);
+
+    return relevant;
   }
 
   /** Merge a new format into an existing cell format or create one if missing. */
   setCellFormat(row: number, col: number, format: Partial<CellFormat>): void {
     const key = `R${row}C${col}`;
-    const existingFormat = this.getCellFormat(row, col);
+    const existingFormat = this.formatsMap[key] || new CellFormat(); // Use base format only
     this.formatsMap[key] = existingFormat.merge(new CellFormat(format));
+  }
+
+  /** Update cached constructs for formatting */
+  updateCachedConstructs(constructs: BaseConstruct[]): void {
+    this.cachedConstructs = constructs;
+    // Clear all caches when constructs change
+    this.constructFormatCache.clear();
+    this.constructBoundsCache.clear();
+    // Notify formatter that constructs have been updated
+    this.constructFormatter.onConstructsUpdated();
+  }
+
+  /** Configure construct formatting options */
+  configureConstructFormatting(
+    options: Partial<ConstructFormattingOptions>
+  ): void {
+    this.constructFormatter.updateOptions(options);
+    // Clear caches when formatting options change
+    this.constructFormatCache.clear();
+    this.constructBoundsCache.clear();
+  }
+
+  /** Get current construct formatting options */
+  getConstructFormattingOptions(): ConstructFormattingOptions {
+    return this.constructFormatter.getOptions();
+  }
+
+  /** Enable or disable construct formatting */
+  setConstructFormattingEnabled(enabled: boolean): void {
+    this.configureConstructFormatting({ enableFormatting: enabled });
   }
 
   /** Save the current state for undo functionality. */
@@ -459,5 +575,35 @@ export default class GridModel {
     this.contentsMap = {};
     this.formulas = {};
     this.formatsMap = {};
+  }
+
+  /**
+   * Get the construct formatter for external access
+   */
+  public getConstructFormatter(): ConstructFormatter {
+    return this.constructFormatter;
+  }
+
+  /**
+   * Get all cached constructs
+   */
+  public getAllConstructs(): BaseConstruct[] {
+    return [...this.cachedConstructs];
+  }
+
+  /**
+   * Update construct formatter options
+   */
+  public updateFormattingOptions(options: Partial<ConstructFormattingOptions>): void {
+    this.constructFormatter.updateOptions(options);
+    this.constructFormatCache.clear();
+    this.constructBoundsCache.clear();
+  }
+
+  /**
+   * Get current formatting options
+   */
+  public getFormattingOptions(): ConstructFormattingOptions {
+    return this.constructFormatter.getOptions();
   }
 }

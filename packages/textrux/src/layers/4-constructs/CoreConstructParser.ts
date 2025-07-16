@@ -1,8 +1,11 @@
 import GridModel from "../1-substrate/GridModel";
 import CellCluster from "../3-foundation/cell-cluster/CellCluster";
-import { CoreDetectionRules, DetectionResult } from "../3-foundation/cell-cluster/CoreDetectionRules";
-import { CoreTree, TreeElement, TreeElementType } from "./cell-cluster/CoreTree";
-import { CoreTable, TableCell } from "./cell-cluster/CoreTable";
+import {
+  CoreDetectionRules,
+  DetectionResult,
+} from "../3-foundation/cell-cluster/CoreDetectionRules";
+import { CoreTree, TreeElement } from "./cell-cluster/CoreTree";
+import { CoreTable, TableCell, TableCellType } from "./cell-cluster/CoreTable";
 import { CoreMatrix, MatrixCell } from "./cell-cluster/CoreMatrix";
 import { CoreKeyValue, KeyValueCell } from "./cell-cluster/CoreKeyValue";
 import { CoreList, ListCell } from "./cell-cluster/CoreList";
@@ -49,53 +52,98 @@ export class CoreConstructParser {
   /**
    * Create a Core Table construct
    */
-  private createTable(cluster: CellCluster, detection: DetectionResult): CoreTable {
+  private createTable(
+    cluster: CellCluster,
+    detection: DetectionResult
+  ): CoreTable {
     const tableId = `table_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
-    
-    const table = new CoreTable(
-      tableId,
-      `core-table-key-${detection.key}`,
-      {
-        topRow: cluster.topRow,
-        bottomRow: cluster.bottomRow,
-        leftCol: cluster.leftCol,
-        rightCol: cluster.rightCol
-      }
-    );
 
-    // Add all cells (tables have all cells filled by definition of key=15)
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
-      for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
-        const content = this.grid.getCellRaw(row, col);
-        if (content && content.trim()) {
-          // Determine if this is a header cell (first row or first column)
-          const isHeaderRow = row === cluster.topRow + 1;
-          const isHeaderCol = col === cluster.leftCol + 1;
-          const cellType = (isHeaderRow || isHeaderCol) ? "header" : "body";
-          
-          const cell = CoreTable.createCell(
-            { row: row - 1, col: col - 1 }, // Convert to 0-indexed
-            content.trim(),
-            cellType
-          );
-          
-          table.addCell(cell);
+    const table = new CoreTable(tableId, `core-table-key-${detection.key}`, {
+      topRow: cluster.topRow,
+      bottomRow: cluster.bottomRow,
+      leftCol: cluster.leftCol,
+      rightCol: cluster.rightCol,
+    });
+
+    // Add all cells from the cluster's filled points
+    for (const point of cluster.filledPoints) {
+      const content = this.grid.getCellRaw(point.row, point.col);
+      if (content && content.trim()) {
+        // Determine cell type for table: only first row OR only first column are headers, not both
+        // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
+        // Convert cluster bounds to 1-indexed for comparison
+        const isFirstRow = point.row === cluster.topRow + 1;
+        const isFirstCol = point.col === cluster.leftCol + 1;
+
+        // For this table structure: only first row contains headers
+        // First column of subsequent rows are body cells, not headers
+        let cellType: TableCellType;
+        if (isFirstRow) {
+          cellType = "header"; // Column header (first row only)
+        } else {
+          cellType = "body"; // All other cells are body cells (including first column of other rows)
         }
+
+        const cell = CoreTable.createCell(
+          { row: point.row, col: point.col }, // Use actual coordinates
+          content.trim(),
+          cellType
+        );
+
+        table.addCell(cell);
       }
     }
 
     // Organize into entities and attributes
     table.organizeEntitiesAndAttributes();
-    
+
+    // Debug: Show parsed table structure
+    console.log(`📊 Table Structure Debug:
+    Table ID: ${table.id}
+    Bounds: R${table.bounds.topRow}C${table.bounds.leftCol} to R${table.bounds.bottomRow}C${table.bounds.rightCol}
+    Total cells: ${table.cells.length}
+    Header cells: ${table.headerCells.length}
+    Body cells: ${table.bodyCells.length}
+    Entities (rows): ${table.entities.length}
+    Attributes (columns): ${table.attributes.length}`);
+
+    // Show header cells
+    if (table.headerCells.length > 0) {
+      console.log(
+        "Header cells:",
+        table.headerCells.map(
+          (h) => `(${h.position.row},${h.position.col}): "${h.content}"`
+        )
+      );
+    }
+
+    // Show entities structure
+    if (table.entities.length > 0) {
+      console.log(
+        "Entities (rows):",
+        table.entities.map(
+          (e) =>
+            `Row ${e.index}: ${
+              e.headerCell ? `"${e.headerCell.content}"` : "no header"
+            } + ${e.bodyCells.length} body cells`
+        )
+      );
+    }
+
     return table;
   }
 
   /**
    * Create a Core Matrix construct
    */
-  private createMatrix(cluster: CellCluster, detection: DetectionResult): CoreMatrix {
-    const matrixId = `matrix_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
-    
+  private createMatrix(
+    cluster: CellCluster,
+    detection: DetectionResult
+  ): CoreMatrix {
+    const matrixId = `matrix_${cluster.leftCol}_${
+      cluster.topRow
+    }_${Date.now()}`;
+
     const matrix = new CoreMatrix(
       matrixId,
       `core-matrix-key-${detection.key}`,
@@ -103,7 +151,7 @@ export class CoreConstructParser {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
         leftCol: cluster.leftCol,
-        rightCol: cluster.rightCol
+        rightCol: cluster.rightCol,
       }
     );
 
@@ -114,12 +162,12 @@ export class CoreConstructParser {
         if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
           continue;
         }
-        
+
         const content = this.grid.getCellRaw(row, col);
         if (content && content.trim()) {
           // Determine cell type
           let cellType: "primary-header" | "secondary-header" | "body";
-          
+
           if (row === cluster.topRow + 1) {
             cellType = "primary-header"; // First row headers
           } else if (col === cluster.leftCol + 1) {
@@ -127,13 +175,13 @@ export class CoreConstructParser {
           } else {
             cellType = "body"; // Body cells
           }
-          
+
           const cell = CoreMatrix.createCell(
-            { row: row - 1, col: col - 1 }, // Convert to 0-indexed
+            { row: row, col: col }, // Keep 1-indexed coordinates
             content.trim(),
             cellType
           );
-          
+
           matrix.addCell(cell);
         }
       }
@@ -141,16 +189,21 @@ export class CoreConstructParser {
 
     // Organize into entities
     matrix.organizeEntities();
-    
+
     return matrix;
   }
 
   /**
    * Create a Core Key-Value construct
    */
-  private createKeyValue(cluster: CellCluster, detection: DetectionResult): CoreKeyValue {
-    const keyValueId = `keyvalue_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
-    
+  private createKeyValue(
+    cluster: CellCluster,
+    detection: DetectionResult
+  ): CoreKeyValue {
+    const keyValueId = `keyvalue_${cluster.leftCol}_${
+      cluster.topRow
+    }_${Date.now()}`;
+
     const keyValue = new CoreKeyValue(
       keyValueId,
       `core-keyvalue-key-${detection.key}`,
@@ -158,7 +211,7 @@ export class CoreConstructParser {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
         leftCol: cluster.leftCol,
-        rightCol: cluster.rightCol
+        rightCol: cluster.rightCol,
       },
       detection.orientation || "regular"
     );
@@ -174,20 +227,23 @@ export class CoreConstructParser {
 
     // Organize into pairs
     keyValue.organizeKeyValuePairs();
-    
+
     return keyValue;
   }
 
   /**
    * Process vertical (regular) key-value structure based on key=9 pattern
    */
-  private processVerticalKeyValues(cluster: CellCluster, keyValue: CoreKeyValue): void {
+  private processVerticalKeyValues(
+    cluster: CellCluster,
+    keyValue: CoreKeyValue
+  ): void {
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
         const content = this.grid.getCellRaw(row, col);
         if (content && content.trim()) {
           let cellType: "main-header" | "key" | "value" | "marker";
-          
+
           if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
             cellType = "main-header"; // R1C1 is main header
           } else if (col === cluster.leftCol + 2) {
@@ -198,13 +254,13 @@ export class CoreConstructParser {
             // Skip gap cells (R2C1, R1C2) - these are empty by definition of key=9
             continue;
           }
-          
+
           const cell = CoreKeyValue.createCell(
-            { row: row - 1, col: col - 1 },
+            { row: row, col: col }, // Keep 1-indexed coordinates
             content.trim(),
             cellType
           );
-          
+
           keyValue.addCell(cell);
         }
       }
@@ -214,13 +270,16 @@ export class CoreConstructParser {
   /**
    * Process horizontal (transposed) key-value structure based on key=9 pattern
    */
-  private processHorizontalKeyValues(cluster: CellCluster, keyValue: CoreKeyValue): void {
+  private processHorizontalKeyValues(
+    cluster: CellCluster,
+    keyValue: CoreKeyValue
+  ): void {
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
         const content = this.grid.getCellRaw(row, col);
         if (content && content.trim()) {
           let cellType: "main-header" | "key" | "value" | "marker";
-          
+
           if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
             cellType = "main-header"; // R1C1 is main header
           } else if (row === cluster.topRow + 2) {
@@ -231,13 +290,13 @@ export class CoreConstructParser {
             // Skip gap cells (R1C2, R2C1) - these are empty by definition of key=9
             continue;
           }
-          
+
           const cell = CoreKeyValue.createCell(
-            { row: row - 1, col: col - 1 },
+            { row: row, col: col }, // Keep 1-indexed coordinates
             content.trim(),
             cellType
           );
-          
+
           keyValue.addCell(cell);
         }
       }
@@ -247,9 +306,12 @@ export class CoreConstructParser {
   /**
    * Create a Core List construct
    */
-  private createList(cluster: CellCluster, detection: DetectionResult): CoreList {
+  private createList(
+    cluster: CellCluster,
+    detection: DetectionResult
+  ): CoreList {
     const listId = `list_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
-    
+
     const list = new CoreList(
       listId,
       `core-list-key-${detection.key}`,
@@ -257,7 +319,7 @@ export class CoreConstructParser {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
         leftCol: cluster.leftCol,
-        rightCol: cluster.rightCol
+        rightCol: cluster.rightCol,
       },
       detection.orientation || "regular"
     );
@@ -273,7 +335,7 @@ export class CoreConstructParser {
 
     // Organize items and calculate metrics
     list.organizeItems();
-    
+
     return list;
   }
 
@@ -283,25 +345,25 @@ export class CoreConstructParser {
    */
   private processVerticalList(cluster: CellCluster, list: CoreList): void {
     const col = cluster.leftCol + 1; // Single column for vertical lists
-    
+
     for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
       const content = this.grid.getCellRaw(row, col);
-      
+
       if (content && content.trim()) {
         let cellType: "header" | "item";
-        
+
         if (row === cluster.topRow + 1) {
           cellType = "header"; // R1C1 is header
         } else {
           cellType = "item"; // R2C1 and beyond are items
         }
-        
+
         const cell = CoreList.createCell(
-          { row: row - 1, col: col - 1 }, // Convert to 0-indexed
+          { row: row, col: col }, // Keep 1-indexed coordinates
           content.trim(),
           cellType
         );
-        
+
         list.addCell(cell);
       }
     }
@@ -313,25 +375,25 @@ export class CoreConstructParser {
    */
   private processHorizontalList(cluster: CellCluster, list: CoreList): void {
     const row = cluster.topRow + 1; // Single row for horizontal lists
-    
+
     for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
       const content = this.grid.getCellRaw(row, col);
-      
+
       if (content && content.trim()) {
         let cellType: "header" | "item";
-        
+
         if (col === cluster.leftCol + 1) {
           cellType = "header"; // R1C1 is header
         } else {
           cellType = "item"; // R1C2 and beyond are items
         }
-        
+
         const cell = CoreList.createCell(
-          { row: row - 1, col: col - 1 }, // Convert to 0-indexed
+          { row: row, col: col }, // Keep 1-indexed coordinates
           content.trim(),
           cellType
         );
-        
+
         list.addCell(cell);
       }
     }
@@ -340,9 +402,12 @@ export class CoreConstructParser {
   /**
    * Create a Core Tree construct
    */
-  private createTree(cluster: CellCluster, detection: DetectionResult): CoreTree {
+  private createTree(
+    cluster: CellCluster,
+    detection: DetectionResult
+  ): CoreTree {
     const treeId = `tree_${cluster.leftCol}_${cluster.topRow}_${Date.now()}`;
-    
+
     const tree = new CoreTree(
       treeId,
       `core-tree-key-${detection.key}`,
@@ -350,7 +415,7 @@ export class CoreConstructParser {
         topRow: cluster.topRow,
         bottomRow: cluster.bottomRow,
         leftCol: cluster.leftCol,
-        rightCol: cluster.rightCol
+        rightCol: cluster.rightCol,
       },
       detection.orientation || "regular"
     );
@@ -362,38 +427,83 @@ export class CoreConstructParser {
 
     // Process tree elements based on spatial hierarchy
     this.processTreeElements(cluster, tree, detection.orientation || "regular");
-    
+
+    // Debug: Show parsed tree structure
+    console.log(`🌳 Tree Structure Debug:
+    Tree ID: ${tree.id}
+    Orientation: ${tree.orientation}
+    Bounds: R${tree.bounds.topRow}C${tree.bounds.leftCol} to R${
+      tree.bounds.bottomRow
+    }C${tree.bounds.rightCol}
+    Total elements: ${tree.elements.length}
+    Has child header: ${tree.childHeaderElements?.length > 0 || false}
+    Parent elements: ${tree.parentElements.length}
+    Child elements: ${tree.childElements.length}
+    Child header elements: ${tree.childHeaderElements?.length || 0}
+    Peer elements: ${tree.peerElements.length}`);
+
+    // Show tree hierarchy
+    if (tree.elements.length > 0) {
+      console.log(
+        "Tree elements:",
+        tree.elements.map((e) => {
+          const roles = [];
+          if (e.isAnchor()) roles.push("anchor");
+          if (e.isParent()) roles.push("parent");
+          if (e.isChild()) roles.push("child");
+          if (e.isChildHeader()) roles.push("child-header");
+          if (e.isPeer()) roles.push("peer");
+
+          return `(${e.position.row},${e.position.col}): "${
+            e.content
+          }" [${roles.join(", ")}, level ${e.level}]`;
+        })
+      );
+    }
+
+    // Show anchor element
+    if (tree.anchorElement) {
+      console.log(
+        `Anchor: (${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"`
+      );
+    }
+
     return tree;
   }
 
   /**
    * Process tree elements and establish hierarchy
    */
-  private processTreeElements(cluster: CellCluster, tree: CoreTree, orientation: string): void {
+  private processTreeElements(
+    cluster: CellCluster,
+    tree: CoreTree,
+    orientation: string
+  ): void {
     const elements: TreeElement[] = [];
-    
-    // Collect all filled cells and analyze hierarchy
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
-      for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
-        const content = this.grid.getCellRaw(row, col);
-        if (content && content.trim()) {
-          // Calculate level based on indentation and spatial position
-          const level = this.calculateTreeLevel(content, orientation, row, col, cluster);
-          
-          // Determine element type based on position and content
-          const elementType = this.determineTreeElementType(
-            content, row, col, level, cluster
-          );
-          
-          const element = CoreTree.createElement(
-            { row: row - 1, col: col - 1 }, // Convert to 0-indexed
-            content.trim(),
-            elementType,
-            level
-          );
-          
-          elements.push(element);
-        }
+
+    // Collect all filled cells from the cluster and analyze hierarchy
+    for (const point of cluster.filledPoints) {
+      const content = this.grid.getCellRaw(point.row, point.col);
+      if (content && content.trim()) {
+        // Calculate level based on indentation and spatial position
+        const level = this.calculateTreeLevel(
+          content,
+          orientation,
+          point.row,
+          point.col,
+          cluster
+        );
+
+        const element = CoreTree.createElement(
+          { row: point.row, col: point.col }, // Use actual coordinates
+          content.trim(),
+          level,
+          undefined, // parent will be set later
+          tree,
+          cluster.filledPoints // Pass filled points for child header detection
+        );
+
+        elements.push(element);
       }
     }
 
@@ -407,65 +517,58 @@ export class CoreConstructParser {
 
     // Establish parent-child relationships
     this.establishTreeHierarchy(elements, tree);
-    
+
     // Calculate advanced domain regions and parse nested constructs
     this.calculateAdvancedDomains(tree);
     tree.parseNestedConstructsInDomains(this.grid, this);
   }
 
   /**
-   * Calculate tree level based on indentation AND spatial position
+   * Calculate tree level based on spatial position in tree structure
    */
-  private calculateTreeLevel(content: string, orientation: string, row: number, col: number, cluster: CellCluster): number {
+  private calculateTreeLevel(
+    content: string,
+    orientation: string,
+    row: number,
+    col: number,
+    cluster: CellCluster
+  ): number {
     // First check content indentation
     const leadingSpaces = content.match(/^(\s*)/)?.[1]?.length || 0;
     const contentLevel = Math.floor(leadingSpaces / 2);
-    
-    // Also consider spatial position relative to cluster origin
+
+    // Calculate spatial level based on column position for regular orientation
     let spatialLevel = 0;
     if (orientation === "regular") {
-      // Regular orientation: level increases with column distance from left
-      spatialLevel = col - cluster.leftCol - 1; // Convert to 0-indexed relative position
+      // Column position determines level: leftmost = 0, next column = 1, etc.
+      // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
+      // Convert cluster bounds to 1-indexed for comparison
+      spatialLevel = col - (cluster.leftCol + 1);
     } else {
-      // Transposed orientation: level increases with row distance from top
-      spatialLevel = row - cluster.topRow - 1; // Convert to 0-indexed relative position
+      // Transposed orientation: row position determines level  
+      // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
+      // Convert cluster bounds to 1-indexed for comparison
+      spatialLevel = row - (cluster.topRow + 1);
     }
-    
+
     // Use the maximum of content level and spatial level
     return Math.max(contentLevel, Math.max(0, spatialLevel));
   }
 
-  /**
-   * Determine tree element type based on spatial position and level
-   */
-  private determineTreeElementType(
-    content: string,
-    row: number,
-    col: number,
-    level: number,
-    cluster: CellCluster
-  ): TreeElementType {
-    // First cell is usually anchor
-    if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
-      return "anchor";
-    }
-    
-    // Elements at level 0 or 1 can be parents (allowing for spatial offset)
-    if (level <= 1) {
-      return "parent";
-    }
-    
-    // Higher level elements are children for now - hierarchy establishment will refine this
-    return "child";
-  }
+  // Removed determineTreeElementType - now handled by TreeElement role methods
 
   /**
    * Establish parent-child relationships in tree
    */
-  private establishTreeHierarchy(elements: TreeElement[], tree: CoreTree): void {
+  private establishTreeHierarchy(
+    elements: TreeElement[],
+    tree: CoreTree
+  ): void {
     const levelStack: TreeElement[] = [];
 
     for (const element of elements) {
+      // Removed excessive logging
+
       // Remove elements from stack that are at same or higher level
       while (
         levelStack.length > 0 &&
@@ -479,10 +582,16 @@ export class CoreConstructParser {
         const parent = levelStack[levelStack.length - 1];
         element.parent = parent;
         parent.children.push(element);
-        
-        // Update parent type if it now has children
-        if (parent.elementType === "child") {
-          parent.elementType = "parent";
+        // Parent-child relationship established
+
+        // Parent-child relationship established - roles are determined dynamically
+      }
+
+      // Elements at the same level are peers
+      for (const stackElement of levelStack) {
+        if (stackElement.level === element.level && stackElement !== element) {
+          stackElement.peers.push(element);
+          element.peers.push(stackElement);
         }
       }
 
@@ -491,9 +600,46 @@ export class CoreConstructParser {
       tree.addElement(element);
     }
 
+    // After hierarchy is established, recalculate peer relationships more accurately
+    this.establishPeerRelationships(elements, tree);
+
+    // Recategorize elements now that parent-child relationships are established
+    this.recategorizeTreeElements(tree);
+
     // Calculate domain regions for parent elements
     for (const parent of tree.parentElements) {
       tree.calculateDomainRegion(parent);
+    }
+  }
+
+  /**
+   * Recategorize tree elements after hierarchy is established
+   */
+  private recategorizeTreeElements(tree: CoreTree): void {
+    // Clear existing categorization
+    tree.anchorElement = undefined;
+    tree.parentElements = [];
+    tree.childElements = [];
+    tree.childHeaderElements = [];
+    tree.peerElements = [];
+
+    // Recategorize all elements
+    for (const element of tree.elements) {
+      if (element.isAnchor()) {
+        tree.anchorElement = element;
+      }
+      if (element.isParent()) {
+        tree.parentElements.push(element);
+      }
+      if (element.isChild()) {
+        tree.childElements.push(element);
+      }
+      if (element.isChildHeader()) {
+        tree.childHeaderElements.push(element);
+      }
+      if (element.isPeer()) {
+        tree.peerElements.push(element);
+      }
     }
   }
 
@@ -503,6 +649,42 @@ export class CoreConstructParser {
   private calculateAdvancedDomains(tree: CoreTree): void {
     for (const parent of tree.parentElements) {
       tree.calculateAdvancedDomainRegion(parent, this.grid);
+    }
+  }
+
+  /**
+   * Establish peer relationships among elements at the same level
+   */
+  private establishPeerRelationships(
+    elements: TreeElement[],
+    tree: CoreTree
+  ): void {
+    // Group elements by level
+    const elementsByLevel = new Map<number, TreeElement[]>();
+
+    for (const element of elements) {
+      if (!elementsByLevel.has(element.level)) {
+        elementsByLevel.set(element.level, []);
+      }
+      elementsByLevel.get(element.level)!.push(element);
+    }
+
+    // For each level, establish peer relationships
+    for (const [level, levelElements] of elementsByLevel) {
+      if (levelElements.length > 1) {
+        for (let i = 0; i < levelElements.length; i++) {
+          for (let j = i + 1; j < levelElements.length; j++) {
+            const elem1 = levelElements[i];
+            const elem2 = levelElements[j];
+
+            // Only consider elements peers if they have the same parent
+            if (elem1.parent === elem2.parent) {
+              if (!elem1.peers.includes(elem2)) elem1.peers.push(elem2);
+              if (!elem2.peers.includes(elem1)) elem2.peers.push(elem1);
+            }
+          }
+        }
+      }
     }
   }
 }

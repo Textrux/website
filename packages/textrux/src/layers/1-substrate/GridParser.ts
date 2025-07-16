@@ -229,20 +229,26 @@ export function parseAndFormatGrid(grid: GridModel): {
 
   // Parse constructs in cell clusters using Core system
   defaultConstructRegistry.setGrid(grid);
+  const allConstructs: any[] = [];
 
   for (const block of blocks) {
     if (block.cellClusters) {
       for (const cellCluster of block.cellClusters) {
         if (cellCluster) {
           // Use the unified Core construct parser
-          const construct = defaultConstructRegistry.parseConstruct(cellCluster);
+          const construct =
+            defaultConstructRegistry.parseConstruct(cellCluster);
           if (construct) {
             cellCluster.addConstruct(construct);
+            allConstructs.push(construct);
           }
         }
       }
     }
   }
+
+  // Update grid's cached constructs for formatting
+  grid.updateCachedConstructs(allConstructs);
 
   // 6) Mark locked/linked cells from blockSubclusters
   for (const bsc of blockSubclusters) {

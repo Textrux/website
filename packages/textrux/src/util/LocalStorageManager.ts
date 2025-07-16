@@ -313,7 +313,7 @@ export class LocalStorageManager {
 
     const key = `grid_${gridIndex}_state`;
     const stored = localStorage.getItem(key);
-    console.log(`📦 Raw stored data for key ${key}:`, stored);
+    // console.log(`📦 Raw stored data for key ${key}:`, stored);
 
     if (stored) {
       try {

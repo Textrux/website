@@ -7,18 +7,23 @@ import CellCluster from "../../3-foundation/cell-cluster/CellCluster";
  * Replaces the over-engineered Tree.ts with elegant simplicity
  */
 
-export type TreeElementType = "anchor" | "parent" | "child" | "peer";
 export type TreeOrientation = "regular" | "transposed";
 
 export interface TreeElement {
   position: { row: number; col: number };
   content: string;
-  elementType: TreeElementType;
   level: number;
   parent?: TreeElement;
   children: TreeElement[];
   peers: TreeElement[];
   domainRegion?: DomainRegion;
+
+  // Role-based methods
+  isAnchor(): boolean;
+  isParent(): boolean;
+  isChild(): boolean;
+  isChildHeader(): boolean;
+  isPeer(): boolean;
 }
 
 export interface DomainRegion {
@@ -49,12 +54,18 @@ export class CoreTree implements BaseConstruct {
   anchorElement?: TreeElement;
   parentElements: TreeElement[];
   childElements: TreeElement[];
+  childHeaderElements: TreeElement[];
   peerElements: TreeElement[];
 
   constructor(
     id: string,
     keyPattern: string,
-    bounds: { topRow: number; bottomRow: number; leftCol: number; rightCol: number },
+    bounds: {
+      topRow: number;
+      bottomRow: number;
+      leftCol: number;
+      rightCol: number;
+    },
     orientation: TreeOrientation = "regular"
   ) {
     this.id = id;
@@ -64,6 +75,7 @@ export class CoreTree implements BaseConstruct {
     this.elements = [];
     this.parentElements = [];
     this.childElements = [];
+    this.childHeaderElements = [];
     this.peerElements = [];
     this.metadata = {};
   }
@@ -73,21 +85,22 @@ export class CoreTree implements BaseConstruct {
    */
   addElement(element: TreeElement): void {
     this.elements.push(element);
-    
-    // Categorize element by type
-    switch (element.elementType) {
-      case "anchor":
-        this.anchorElement = element;
-        break;
-      case "parent":
-        this.parentElements.push(element);
-        break;
-      case "child":
-        this.childElements.push(element);
-        break;
-      case "peer":
-        this.peerElements.push(element);
-        break;
+
+    // Categorize element by role
+    if (element.isAnchor()) {
+      this.anchorElement = element;
+    }
+    if (element.isParent()) {
+      this.parentElements.push(element);
+    }
+    if (element.isChild()) {
+      this.childElements.push(element);
+    }
+    if (element.isChildHeader()) {
+      this.childHeaderElements.push(element);
+    }
+    if (element.isPeer()) {
+      this.peerElements.push(element);
     }
   }
 
@@ -102,29 +115,29 @@ export class CoreTree implements BaseConstruct {
         topRow: parentElement.position.row,
         bottomRow: parentElement.position.row,
         leftCol: parentElement.position.col,
-        rightCol: parentElement.position.col
+        rightCol: parentElement.position.col,
       };
     }
 
     // Find bounding box of all descendants
     const allDescendants = this.getAllDescendants(parentElement);
-    const positions = allDescendants.map(d => d.position);
-    
-    const minRow = Math.min(...positions.map(p => p.row));
-    const maxRow = Math.max(...positions.map(p => p.row));
-    const minCol = Math.min(...positions.map(p => p.col));
-    const maxCol = Math.max(...positions.map(p => p.col));
+    const positions = allDescendants.map((d) => d.position);
+
+    const minRow = Math.min(...positions.map((p) => p.row));
+    const maxRow = Math.max(...positions.map((p) => p.row));
+    const minCol = Math.min(...positions.map((p) => p.col));
+    const maxCol = Math.max(...positions.map((p) => p.col));
 
     const domain: DomainRegion = {
       topRow: minRow,
       bottomRow: maxRow,
       leftCol: minCol,
-      rightCol: maxCol
+      rightCol: maxCol,
     };
 
     // Store domain in parent element
     parentElement.domainRegion = domain;
-    
+
     return domain;
   }
 
@@ -132,7 +145,10 @@ export class CoreTree implements BaseConstruct {
    * Advanced domain calculation using next peer/ancestor algorithm
    * Finds domain boundary based on next peer or ancestor, whichever comes first
    */
-  calculateAdvancedDomainRegion(parentElement: TreeElement, grid: GridModel): DomainRegion {
+  calculateAdvancedDomainRegion(
+    parentElement: TreeElement,
+    grid: GridModel
+  ): DomainRegion {
     // Start with parent position
     let topRow = parentElement.position.row;
     let leftCol = parentElement.position.col;
@@ -141,7 +157,7 @@ export class CoreTree implements BaseConstruct {
 
     // Find the next peer or ancestor to establish domain boundary
     const nextBoundary = this.findNextPeerOrAncestor(parentElement);
-    
+
     if (nextBoundary) {
       // Domain extends from parent to just before the boundary
       if (this.orientation === "regular") {
@@ -167,35 +183,37 @@ export class CoreTree implements BaseConstruct {
     // Include all descendants in domain
     const allDescendants = this.getAllDescendants(parentElement);
     if (allDescendants.length > 0) {
-      const descendantPositions = allDescendants.map(d => d.position);
-      bottomRow = Math.max(bottomRow, ...descendantPositions.map(p => p.row));
-      rightCol = Math.max(rightCol, ...descendantPositions.map(p => p.col));
+      const descendantPositions = allDescendants.map((d) => d.position);
+      bottomRow = Math.max(bottomRow, ...descendantPositions.map((p) => p.row));
+      rightCol = Math.max(rightCol, ...descendantPositions.map((p) => p.col));
     }
 
     const domain: DomainRegion = {
       topRow,
       bottomRow,
       leftCol,
-      rightCol
+      rightCol,
     };
 
     // Store domain in parent element
     parentElement.domainRegion = domain;
-    
+
     return domain;
   }
 
   /**
    * Find the next peer or ancestor element after the given parent
    */
-  private findNextPeerOrAncestor(parentElement: TreeElement): TreeElement | null {
+  private findNextPeerOrAncestor(
+    parentElement: TreeElement
+  ): TreeElement | null {
     const parentLevel = parentElement.level;
     const parentRow = parentElement.position.row;
-    
+
     // Look for elements at same level or higher (lower level number) that come after this parent
-    const candidates = this.elements.filter(element => 
-      element.level <= parentLevel && 
-      element.position.row > parentRow
+    const candidates = this.elements.filter(
+      (element) =>
+        element.level <= parentLevel && element.position.row > parentRow
     );
 
     // Sort by row position and return the first one
@@ -206,9 +224,14 @@ export class CoreTree implements BaseConstruct {
   /**
    * Find the last filled column in a row range (for regular orientation)
    */
-  private findLastFilledColumn(topRow: number, bottomRow: number, startCol: number, grid: GridModel): number {
+  private findLastFilledColumn(
+    topRow: number,
+    bottomRow: number,
+    startCol: number,
+    grid: GridModel
+  ): number {
     let lastFilledCol = startCol;
-    
+
     for (let row = topRow; row <= bottomRow; row++) {
       for (let col = startCol; col <= this.bounds.rightCol; col++) {
         const content = grid.getCellRaw(row + 1, col + 1); // Convert to 1-indexed
@@ -217,16 +240,21 @@ export class CoreTree implements BaseConstruct {
         }
       }
     }
-    
+
     return lastFilledCol;
   }
 
   /**
    * Find the last filled row in a column range (for transposed orientation)
    */
-  private findLastFilledRow(startRow: number, leftCol: number, rightCol: number, grid: GridModel): number {
+  private findLastFilledRow(
+    startRow: number,
+    leftCol: number,
+    rightCol: number,
+    grid: GridModel
+  ): number {
     let lastFilledRow = startRow;
-    
+
     for (let col = leftCol; col <= rightCol; col++) {
       for (let row = startRow; row <= this.bounds.bottomRow; row++) {
         const content = grid.getCellRaw(row + 1, col + 1); // Convert to 1-indexed
@@ -235,7 +263,7 @@ export class CoreTree implements BaseConstruct {
         }
       }
     }
-    
+
     return lastFilledRow;
   }
 
@@ -253,21 +281,28 @@ export class CoreTree implements BaseConstruct {
   /**
    * Parse a specific domain region into a nested construct
    */
-  private parseNestedConstructInDomain(parentElement: TreeElement, grid: GridModel, parser: any): void {
+  private parseNestedConstructInDomain(
+    parentElement: TreeElement,
+    grid: GridModel,
+    parser: any
+  ): void {
     const domain = parentElement.domainRegion;
     if (!domain) return;
 
     // Create a cell cluster for the domain region
     const domainFilledPoints: Array<{ row: number; col: number }> = [];
-    
+
     // Collect filled cells within the domain (excluding the parent cell itself)
     for (let row = domain.topRow; row <= domain.bottomRow; row++) {
       for (let col = domain.leftCol; col <= domain.rightCol; col++) {
         // Skip the parent cell
-        if (row === parentElement.position.row && col === parentElement.position.col) {
+        if (
+          row === parentElement.position.row &&
+          col === parentElement.position.col
+        ) {
           continue;
         }
-        
+
         const content = grid.getCellRaw(row + 1, col + 1); // Convert to 1-indexed
         if (content && content.trim()) {
           domainFilledPoints.push({ row: row + 1, col: col + 1 }); // Store as 1-indexed
@@ -293,9 +328,12 @@ export class CoreTree implements BaseConstruct {
     // Try to parse the domain as a nested construct
     try {
       const nestedConstruct = parser.parseConstruct(domainCluster);
-      
+
       if (nestedConstruct) {
-        domain.nestedConstruct = nestedConstruct.type as "table" | "matrix" | "key-value";
+        domain.nestedConstruct = nestedConstruct.type as
+          | "table"
+          | "matrix"
+          | "key-value";
         domain.nestedConstructInstance = nestedConstruct;
         domain.parsedSuccessfully = true;
       } else {
@@ -311,32 +349,51 @@ export class CoreTree implements BaseConstruct {
    */
   private getAllDescendants(element: TreeElement): TreeElement[] {
     const descendants: TreeElement[] = [];
-    
+
     const collectDescendants = (el: TreeElement) => {
       for (const child of el.children) {
         descendants.push(child);
         collectDescendants(child);
       }
     };
-    
+
     collectDescendants(element);
     return descendants;
   }
 
   /**
-   * Find elements by type
+   * Find elements by role
    */
-  findElementsByType(type: TreeElementType): TreeElement[] {
-    return this.elements.filter(element => element.elementType === type);
+  findAnchorElements(): TreeElement[] {
+    return this.elements.filter((element) => element.isAnchor());
+  }
+
+  findParentElements(): TreeElement[] {
+    return this.elements.filter((element) => element.isParent());
+  }
+
+  findChildElements(): TreeElement[] {
+    return this.elements.filter((element) => element.isChild());
+  }
+
+  findChildHeaderElements(): TreeElement[] {
+    return this.elements.filter((element) => element.isChildHeader());
+  }
+
+  findPeerElements(): TreeElement[] {
+    return this.elements.filter((element) => element.isPeer());
   }
 
   /**
    * Get element at specific position
    */
   findElementAt(row: number, col: number): TreeElement | null {
-    return this.elements.find(
-      element => element.position.row === row && element.position.col === col
-    ) || null;
+    return (
+      this.elements.find(
+        (element) =>
+          element.position.row === row && element.position.col === col
+      ) || null
+    );
   }
 
   /**
@@ -357,30 +414,205 @@ export class CoreTree implements BaseConstruct {
    * Get the maximum depth of the tree
    */
   getMaxDepth(): number {
-    return Math.max(...this.elements.map(element => element.level));
+    return Math.max(...this.elements.map((element) => element.level));
   }
 
   /**
    * Get elements at a specific level
    */
   getElementsAtLevel(level: number): TreeElement[] {
-    return this.elements.filter(element => element.level === level);
+    return this.elements.filter((element) => element.level === level);
+  }
+
+  /**
+   * Get children of a specific element
+   */
+  getChildren(element: TreeElement): TreeElement[] {
+    return element.children || [];
+  }
+
+  /**
+   * Get parent of a specific element
+   */
+  getParent(element: TreeElement): TreeElement | null {
+    return element.parent || null;
+  }
+
+  /**
+   * Get siblings of a specific element (elements at same level with same parent)
+   */
+  getSiblings(element: TreeElement): TreeElement[] {
+    if (!element.parent) {
+      // Root level siblings
+      return this.elements.filter(el => el.level === element.level && el !== element);
+    }
+    return element.parent.children.filter(child => child !== element);
+  }
+
+  /**
+   * Get all descendants of an element (children, grandchildren, etc.)
+   */
+  getDescendants(element: TreeElement): TreeElement[] {
+    const descendants: TreeElement[] = [];
+    const collectDescendants = (el: TreeElement) => {
+      for (const child of el.children) {
+        descendants.push(child);
+        collectDescendants(child);
+      }
+    };
+    collectDescendants(element);
+    return descendants;
+  }
+
+  /**
+   * Get all ancestors of an element (parent, grandparent, etc.)
+   */
+  getAncestors(element: TreeElement): TreeElement[] {
+    const ancestors: TreeElement[] = [];
+    let current = element.parent;
+    while (current) {
+      ancestors.push(current);
+      current = current.parent;
+    }
+    return ancestors;
+  }
+
+  /**
+   * Get path from root to element
+   */
+  getPathToElement(element: TreeElement): TreeElement[] {
+    const path = this.getAncestors(element);
+    path.reverse(); // Root first
+    path.push(element); // Add the element itself
+    return path;
+  }
+
+  /**
+   * Get element content at position (convenience method)
+   */
+  getElementContent(row: number, col: number): string {
+    const element = this.findElementAt(row, col);
+    return element ? element.content : "";
+  }
+
+  /**
+   * Get elements by role
+   */
+  getElementsByRole(role: string): TreeElement[] {
+    return this.elements.filter(element => {
+      const roles = [];
+      if (element.isAnchor?.()) roles.push('anchor');
+      if (element.isParent?.()) roles.push('parent');
+      if (element.isChild?.()) roles.push('child');
+      if (element.isChildHeader?.()) roles.push('child-header');
+      if (element.isPeer?.()) roles.push('peer');
+      return roles.includes(role);
+    });
+  }
+
+  /**
+   * Get all positions in the tree
+   */
+  getAllPositions(): Array<{ row: number; col: number }> {
+    return this.elements.map(element => element.position);
+  }
+
+  /**
+   * Check if position is within tree bounds
+   */
+  containsPosition(row: number, col: number): boolean {
+    return row >= this.bounds.topRow &&
+           row <= this.bounds.bottomRow &&
+           col >= this.bounds.leftCol &&
+           col <= this.bounds.rightCol;
+  }
+
+  /**
+   * Find root elements (level 0)
+   */
+  getRootElements(): TreeElement[] {
+    return this.getElementsAtLevel(0);
+  }
+
+  /**
+   * Find leaf elements (elements with no children)
+   */
+  getLeafElements(): TreeElement[] {
+    return this.elements.filter(element => element.children.length === 0);
+  }
+
+  /**
+   * Get depth of a specific element (distance from root)
+   */
+  getElementDepth(element: TreeElement): number {
+    return element.level;
+  }
+
+  /**
+   * Get height of a specific element (distance to deepest descendant)
+   */
+  getElementHeight(element: TreeElement): number {
+    if (element.children.length === 0) {
+      return 0;
+    }
+    return 1 + Math.max(...element.children.map(child => this.getElementHeight(child)));
+  }
+
+  /**
+   * Check if one element is ancestor of another
+   */
+  isAncestorOf(ancestor: TreeElement, descendant: TreeElement): boolean {
+    return this.getAncestors(descendant).includes(ancestor);
+  }
+
+  /**
+   * Check if one element is descendant of another
+   */
+  isDescendantOf(descendant: TreeElement, ancestor: TreeElement): boolean {
+    return this.isAncestorOf(ancestor, descendant);
+  }
+
+  /**
+   * Get next sibling of an element
+   */
+  getNextSibling(element: TreeElement): TreeElement | null {
+    const siblings = this.getSiblings(element);
+    const currentIndex = siblings.findIndex(sibling => 
+      sibling.position.row === element.position.row && 
+      sibling.position.col === element.position.col
+    );
+    return currentIndex >= 0 && currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null;
+  }
+
+  /**
+   * Get previous sibling of an element
+   */
+  getPreviousSibling(element: TreeElement): TreeElement | null {
+    const siblings = this.getSiblings(element);
+    const currentIndex = siblings.findIndex(sibling => 
+      sibling.position.row === element.position.row && 
+      sibling.position.col === element.position.col
+    );
+    return currentIndex > 0 ? siblings[currentIndex - 1] : null;
   }
 
   /**
    * Get all parent elements that have domain regions
    */
   getParentsWithDomains(): TreeElement[] {
-    return this.parentElements.filter(parent => parent.domainRegion !== undefined);
+    return this.parentElements.filter(
+      (parent) => parent.domainRegion !== undefined
+    );
   }
 
   /**
    * Get all parent elements that have successfully parsed nested constructs
    */
   getParentsWithNestedConstructs(): TreeElement[] {
-    return this.parentElements.filter(parent => 
-      parent.domainRegion?.nestedConstructInstance !== undefined &&
-      parent.domainRegion?.parsedSuccessfully === true
+    return this.parentElements.filter(
+      (parent) =>
+        parent.domainRegion?.nestedConstructInstance !== undefined &&
+        parent.domainRegion?.parsedSuccessfully === true
     );
   }
 
@@ -396,14 +628,17 @@ export class CoreTree implements BaseConstruct {
    */
   getNestedConstructsSummary(): { [constructType: string]: number } {
     const summary: { [constructType: string]: number } = {};
-    
+
     for (const parent of this.parentElements) {
-      if (parent.domainRegion?.nestedConstruct && parent.domainRegion?.parsedSuccessfully) {
+      if (
+        parent.domainRegion?.nestedConstruct &&
+        parent.domainRegion?.parsedSuccessfully
+      ) {
         const type = parent.domainRegion.nestedConstruct;
         summary[type] = (summary[type] || 0) + 1;
       }
     }
-    
+
     return summary;
   }
 
@@ -415,23 +650,78 @@ export class CoreTree implements BaseConstruct {
   }
 
   /**
-   * Create a simple tree element
+   * Create a tree element with role-based methods
    */
   static createElement(
     position: { row: number; col: number },
     content: string,
-    elementType: TreeElementType,
     level: number,
-    parent?: TreeElement
+    parent?: TreeElement,
+    tree?: CoreTree,
+    allFilledPoints?: Array<{ row: number; col: number }>
   ): TreeElement {
-    return {
+    const element: TreeElement = {
       position,
       content,
-      elementType,
       level,
       parent,
       children: [],
-      peers: []
+      peers: [],
+
+      // Role-based methods
+      isAnchor(): boolean {
+        // Anchor is the first element at level 0 (root level)
+        // Only one element can be the anchor
+        if (level !== 0) return false;
+        
+        if (!tree) return level === 0;
+        
+        // Find the first element at level 0 in tree order
+        const level0Elements = tree.elements.filter(el => el.level === 0);
+        if (level0Elements.length === 0) return false;
+        
+        // Sort by position (top-to-bottom, left-to-right) and take the first
+        level0Elements.sort((a, b) => {
+          if (a.position.row !== b.position.row) {
+            return a.position.row - b.position.row;
+          }
+          return a.position.col - b.position.col;
+        });
+        
+        return level0Elements[0] === this;
+      },
+
+      isParent(): boolean {
+        // An element is a parent if it has children
+        return this.children.length > 0;
+      },
+
+      isChild(): boolean {
+        // An element is a child if it has a parent (level > 0)
+        return level > 0;
+      },
+
+      isChildHeader(): boolean {
+        // Child headers are elements that label a group of children
+        // Detected based on spatial position: same row as parent but in child column
+        if (!tree || !parent) return false;
+        
+        // Check if this element is at the same row as its parent but offset in primary direction
+        if (tree.orientation === "regular") {
+          // Regular: child headers are same row as parent, but in different column
+          return position.row === parent.position.row && position.col > parent.position.col;
+        } else {
+          // Transposed: child headers are same column as parent, but in different row  
+          return position.col === parent.position.col && position.row > parent.position.row;
+        }
+      },
+
+      isPeer(): boolean {
+        // Elements at the same level that share the same parent
+        return this.peers.length > 0;
+      },
     };
+
+    return element;
   }
 }

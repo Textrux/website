@@ -42,3 +42,22 @@ declare module "*.csv?raw" {
   const content: string;
   export default content;
 }
+
+// Global debug interface for Textrux
+interface TextruxDebugInterface {
+  parseGrid: () => void;
+  inspectCell: (row: number, col: number) => void;
+  showAllConstructs: () => void;
+  inspectElements: (row?: number, col?: number) => void;
+  inspectCellElements: (row: number, col: number) => void;
+  showElementSummary: () => void;
+  testFormattingPerformance: () => void;
+  testThemeAwareFormatting: () => void;
+  getGridData: () => string;
+}
+
+declare global {
+  interface Window {
+    textruxDebug: TextruxDebugInterface;
+  }
+}
