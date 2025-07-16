@@ -1405,6 +1405,25 @@ export function GridView({
         console.groupEnd();
       };
 
+      (window.textruxDebug as any).testSpecificPatterns = () => {
+        console.group("🔍 Testing Specific Construct Patterns");
+        
+        // Test 1: Matrix pattern (empty top-left, other 3 filled)
+        console.log("Test 1: Matrix pattern (empty top-left)");
+        console.log("Expected: 2x2 with empty R1C1, filled R1C2, R2C1, R2C2");
+        console.log("This should produce binary key 7 (0111) = Matrix");
+        
+        // Test 2: Vertical list pattern (2 cells, one on top of the other)
+        console.log("\nTest 2: Vertical list pattern");
+        console.log("Expected: 2 cells in single column, should be detected as VL (Vertical List)");
+        
+        // Show current grid status
+        console.log("\n📊 Current Grid Analysis:");
+        (window.textruxDebug as any).showAllConstructs();
+        
+        console.groupEnd();
+      };
+
       (window.textruxDebug as any).testThemeAwareFormatting = () => {
         console.group("🎨 Theme-Aware Formatting Test");
         
@@ -1486,6 +1505,7 @@ export function GridView({
       console.log("• textruxDebug.showElementSummary() - Show summary of all elements");
       console.log("• textruxDebug.testFormattingPerformance() - Test formatting system performance");
       console.log("• textruxDebug.testThemeAwareFormatting() - Test theme-aware formatting across all themes");
+      console.log("• textruxDebug.testSpecificPatterns() - Test specific construct patterns");
       console.log("• textruxDebug.getGridData() - Get current grid as CSV");
     }
   }, [version, reparse, grid]);
