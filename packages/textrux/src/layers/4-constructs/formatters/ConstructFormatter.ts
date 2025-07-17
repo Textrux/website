@@ -120,6 +120,12 @@ export class ConstructFormatter {
         col <= construct.bounds.rightCol
       ) {
         relevant.push(construct);
+        
+        // Also check nested constructs (e.g., matrix/table within trees)
+        if (construct.childConstructs) {
+          const nestedRelevant = this.getConstructsAtPosition(row, col, construct.childConstructs);
+          relevant.push(...nestedRelevant);
+        }
       }
     }
     
@@ -173,7 +179,22 @@ export class ConstructFormatter {
     row: number,
     col: number
   ): CellFormat | null {
-    // Find the tree element at this position first (fastest check)
+    // Check if this position is within a nested construct first
+    if (tree.childConstructs) {
+      for (const childConstruct of tree.childConstructs) {
+        if (
+          row >= childConstruct.bounds.topRow &&
+          row <= childConstruct.bounds.bottomRow &&
+          col >= childConstruct.bounds.leftCol &&
+          col <= childConstruct.bounds.rightCol
+        ) {
+          // Apply nested construct formatting instead of tree element formatting
+          return this.getConstructFormat(childConstruct, row, col);
+        }
+      }
+    }
+
+    // Find the tree element at this position (fallback for non-nested elements)
     const element = tree.findElementAt(row, col);
     if (!element) {
       return null;

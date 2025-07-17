@@ -207,13 +207,30 @@ export function CellView(props: CellViewProps) {
     ]
   );
 
-  const borderColor = isActive ? "!border-blue-500" : "border-gray-200";
-  const bgColor = inSelection
-    ? "!border-1 !border-dashed !border-slate-600 "
-    : "bg-white";
-
   // Use complete CellFormat formatting instead of manual property mapping
   const styleFormat: React.CSSProperties = format.toInlineStyles();
+  
+  // Check if construct formatting is being applied
+  const hasConstructFormatting = styleFormat.fontWeight || styleFormat.borderBottom || styleFormat.borderRight || 
+                                 styleFormat.borderTop || styleFormat.borderLeft || styleFormat.textAlign;
+  
+  // Only apply conflicting Tailwind classes when there's no construct formatting
+  const borderColor = isActive && !hasConstructFormatting ? "!border-blue-500" : 
+                     !hasConstructFormatting ? "border-gray-200" : "";
+  const bgColor = inSelection && !hasConstructFormatting
+    ? "!border-1 !border-dashed !border-slate-600 "
+    : !hasConstructFormatting ? "bg-white" : "";
+
+  // Filter out conflicting style classes when construct formatting is applied
+  const filteredStyleClasses = hasConstructFormatting 
+    ? styleClasses.filter(cls => 
+        // Keep non-conflicting classes, remove border/font/text classes that might conflict
+        !cls.includes('border') && 
+        !cls.includes('font-') && 
+        !cls.includes('text-') &&
+        !cls.includes('bg-') &&
+        !cls.includes('!'))
+    : styleClasses;
 
   const combinedClasses = [
     "absolute",
@@ -224,7 +241,7 @@ export function CellView(props: CellViewProps) {
     "overflow-hidden",
     "text-ellipsis",
     isActive ? "outline-2 outline-blue-500" : "",
-    ...styleClasses,
+    ...filteredStyleClasses,
   ]
     .filter(Boolean)
     .join(" ");

@@ -18,6 +18,9 @@ export interface TreeElement {
   peers: TreeElement[];
   domainRegion?: DomainRegion;
   items?: TreeElement[]; // For anchor and childHeader elements
+  valueElements?: TreeElement[]; // For key elements that have values
+  domainConstructType?: "matrix" | "table" | "key-value" | "children" | null; // Type of construct in domain
+  childConstructs?: BaseConstruct[]; // Nested constructs within this element's domain
 
   // Role-based methods
   isAnchor(): boolean;
@@ -25,6 +28,17 @@ export interface TreeElement {
   isChild(): boolean;
   isChildHeader(): boolean;
   isPeer(): boolean;
+  isKey(): boolean;
+  isKeyValue(): boolean;
+  hasMatrixConstruct(): boolean;
+  hasTableConstruct(): boolean;
+  hasKeyValueConstruct(): boolean;
+  getDomainConstructType():
+    | "matrix"
+    | "table"
+    | "key-value"
+    | "children"
+    | null;
 }
 
 export interface DomainRegion {
@@ -57,6 +71,7 @@ export class CoreTree implements BaseConstruct {
   childElements: TreeElement[];
   childHeaderElements: TreeElement[];
   peerElements: TreeElement[];
+  childConstructs: BaseConstruct[];
 
   constructor(
     id: string,
@@ -79,6 +94,7 @@ export class CoreTree implements BaseConstruct {
     this.childHeaderElements = [];
     this.peerElements = [];
     this.metadata = {};
+    this.childConstructs = [];
   }
 
   /**
@@ -108,10 +124,119 @@ export class CoreTree implements BaseConstruct {
   /**
    * Calculate domain region for a parent element
    * Domain is the rectangular area containing all descendants
+   * For matrix/table constructs, includes all filled cells in the domain area
    */
-  calculateDomainRegion(parentElement: TreeElement): DomainRegion {
-    if (parentElement.children.length === 0) {
-      // No children, domain is just the parent cell
+  calculateDomainRegion(
+    parentElement: TreeElement,
+    grid?: GridModel
+  ): DomainRegion {
+    // Determine construct type to know how to calculate domain
+    const constructType = parentElement.domainConstructType;
+
+    if (
+      constructType === "matrix" ||
+      constructType === "table" ||
+      constructType === "key-value"
+    ) {
+      // For matrix/table/key-value constructs, we need to find ALL filled cells in the domain
+      return this.calculateDomainRegionForConstruct(parentElement, grid);
+    } else {
+      // For regular children, use the existing logic
+      return this.calculateDomainRegionForChildren(parentElement);
+    }
+  }
+
+  /**
+   * Calculate domain region for matrix/table constructs
+   * Uses the preliminary domain bounds and doesn't expand beyond them
+   */
+  private calculateDomainRegionForConstruct(
+    parentElement: TreeElement,
+    grid?: GridModel
+  ): DomainRegion {
+    if (!grid) {
+      // Fallback to children calculation if no grid provided
+      return this.calculateDomainRegionForChildren(parentElement);
+    }
+
+    const parentRow = parentElement.position.row;
+    const parentCol = parentElement.position.col;
+
+    // First, get the existing domain region if it exists (from detectDomainConstructType)
+    if (!parentElement.domainRegion) {
+      // Calculate a preliminary domain region
+      this.calculateDomainRegionForChildren(parentElement);
+    }
+
+    const preliminaryDomain = parentElement.domainRegion;
+    if (!preliminaryDomain) {
+      return {
+        topRow: parentRow,
+        bottomRow: parentRow,
+        leftCol: parentCol,
+        rightCol: parentCol,
+      };
+    }
+
+    // Use the preliminary domain bounds as the correct domain
+    // The preliminary domain should already be correct from tree element analysis
+    let minRow = preliminaryDomain.topRow;
+    let maxRow = preliminaryDomain.bottomRow;
+    let minCol = preliminaryDomain.leftCol;
+    let maxCol = preliminaryDomain.rightCol;
+
+    // For regular trees, domain should start from next column after parent
+    if (this.orientation === "regular") {
+      minCol = Math.max(minCol, parentCol + 1);
+      minRow = Math.max(minRow, parentRow); // Domain starts from parent's row, not above it
+    } else {
+      // For transposed trees, domain should start from next row after parent
+      minRow = Math.max(minRow, parentRow + 1);
+      minCol = Math.max(minCol, parentCol); // Domain starts from parent's column, not left of it
+    }
+
+    // Find all filled cells within the correct domain bounds
+    let filledCellsFound = [];
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const content = grid.getCellRaw(row, col);
+        if (content && content.trim()) {
+          filledCellsFound.push({ row, col, content });
+        }
+      }
+    }
+
+    // Debug logging
+    // console.log(`Domain calculation for parent at (${parentRow}, ${parentCol}):`);
+    // console.log(`  Preliminary domain: rows ${preliminaryDomain.topRow}-${preliminaryDomain.bottomRow}, cols ${preliminaryDomain.leftCol}-${preliminaryDomain.rightCol}`);
+    // console.log(`  Corrected domain: rows ${minRow}-${maxRow}, cols ${minCol}-${maxCol}`);
+    // console.log(`  Filled cells found:`, filledCellsFound);
+
+    const domain: DomainRegion = {
+      topRow: minRow,
+      bottomRow: maxRow,
+      leftCol: minCol,
+      rightCol: maxCol,
+    };
+
+    // Store domain in parent element
+    parentElement.domainRegion = domain;
+
+    return domain;
+  }
+
+  /**
+   * Calculate domain region for regular children constructs
+   * Uses existing logic based on tree elements
+   */
+  private calculateDomainRegionForChildren(
+    parentElement: TreeElement
+  ): DomainRegion {
+    if (
+      parentElement.children.length === 0 &&
+      (!parentElement.valueElements || parentElement.valueElements.length === 0)
+    ) {
+      // No children and no values, domain doesn't exist
       return {
         topRow: parentElement.position.row,
         bottomRow: parentElement.position.row,
@@ -120,14 +245,39 @@ export class CoreTree implements BaseConstruct {
       };
     }
 
-    // Find bounding box of all descendants
-    const allDescendants = this.getAllDescendants(parentElement);
-    const positions = allDescendants.map((d) => d.position);
+    // Start domain from next column/row after parent based on orientation
+    let startRow = parentElement.position.row;
+    let startCol = parentElement.position.col;
 
-    const minRow = Math.min(...positions.map((p) => p.row));
-    const maxRow = Math.max(...positions.map((p) => p.row));
-    const minCol = Math.min(...positions.map((p) => p.col));
-    const maxCol = Math.max(...positions.map((p) => p.col));
+    if (this.orientation === "regular") {
+      // Regular trees: domain starts from next column to the right
+      startCol = parentElement.position.col + 1;
+    } else {
+      // Transposed trees: domain starts from next row below
+      startRow = parentElement.position.row + 1;
+    }
+
+    // Find bounding box of all descendants and values
+    const allDescendants = this.getAllDescendants(parentElement);
+    const valueElements = parentElement.valueElements || [];
+    const allElements = [...allDescendants, ...valueElements];
+
+    if (allElements.length === 0) {
+      // No descendants or values, minimal domain
+      return {
+        topRow: startRow,
+        bottomRow: startRow,
+        leftCol: startCol,
+        rightCol: startCol,
+      };
+    }
+
+    const positions = allElements.map((d) => d.position);
+
+    const minRow = Math.min(startRow, ...positions.map((p) => p.row));
+    const maxRow = Math.max(startRow, ...positions.map((p) => p.row));
+    const minCol = Math.min(startCol, ...positions.map((p) => p.col));
+    const maxCol = Math.max(startCol, ...positions.map((p) => p.col));
 
     const domain: DomainRegion = {
       topRow: minRow,
@@ -145,16 +295,27 @@ export class CoreTree implements BaseConstruct {
   /**
    * Advanced domain calculation using next peer/ancestor algorithm
    * Finds domain boundary based on next peer or ancestor, whichever comes first
+   * Domain starts from the next column/row after the parent, not including the parent itself
    */
   calculateAdvancedDomainRegion(
     parentElement: TreeElement,
     grid: GridModel
   ): DomainRegion {
-    // Start with parent position
-    const topRow = parentElement.position.row;
-    const leftCol = parentElement.position.col;
+    // Start domain from next column/row after parent based on orientation
+    let topRow = parentElement.position.row;
+    let leftCol = parentElement.position.col;
     let bottomRow = parentElement.position.row;
     let rightCol = parentElement.position.col;
+
+    if (this.orientation === "regular") {
+      // Regular trees: domain starts from next column to the right
+      leftCol = parentElement.position.col + 1;
+      rightCol = parentElement.position.col + 1;
+    } else {
+      // Transposed trees: domain starts from next row below
+      topRow = parentElement.position.row + 1;
+      bottomRow = parentElement.position.row + 1;
+    }
 
     // Find the next peer or ancestor to establish domain boundary
     const nextBoundary = this.findNextPeerOrAncestor(parentElement);
@@ -181,12 +342,15 @@ export class CoreTree implements BaseConstruct {
       }
     }
 
-    // Include all descendants in domain
+    // Include all descendants and values in domain
     const allDescendants = this.getAllDescendants(parentElement);
-    if (allDescendants.length > 0) {
-      const descendantPositions = allDescendants.map((d) => d.position);
-      bottomRow = Math.max(bottomRow, ...descendantPositions.map((p) => p.row));
-      rightCol = Math.max(rightCol, ...descendantPositions.map((p) => p.col));
+    const valueElements = parentElement.valueElements || [];
+    const allElements = [...allDescendants, ...valueElements];
+
+    if (allElements.length > 0) {
+      const elementPositions = allElements.map((d) => d.position);
+      bottomRow = Math.max(bottomRow, ...elementPositions.map((p) => p.row));
+      rightCol = Math.max(rightCol, ...elementPositions.map((p) => p.col));
     }
 
     const domain: DomainRegion = {
@@ -266,6 +430,202 @@ export class CoreTree implements BaseConstruct {
     }
 
     return lastFilledRow;
+  }
+
+  /**
+   * Detect the type of construct in a parent element's domain region
+   * Returns 'matrix', 'table', 'key-value', 'children', or null based on spatial pattern
+   */
+  detectDomainConstructType(
+    parentElement: TreeElement,
+    grid: GridModel
+  ): "matrix" | "table" | "key-value" | "children" | null {
+    // Calculate domain region if not already calculated
+    if (!parentElement.domainRegion) {
+      this.calculateDomainRegion(parentElement, grid);
+    }
+
+    const domain = parentElement.domainRegion;
+    if (!domain) return null;
+
+    // Check if there are any filled cells in the domain region
+    const filledCells: Array<{ row: number; col: number }> = [];
+    for (let row = domain.topRow; row <= domain.bottomRow; row++) {
+      for (let col = domain.leftCol; col <= domain.rightCol; col++) {
+        const content = grid.getCellRaw(row, col);
+        if (content && content.trim()) {
+          filledCells.push({ row, col });
+        }
+      }
+    }
+
+    if (filledCells.length === 0) return null;
+
+    // First check for key-value pattern using binary key detection
+    const keyValuePattern = this.checkKeyValuePattern(domain, grid);
+    if (keyValuePattern) {
+      return "key-value";
+    }
+
+    // Determine the parent's row/column for analysis
+    const parentRow = parentElement.position.row;
+    const parentCol = parentElement.position.col;
+
+    if (this.orientation === "regular") {
+      // Regular orientation: check for cells past the next column
+      const nextCol = parentCol + 1;
+
+      // Find all filled cells in the parent's row within the domain
+      const parentRowCells = filledCells.filter(
+        (cell) => cell.row === parentRow
+      );
+
+      // Check if there are cells past the next column
+      const cellsPastNext = parentRowCells.filter((cell) => cell.col > nextCol);
+
+      if (cellsPastNext.length > 0) {
+        // There are cells past the next column, determine if matrix or table
+        const nextCellContent = grid.getCellRaw(parentRow, nextCol);
+
+        if (nextCellContent && nextCellContent.trim()) {
+          // Next cell is filled → Table construct
+          return "table";
+        } else {
+          // Next cell is empty → Matrix construct
+          return "matrix";
+        }
+      } else {
+        // No cells past the next column → Regular children
+        return "children";
+      }
+    } else {
+      // Transposed orientation: check for cells past the next row
+      const nextRow = parentRow + 1;
+
+      // Find all filled cells in the parent's column within the domain
+      const parentColCells = filledCells.filter(
+        (cell) => cell.col === parentCol
+      );
+
+      // Check if there are cells past the next row
+      const cellsPastNext = parentColCells.filter((cell) => cell.row > nextRow);
+
+      if (cellsPastNext.length > 0) {
+        // There are cells past the next row, determine if matrix or table
+        const nextCellContent = grid.getCellRaw(nextRow, parentCol);
+
+        if (nextCellContent && nextCellContent.trim()) {
+          // Next cell is filled → Table construct
+          return "table";
+        } else {
+          // Next cell is empty → Matrix construct
+          return "matrix";
+        }
+      } else {
+        // No cells past the next row → Regular children
+        return "children";
+      }
+    }
+  }
+
+  /**
+   * Create a matrix, table, or key-value construct instance for a parent element's domain region
+   */
+  createDomainConstruct(
+    parentElement: TreeElement,
+    constructType: "matrix" | "table" | "key-value",
+    grid: GridModel,
+    parser: any
+  ): BaseConstruct | null {
+    const domain = parentElement.domainRegion;
+    if (!domain) return null;
+
+    // Collect all filled cells in the domain region
+    const domainFilledPoints: Array<{ row: number; col: number }> = [];
+    for (let row = domain.topRow; row <= domain.bottomRow; row++) {
+      for (let col = domain.leftCol; col <= domain.rightCol; col++) {
+        const content = grid.getCellRaw(row, col);
+        if (content && content.trim()) {
+          domainFilledPoints.push({ row, col });
+        }
+      }
+    }
+
+    if (domainFilledPoints.length === 0) return null;
+
+    // Create a cell cluster for the domain region
+    const domainCluster = new CellCluster(
+      domain.topRow,
+      domain.bottomRow,
+      domain.leftCol,
+      domain.rightCol,
+      domainFilledPoints
+    );
+
+    // Force the detection result to match the determined construct type
+    if (constructType === "matrix") {
+      domainCluster.detectionResult = {
+        constructType: "matrix",
+        key: 7, // Matrix key
+        orientation: "regular",
+      };
+    } else if (constructType === "table") {
+      domainCluster.detectionResult = {
+        constructType: "table",
+        key: 15, // Table key
+        orientation: "regular",
+      };
+    } else if (constructType === "key-value") {
+      domainCluster.detectionResult = {
+        constructType: "key-value",
+        key: 9, // Key-value key
+        orientation: "regular",
+      };
+    } else {
+      // For other patterns, use binary key detection
+      // but skip list detection since tree domains span multiple rows/columns
+      domainCluster.detectionResult = null; // Let binary key detection handle it
+    }
+
+    // Create the construct using the parser
+    try {
+      const construct = parser.parseConstruct(domainCluster);
+      if (construct) {
+        // Store the construct in the domain region
+        domain.nestedConstruct = constructType;
+        domain.nestedConstructInstance = construct;
+        domain.parsedSuccessfully = true;
+
+        // Update the domain region to match the construct bounds
+        domain.topRow = construct.bounds.topRow;
+        domain.bottomRow = construct.bounds.bottomRow;
+        domain.leftCol = construct.bounds.leftCol;
+        domain.rightCol = construct.bounds.rightCol;
+
+        // Add to parent element's childConstructs array
+        if (!parentElement.childConstructs) {
+          parentElement.childConstructs = [];
+        }
+        parentElement.childConstructs.push(construct);
+
+        // Add to tree's childConstructs array
+        if (!this.childConstructs) {
+          this.childConstructs = [];
+        }
+        this.childConstructs.push(construct);
+
+        console.log(
+          `Created ${constructType} construct with bounds: rows ${construct.bounds.topRow}-${construct.bounds.bottomRow}, cols ${construct.bounds.leftCol}-${construct.bounds.rightCol}`
+        );
+
+        return construct;
+      }
+    } catch (error) {
+      console.error(`Failed to create ${constructType} construct:`, error);
+    }
+
+    domain.parsedSuccessfully = false;
+    return null;
   }
 
   /**
@@ -679,6 +1039,9 @@ export class CoreTree implements BaseConstruct {
       parent,
       children: [],
       peers: [],
+      valueElements: [],
+      domainConstructType: null,
+      childConstructs: [],
 
       // Role-based methods
       isAnchor(): boolean {
@@ -737,17 +1100,22 @@ export class CoreTree implements BaseConstruct {
           }
         } else {
           // Transposed orientation: child headers are same column as parent, different row (below parent)
-                      if (
-              !isSameColAsParent ||
-              this.position.row <= this.parent.position.row
-            ) {
-              return false;
-            }
+          if (
+            !isSameColAsParent ||
+            this.position.row <= this.parent.position.row
+          ) {
+            return false;
+          }
         }
 
         // Check if this element has children
         if (this.children.length > 0) {
           return true;
+        }
+
+        // If element has value elements but no children, it's a key, not a child header
+        if (this.valueElements && this.valueElements.length > 0) {
+          return false;
         }
 
         // Check if there are other elements with the same parent positioned below/to the right
@@ -770,6 +1138,45 @@ export class CoreTree implements BaseConstruct {
 
         // Elements at the same level that share the same parent
         return this.peers.length > 0;
+      },
+
+      isKey(): boolean {
+        // An element is a key if it has valueElements but no children
+        return (
+          this.valueElements &&
+          this.valueElements.length > 0 &&
+          this.children.length === 0
+        );
+      },
+
+      isKeyValue(): boolean {
+        // An element is a key value if it's part of another element's valueElements
+        if (!tree) return false;
+
+        return tree.elements.some(
+          (el) => el.valueElements && el.valueElements.includes(this)
+        );
+      },
+
+      hasMatrixConstruct(): boolean {
+        return this.domainConstructType === "matrix";
+      },
+
+      hasTableConstruct(): boolean {
+        return this.domainConstructType === "table";
+      },
+
+      hasKeyValueConstruct(): boolean {
+        return this.domainConstructType === "key-value";
+      },
+
+      getDomainConstructType():
+        | "matrix"
+        | "table"
+        | "key-value"
+        | "children"
+        | null {
+        return this.domainConstructType || null;
       },
     };
 
@@ -825,5 +1232,44 @@ export class CoreTree implements BaseConstruct {
         cellType: roles.join(",") || "node", // Join multiple roles or default to 'node'
       };
     });
+  }
+
+  /**
+   * Check if a domain region matches the key-value pattern (binary key 9)
+   * Key-value pattern: R1C1 filled, R1C2 empty, R2C1 empty, R2C2 filled (1001 binary = 9)
+   */
+  private checkKeyValuePattern(
+    domain: {
+      topRow: number;
+      bottomRow: number;
+      leftCol: number;
+      rightCol: number;
+    },
+    grid: GridModel
+  ): boolean {
+    // Key-value pattern requires at least 2x2 region
+    if (
+      domain.bottomRow - domain.topRow < 1 ||
+      domain.rightCol - domain.leftCol < 1
+    ) {
+      return false;
+    }
+
+    // Check the 2x2 pattern starting from domain top-left
+    const r1c1Row = domain.topRow;
+    const r1c1Col = domain.leftCol;
+
+    const r1c1Content = grid.getCellRaw(r1c1Row, r1c1Col);
+    const r1c2Content = grid.getCellRaw(r1c1Row, r1c1Col + 1);
+    const r2c1Content = grid.getCellRaw(r1c1Row + 1, r1c1Col);
+    const r2c2Content = grid.getCellRaw(r1c1Row + 1, r1c1Col + 1);
+
+    // Check for binary key 9 pattern (1001)
+    const r1c1Filled = r1c1Content && r1c1Content.trim() !== "";
+    const r1c2Empty = !r1c2Content || r1c2Content.trim() === "";
+    const r2c1Empty = !r2c1Content || r2c1Content.trim() === "";
+    const r2c2Filled = r2c2Content && r2c2Content.trim() !== "";
+
+    return r1c1Filled && r1c2Empty && r2c1Empty && r2c2Filled;
   }
 }

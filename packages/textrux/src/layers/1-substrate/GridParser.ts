@@ -41,6 +41,7 @@ export function parseAndFormatGrid(grid: GridModel): {
   formatMap: Record<string, CellFormat>;
   blockList: Block[];
 } {
+  console.log('[GridParser] parseAndFormatGrid called');
   // 1) Collect all non-empty (filled) cell positions:
   const filledPoints = grid
     .getFilledCells()
@@ -292,6 +293,21 @@ export function parseAndFormatGrid(grid: GridModel): {
       addFormatAndClass(styleMap, formatMap, pt.row, pt.col, b.frameFormat);
     }
   }
+
+  // 8) Apply construct-specific formatting for all filled cells
+  console.log(`[GridParser] Applying construct formatting to ${filledPoints.length} filled cells`);
+  let formatsApplied = 0;
+  for (const filledPoint of filledPoints) {
+    const constructFormat = grid.getCellFormat(filledPoint.row, filledPoint.col);
+    if (constructFormat) {
+      addFormatAndClass(styleMap, formatMap, filledPoint.row, filledPoint.col, constructFormat);
+      formatsApplied++;
+      console.log(`[GridParser] Applied format to (${filledPoint.row},${filledPoint.col}): fontWeight=${constructFormat.fontWeight}, textAlign=${constructFormat.textAlign}, borderBottom=${constructFormat.borderBottom}`);
+    } else {
+      console.log(`[GridParser] No format for (${filledPoint.row},${filledPoint.col}): constructFormat is null/undefined`);
+    }
+  }
+  console.log(`[GridParser] Total formats applied: ${formatsApplied}/${filledPoints.length}`);
 
   return { styleMap, formatMap, blockList: blocks };
 }

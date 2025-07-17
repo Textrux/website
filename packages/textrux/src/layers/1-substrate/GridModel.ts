@@ -406,6 +406,7 @@ export default class GridModel {
 
     // Performance optimization: Get relevant constructs for this position
     const relevantConstructs = this.getRelevantConstructsForPosition(row, col);
+    console.log(`[GridModel] getCellFormat(${row},${col}): found ${relevantConstructs.length} relevant constructs`);
 
     // Apply construct formatting if enabled (only to relevant constructs)
     const constructFormat = this.constructFormatter.getFormatForPosition(
@@ -413,6 +414,8 @@ export default class GridModel {
       col,
       relevantConstructs
     );
+
+    console.log(`[GridModel] constructFormat for (${row},${col}):`, constructFormat);
 
     // Cache the result
     this.constructFormatCache.set(cacheKey, constructFormat);
@@ -458,6 +461,8 @@ export default class GridModel {
 
   /** Update cached constructs for formatting */
   updateCachedConstructs(constructs: BaseConstruct[]): void {
+    console.log(`[GridModel] Updating cached constructs: ${constructs.length} constructs`);
+    console.log(`[GridModel] Construct types:`, constructs.map(c => `${c.type} at (${c.bounds.topRow}-${c.bounds.bottomRow}, ${c.bounds.leftCol}-${c.bounds.rightCol})`));
     this.cachedConstructs = constructs;
     // Clear all caches when constructs change
     this.constructFormatCache.clear();

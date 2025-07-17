@@ -39,6 +39,9 @@ export interface BaseConstruct {
   /** Metadata specific to the construct type */
   metadata: Record<string, any>;
 
+  /** Child constructs nested within this construct */
+  childConstructs?: BaseConstruct[];
+
   /** Get element at specific position */
   getElementAt?(row: number, col: number): BaseElement | null;
   

@@ -59,23 +59,27 @@ export class StyleManager {
         }
       }
 
-      /* Cell Default Styles */
-      .grid-cell {
-        text-align: ${cellDefaults.textAlign} !important;
-        vertical-align: ${cellDefaults.verticalAlign} !important;
-        font-weight: ${cellDefaults.fontWeight} !important;
-        color: ${colors.filledCellFontColor} !important;
-        background-color: ${colors.filledCellBackgroundColor} !important;
+      /* Cell Default Styles - only apply when no construct formatting is present */
+      .grid-cell:not([style*="font-weight"]):not([style*="text-align"]):not([style*="border"]) {
+        text-align: ${cellDefaults.textAlign};
+        vertical-align: ${cellDefaults.verticalAlign};
+        font-weight: ${cellDefaults.fontWeight};
         ${
           cellDefaults.fontSize
-            ? `font-size: ${cellDefaults.fontSize}px !important;`
+            ? `font-size: ${cellDefaults.fontSize}px;`
             : ""
         }
         ${
           cellDefaults.fontFamily
-            ? `font-family: ${cellDefaults.fontFamily} !important;`
+            ? `font-family: ${cellDefaults.fontFamily};`
             : ""
         }
+      }
+      
+      /* Always apply color and background (these don't conflict with construct formatting) */
+      .grid-cell {
+        color: ${colors.filledCellFontColor} !important;
+        background-color: ${colors.filledCellBackgroundColor} !important;
       }
 
       /* Apply font size to editing cells as well */

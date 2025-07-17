@@ -631,10 +631,23 @@ export class CoreConstructParser {
     // Populate items arrays for anchor and childHeader elements after tree is fully built
     this.populateTreeElementItems(tree);
 
-    // Calculate domain regions for parent elements
+    // Detect domain construct types for parent elements
+    this.detectDomainConstructTypes(tree);
+
+    // Calculate domain regions for parent elements and elements with values
     for (const parent of tree.parentElements) {
-      tree.calculateDomainRegion(parent);
+      tree.calculateDomainRegion(parent, this.grid);
     }
+    
+    // Calculate domain regions for elements with values
+    for (const element of tree.elements) {
+      if (element.valueElements && element.valueElements.length > 0) {
+        tree.calculateDomainRegion(element, this.grid);
+      }
+    }
+
+    // Create domain constructs for matrix/table elements
+    this.createDomainConstructs(tree);
   }
 
   /**
@@ -723,6 +736,156 @@ export class CoreConstructParser {
             }
           }
         }
+      }
+    }
+  }
+
+
+  /**
+   * Detect domain construct types for parent elements
+   */
+  private detectDomainConstructTypes(tree: CoreTree): void {
+    for (const parentElement of tree.parentElements) {
+      const constructType = tree.detectDomainConstructType(parentElement, this.grid);
+      parentElement.domainConstructType = constructType;
+    }
+  }
+
+  /**
+   * Create domain constructs for matrix/table elements
+   */
+  private createDomainConstructs(tree: CoreTree): void {
+    for (const parentElement of tree.parentElements) {
+      const constructType = parentElement.domainConstructType;
+      
+      if (constructType === 'matrix' || constructType === 'table') {
+        // Create the construct instance
+        const construct = tree.createDomainConstruct(parentElement, constructType, this.grid, this);
+        
+        if (construct) {
+          // Remove child relationships for matrix/table elements
+          // The entire domain is now a single construct
+          this.removeChildRelationshipsForConstruct(parentElement, tree);
+        }
+      } else if (constructType === 'children') {
+        // For regular children, detect value elements
+        this.detectValueElementsForParent(parentElement, tree);
+      }
+    }
+  }
+
+  /**
+   * Remove child relationships for elements that have matrix/table constructs
+   * Also removes elements that are within the domain region from tree categorization
+   */
+  private removeChildRelationshipsForConstruct(parentElement: TreeElement, tree: CoreTree): void {
+    // Remove children from parent
+    const childrenToRemove = [...parentElement.children];
+    parentElement.children = [];
+    
+    // Get the domain region to find all elements that should be removed
+    const domainRegion = parentElement.domainRegion;
+    if (!domainRegion) return;
+    
+    // Find all tree elements that are within the domain region
+    const elementsInDomain = tree.elements.filter(element => 
+      element.position.row >= domainRegion.topRow &&
+      element.position.row <= domainRegion.bottomRow &&
+      element.position.col >= domainRegion.leftCol &&
+      element.position.col <= domainRegion.rightCol
+    );
+    
+    // Remove all domain elements from tree's child categorization
+    for (const element of elementsInDomain) {
+      // Remove from tree's childElements array
+      const childIndex = tree.childElements.indexOf(element);
+      if (childIndex >= 0) {
+        tree.childElements.splice(childIndex, 1);
+      }
+      
+      // Remove from tree's childHeaderElements array
+      const childHeaderIndex = tree.childHeaderElements.indexOf(element);
+      if (childHeaderIndex >= 0) {
+        tree.childHeaderElements.splice(childHeaderIndex, 1);
+      }
+      
+      // Remove from tree's peerElements array
+      const peerIndex = tree.peerElements.indexOf(element);
+      if (peerIndex >= 0) {
+        tree.peerElements.splice(peerIndex, 1);
+      }
+      
+      // Remove from tree's parentElements array if it's there
+      const parentIndex = tree.parentElements.indexOf(element);
+      if (parentIndex >= 0) {
+        tree.parentElements.splice(parentIndex, 1);
+      }
+    }
+    
+    console.log(`Removed ${elementsInDomain.length} elements from tree categorization for ${parentElement.domainConstructType} construct`);
+  }
+
+  /**
+   * Detect value elements for a specific parent element (used for 'children' construct type)
+   */
+  private detectValueElementsForParent(parentElement: TreeElement, tree: CoreTree): void {
+    for (const child of parentElement.children) {
+      // Skip elements that already have children
+      if (child.children.length > 0) {
+        continue;
+      }
+
+      const valueElements: TreeElement[] = [];
+      
+      if (tree.orientation === "regular") {
+        // Regular orientation: look for filled cells to the right
+        const baseRow = child.position.row;
+        let currentCol = child.position.col + 1;
+        
+        // Look for contiguous filled cells to the right
+        while (currentCol <= tree.bounds.rightCol) {
+          const content = this.grid.getCellRaw(baseRow, currentCol);
+          if (content && content.trim()) {
+            // Find the tree element at this position
+            const valueElement = tree.elements.find(el => 
+              el.position.row === baseRow && el.position.col === currentCol
+            );
+            if (valueElement) {
+              valueElements.push(valueElement);
+            }
+            currentCol++;
+          } else {
+            // Stop at first empty cell
+            break;
+          }
+        }
+      } else {
+        // Transposed orientation: look for filled cells below
+        const baseCol = child.position.col;
+        let currentRow = child.position.row + 1;
+        
+        // Look for contiguous filled cells below
+        while (currentRow <= tree.bounds.bottomRow) {
+          const content = this.grid.getCellRaw(currentRow, baseCol);
+          if (content && content.trim()) {
+            // Find the tree element at this position
+            const valueElement = tree.elements.find(el => 
+              el.position.row === currentRow && el.position.col === baseCol
+            );
+            if (valueElement) {
+              valueElements.push(valueElement);
+            }
+            currentRow++;
+          } else {
+            // Stop at first empty cell
+            break;
+          }
+        }
+      }
+
+      // Assign value elements if any were found
+      if (valueElements.length > 0) {
+        child.valueElements = valueElements;
       }
     }
   }
