@@ -544,7 +544,7 @@ export class CoreConstructParser {
       // Use cluster bounds directly since they are now 1-indexed
       spatialLevel = col - cluster.leftCol;
     } else {
-      // Transposed orientation: row position determines level  
+      // Transposed orientation: row position determines level
       // Use cluster bounds directly since they are now 1-indexed
       spatialLevel = row - cluster.topRow;
     }
@@ -593,8 +593,13 @@ export class CoreConstructParser {
           const stackElementIsAnchor = stackElement.isAnchor();
           const elementIsChildHeader = element.isChildHeader();
           const stackElementIsChildHeader = stackElement.isChildHeader();
-          
-          if (!elementIsAnchor && !stackElementIsAnchor && !elementIsChildHeader && !stackElementIsChildHeader) {
+
+          if (
+            !elementIsAnchor &&
+            !stackElementIsAnchor &&
+            !elementIsChildHeader &&
+            !stackElementIsChildHeader
+          ) {
             stackElement.peers.push(element);
             element.peers.push(stackElement);
           }
@@ -632,7 +637,7 @@ export class CoreConstructParser {
     tree.childHeaderElements = [];
     tree.peerElements = [];
 
-    // Recategorize all elements
+    // Recategorize all elements with proper exclusions
     for (const element of tree.elements) {
       if (element.isAnchor()) {
         tree.anchorElement = element;
@@ -640,13 +645,14 @@ export class CoreConstructParser {
       if (element.isParent()) {
         tree.parentElements.push(element);
       }
-      if (element.isChild()) {
-        tree.childElements.push(element);
-      }
       if (element.isChildHeader()) {
         tree.childHeaderElements.push(element);
+      } else if (element.isChild()) {
+        // Only add to childElements if it's NOT a childHeader
+        tree.childElements.push(element);
       }
-      if (element.isPeer()) {
+      if (element.isPeer() && !element.isChildHeader()) {
+        // Only add to peerElements if it's NOT a childHeader
         tree.peerElements.push(element);
       }
     }
@@ -693,8 +699,13 @@ export class CoreConstructParser {
               const elem2IsAnchor = elem2.isAnchor();
               const elem1IsChildHeader = elem1.isChildHeader();
               const elem2IsChildHeader = elem2.isChildHeader();
-              
-              if (!elem1IsAnchor && !elem2IsAnchor && !elem1IsChildHeader && !elem2IsChildHeader) {
+
+              if (
+                !elem1IsAnchor &&
+                !elem2IsAnchor &&
+                !elem1IsChildHeader &&
+                !elem2IsChildHeader
+              ) {
                 if (!elem1.peers.includes(elem2)) elem1.peers.push(elem2);
                 if (!elem2.peers.includes(elem1)) elem2.peers.push(elem1);
               }
@@ -714,26 +725,28 @@ export class CoreConstructParser {
       tree.anchorElement.items = [];
       // For anchor elements, add all other elements in the first column as items
       const firstCol = tree.bounds.leftCol + 1; // Convert to 1-indexed
-      tree.anchorElement.items = tree.elements.filter(el => 
-        el.position.col === firstCol && el !== tree.anchorElement
+      tree.anchorElement.items = tree.elements.filter(
+        (el) => el.position.col === firstCol && el !== tree.anchorElement
       );
     }
 
     // Populate items for childHeader elements
     for (const childHeader of tree.childHeaderElements) {
       childHeader.items = [];
-      
+
       if (tree.orientation === "regular") {
         // Regular orientation: items are directly below the childHeader
-        childHeader.items = tree.elements.filter(el => 
-          el.position.col === childHeader.position.col && 
-          el.position.row > childHeader.position.row
+        childHeader.items = tree.elements.filter(
+          (el) =>
+            el.position.col === childHeader.position.col &&
+            el.position.row > childHeader.position.row
         );
       } else {
         // Transposed orientation: items are directly to the right of the childHeader
-        childHeader.items = tree.elements.filter(el => 
-          el.position.row === childHeader.position.row && 
-          el.position.col > childHeader.position.col
+        childHeader.items = tree.elements.filter(
+          (el) =>
+            el.position.row === childHeader.position.row &&
+            el.position.col > childHeader.position.col
         );
       }
     }

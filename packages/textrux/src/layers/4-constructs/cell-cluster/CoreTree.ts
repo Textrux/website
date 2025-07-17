@@ -151,8 +151,8 @@ export class CoreTree implements BaseConstruct {
     grid: GridModel
   ): DomainRegion {
     // Start with parent position
-    let topRow = parentElement.position.row;
-    let leftCol = parentElement.position.col;
+    const topRow = parentElement.position.row;
+    const leftCol = parentElement.position.col;
     let bottomRow = parentElement.position.row;
     let rightCol = parentElement.position.col;
 
@@ -445,9 +445,11 @@ export class CoreTree implements BaseConstruct {
   getSiblings(element: TreeElement): TreeElement[] {
     if (!element.parent) {
       // Root level siblings
-      return this.elements.filter(el => el.level === element.level && el !== element);
+      return this.elements.filter(
+        (el) => el.level === element.level && el !== element
+      );
     }
-    return element.parent.children.filter(child => child !== element);
+    return element.parent.children.filter((child) => child !== element);
   }
 
   /**
@@ -500,13 +502,13 @@ export class CoreTree implements BaseConstruct {
    * Get elements by role
    */
   getElementsByRole(role: string): TreeElement[] {
-    return this.elements.filter(element => {
+    return this.elements.filter((element) => {
       const roles = [];
-      if (element.isAnchor?.()) roles.push('anchor');
-      if (element.isParent?.()) roles.push('parent');
-      if (element.isChild?.()) roles.push('child');
-      if (element.isChildHeader?.()) roles.push('child-header');
-      if (element.isPeer?.()) roles.push('peer');
+      if (element.isAnchor?.()) roles.push("anchor");
+      if (element.isParent?.()) roles.push("parent");
+      if (element.isChild?.()) roles.push("child");
+      if (element.isChildHeader?.()) roles.push("child-header");
+      if (element.isPeer?.()) roles.push("peer");
       return roles.includes(role);
     });
   }
@@ -515,17 +517,19 @@ export class CoreTree implements BaseConstruct {
    * Get all positions in the tree
    */
   getAllPositions(): Array<{ row: number; col: number }> {
-    return this.elements.map(element => element.position);
+    return this.elements.map((element) => element.position);
   }
 
   /**
    * Check if position is within tree bounds
    */
   containsPosition(row: number, col: number): boolean {
-    return row >= this.bounds.topRow &&
-           row <= this.bounds.bottomRow &&
-           col >= this.bounds.leftCol &&
-           col <= this.bounds.rightCol;
+    return (
+      row >= this.bounds.topRow &&
+      row <= this.bounds.bottomRow &&
+      col >= this.bounds.leftCol &&
+      col <= this.bounds.rightCol
+    );
   }
 
   /**
@@ -539,7 +543,7 @@ export class CoreTree implements BaseConstruct {
    * Find leaf elements (elements with no children)
    */
   getLeafElements(): TreeElement[] {
-    return this.elements.filter(element => element.children.length === 0);
+    return this.elements.filter((element) => element.children.length === 0);
   }
 
   /**
@@ -556,7 +560,10 @@ export class CoreTree implements BaseConstruct {
     if (element.children.length === 0) {
       return 0;
     }
-    return 1 + Math.max(...element.children.map(child => this.getElementHeight(child)));
+    return (
+      1 +
+      Math.max(...element.children.map((child) => this.getElementHeight(child)))
+    );
   }
 
   /**
@@ -578,11 +585,14 @@ export class CoreTree implements BaseConstruct {
    */
   getNextSibling(element: TreeElement): TreeElement | null {
     const siblings = this.getSiblings(element);
-    const currentIndex = siblings.findIndex(sibling => 
-      sibling.position.row === element.position.row && 
-      sibling.position.col === element.position.col
+    const currentIndex = siblings.findIndex(
+      (sibling) =>
+        sibling.position.row === element.position.row &&
+        sibling.position.col === element.position.col
     );
-    return currentIndex >= 0 && currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : null;
+    return currentIndex >= 0 && currentIndex < siblings.length - 1
+      ? siblings[currentIndex + 1]
+      : null;
   }
 
   /**
@@ -590,9 +600,10 @@ export class CoreTree implements BaseConstruct {
    */
   getPreviousSibling(element: TreeElement): TreeElement | null {
     const siblings = this.getSiblings(element);
-    const currentIndex = siblings.findIndex(sibling => 
-      sibling.position.row === element.position.row && 
-      sibling.position.col === element.position.col
+    const currentIndex = siblings.findIndex(
+      (sibling) =>
+        sibling.position.row === element.position.row &&
+        sibling.position.col === element.position.col
     );
     return currentIndex > 0 ? siblings[currentIndex - 1] : null;
   }
@@ -673,14 +684,14 @@ export class CoreTree implements BaseConstruct {
       isAnchor(): boolean {
         // Anchor is the first element at level 0 (root level)
         // Only one element can be the anchor
-        if (level !== 0) return false;
-        
-        if (!tree) return level === 0;
-        
+        if (this.level !== 0) return false;
+
+        if (!tree) return this.level === 0;
+
         // Find the first element at level 0 in tree order
-        const level0Elements = tree.elements.filter(el => el.level === 0);
+        const level0Elements = tree.elements.filter((el) => el.level === 0);
         if (level0Elements.length === 0) return false;
-        
+
         // Sort by position (top-to-bottom, left-to-right) and take the first
         level0Elements.sort((a, b) => {
           if (a.position.row !== b.position.row) {
@@ -688,7 +699,7 @@ export class CoreTree implements BaseConstruct {
           }
           return a.position.col - b.position.col;
         });
-        
+
         return level0Elements[0] === this;
       },
 
@@ -699,40 +710,66 @@ export class CoreTree implements BaseConstruct {
 
       isChild(): boolean {
         // An element is a child if it has a parent (level > 0)
-        return level > 0;
+        return this.level > 0;
       },
 
       isChildHeader(): boolean {
         // Child headers are elements that label a group of children
         // They should be on the same row as parent AND have children positioned below/to the right
-        if (!tree || !parent) return false;
-        
+        if (!tree || !this.parent) {
+          return false;
+        }
+
         // Check spatial position relative to parent
-        const isSameRowAsParent = position.row === parent.position.row;
-        const isSameColAsParent = position.col === parent.position.col;
-        
+        const isSameRowAsParent =
+          this.position.row === this.parent.position.row;
+        const isSameColAsParent =
+          this.position.col === this.parent.position.col;
+
         if (tree.orientation === "regular") {
           // Regular orientation: child headers are same row as parent, different column
           // AND should have children positioned below them
-          if (!isSameRowAsParent || position.col <= parent.position.col) return false;
+          if (
+            !isSameRowAsParent ||
+            this.position.col <= this.parent.position.col
+          ) {
+            return false;
+          }
         } else {
           // Transposed orientation: child headers are same column as parent, different row
           // AND should have children positioned to the right of them
-          if (!isSameColAsParent || position.row <= parent.position.row) return false;
+          if (
+            !isSameColAsParent ||
+            this.position.row <= this.parent.position.row
+          ) {
+            return false;
+          }
         }
-        
-        // Check if this element actually has children or siblings that would make it a header
-        return this.children.length > 0 || tree.elements.some(el => 
-          el.parent === this.parent && 
-          ((tree.orientation === "regular" && el.position.row > position.row && el.position.col === position.col) ||
-           (tree.orientation === "transposed" && el.position.col > position.col && el.position.row === position.row))
+
+        // Check if this element has children OR if there are sibling elements positioned below/right that share the same parent
+        // This makes it a header for those child elements
+        if (this.children.length > 0) {
+          return true;
+        }
+
+        // Check if there are other elements with the same parent positioned below/to the right
+        return tree.elements.some(
+          (el) =>
+            el.parent === this.parent &&
+            el !== this &&
+            ((tree.orientation === "regular" &&
+              el.position.row > this.position.row &&
+              el.position.col === this.position.col) ||
+              (tree.orientation === "transposed" &&
+                el.position.col > this.position.col &&
+                el.position.row === this.position.row))
         );
       },
 
       isPeer(): boolean {
         // Anchor elements should never have peers
         if (this.isAnchor()) return false;
-        
+
         // Elements at the same level that share the same parent
         return this.peers.length > 0;
       },
@@ -743,20 +780,26 @@ export class CoreTree implements BaseConstruct {
       // For anchor elements, add all elements in the first column as items
       if (element.isAnchor()) {
         const firstCol = tree.bounds.leftCol;
-        element.items = tree.elements.filter(el => 
-          el.position.col === firstCol && el !== element
+        element.items = tree.elements.filter(
+          (el) => el.position.col === firstCol && el !== element
         );
       }
-      
+
       // For childHeader elements, add child cells directly to their left (regular) or above (transposed)
       if (element.isChildHeader()) {
-        element.items = tree.elements.filter(el => {
+        element.items = tree.elements.filter((el) => {
           if (tree.orientation === "regular") {
             // Regular: items are directly below the childHeader
-            return el.position.col === element.position.col && el.position.row > element.position.row;
+            return (
+              el.position.col === element.position.col &&
+              el.position.row > element.position.row
+            );
           } else {
             // Transposed: items are directly to the right of the childHeader
-            return el.position.row === element.position.row && el.position.col > element.position.col;
+            return (
+              el.position.row === element.position.row &&
+              el.position.col > element.position.col
+            );
           }
         });
       }
@@ -769,21 +812,20 @@ export class CoreTree implements BaseConstruct {
    * Get elements for console navigation (BaseConstruct interface)
    */
   get baseElements(): BaseElement[] {
-    return this.elements.map(element => {
+    return this.elements.map((element) => {
       // Map TreeElement to BaseElement
       const roles = [];
-      if (element.isAnchor?.()) roles.push('anchor');
-      if (element.isParent?.()) roles.push('parent');
-      if (element.isChild?.()) roles.push('child');
-      if (element.isChildHeader?.()) roles.push('child-header');
-      if (element.isPeer?.()) roles.push('peer');
-      
+      if (element.isAnchor?.()) roles.push("anchor");
+      if (element.isParent?.()) roles.push("parent");
+      if (element.isChild?.()) roles.push("child");
+      if (element.isChildHeader?.()) roles.push("child-header");
+      if (element.isPeer?.()) roles.push("peer");
+
       return {
         position: element.position,
         content: element.content,
-        cellType: roles.join(',') || 'node' // Join multiple roles or default to 'node'
+        cellType: roles.join(",") || "node", // Join multiple roles or default to 'node'
       };
     });
   }
-
 }
