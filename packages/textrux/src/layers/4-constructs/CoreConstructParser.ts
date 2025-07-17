@@ -507,13 +507,24 @@ export class CoreConstructParser {
       }
     }
 
-    // Sort elements by position (top-to-bottom, left-to-right)
-    elements.sort((a, b) => {
-      if (a.position.row !== b.position.row) {
+    // Sort elements by position based on tree orientation
+    if (orientation === "regular") {
+      // Regular trees: top-to-bottom, left-to-right
+      elements.sort((a, b) => {
+        if (a.position.row !== b.position.row) {
+          return a.position.row - b.position.row;
+        }
+        return a.position.col - b.position.col;
+      });
+    } else {
+      // Transposed trees: left-to-right, top-to-bottom
+      elements.sort((a, b) => {
+        if (a.position.col !== b.position.col) {
+          return a.position.col - b.position.col;
+        }
         return a.position.row - b.position.row;
-      }
-      return a.position.col - b.position.col;
-    });
+      });
+    }
 
     // Establish parent-child relationships
     this.establishTreeHierarchy(elements, tree);

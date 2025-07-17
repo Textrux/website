@@ -715,7 +715,8 @@ export class CoreTree implements BaseConstruct {
 
       isChildHeader(): boolean {
         // Child headers are elements that label a group of children
-        // They should be on the same row as parent AND have children positioned below/to the right
+        // Regular: same row as parent, different column (to the right)
+        // Transposed: same column as parent, different row (below parent)
         if (!tree || !this.parent) {
           return false;
         }
@@ -727,8 +728,7 @@ export class CoreTree implements BaseConstruct {
           this.position.col === this.parent.position.col;
 
         if (tree.orientation === "regular") {
-          // Regular orientation: child headers are same row as parent, different column
-          // AND should have children positioned below them
+          // Regular orientation: child headers are same row as parent, different column (to the right)
           if (
             !isSameRowAsParent ||
             this.position.col <= this.parent.position.col
@@ -736,18 +736,16 @@ export class CoreTree implements BaseConstruct {
             return false;
           }
         } else {
-          // Transposed orientation: child headers are same column as parent, different row
-          // AND should have children positioned to the right of them
-          if (
-            !isSameColAsParent ||
-            this.position.row <= this.parent.position.row
-          ) {
-            return false;
-          }
+          // Transposed orientation: child headers are same column as parent, different row (below parent)
+                      if (
+              !isSameColAsParent ||
+              this.position.row <= this.parent.position.row
+            ) {
+              return false;
+            }
         }
 
-        // Check if this element has children OR if there are sibling elements positioned below/right that share the same parent
-        // This makes it a header for those child elements
+        // Check if this element has children
         if (this.children.length > 0) {
           return true;
         }
