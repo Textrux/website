@@ -1,8 +1,14 @@
 import { CellFormat } from "../../../style/CellFormat";
-import { TreeFormatter, TreeFormattingOptions } from "./TreeFormatter";
-import { CoreTree, TreeElement } from "../cell-cluster/CoreTree";
-import { CoreTable, TableCell } from "../cell-cluster/CoreTable";
-import { CoreMatrix, MatrixCell } from "../cell-cluster/CoreMatrix";
+import { TreeFormatter } from "./TreeFormatter";
+import { TableFormatter } from "./TableFormatter";
+import { MatrixFormatter } from "./MatrixFormatter";
+import { KeyValueFormatter } from "./KeyValueFormatter";
+import { ListFormatter } from "./ListFormatter";
+import { CoreTree } from "../cell-cluster/CoreTree";
+import { CoreTable } from "../cell-cluster/CoreTable";
+import { CoreMatrix } from "../cell-cluster/CoreMatrix";
+import { CoreKeyValue } from "../cell-cluster/CoreKeyValue";
+import { CoreList } from "../cell-cluster/CoreList";
 import { BaseConstruct } from "../interfaces/ConstructInterfaces";
 
 export interface ConstructFormattingOptions {
@@ -14,6 +20,10 @@ export interface ConstructFormattingOptions {
 export class ConstructFormatter {
   private options: ConstructFormattingOptions;
   private treeFormatter: TreeFormatter;
+  private tableFormatter: TableFormatter;
+  private matrixFormatter: MatrixFormatter;
+  private keyValueFormatter: KeyValueFormatter;
+  private listFormatter: ListFormatter;
   
   // Performance optimization: cache for construct lookups
   private constructLookupCache: Map<string, BaseConstruct[]> = new Map();
@@ -24,6 +34,22 @@ export class ConstructFormatter {
     this.treeFormatter = new TreeFormatter({
       theme: options.theme,
       orientation: "regular", // Default, will be updated per tree
+      darkMode: options.darkMode,
+    });
+    this.tableFormatter = new TableFormatter({
+      theme: options.theme,
+      darkMode: options.darkMode,
+    });
+    this.matrixFormatter = new MatrixFormatter({
+      theme: options.theme,
+      darkMode: options.darkMode,
+    });
+    this.keyValueFormatter = new KeyValueFormatter({
+      theme: options.theme,
+      darkMode: options.darkMode,
+    });
+    this.listFormatter = new ListFormatter({
+      theme: options.theme,
       darkMode: options.darkMode,
     });
   }
@@ -130,6 +156,10 @@ export class ConstructFormatter {
         return this.getTableFormat(construct as CoreTable, row, col);
       case "matrix":
         return this.getMatrixFormat(construct as CoreMatrix, row, col);
+      case "key-value":
+        return this.getKeyValueFormat(construct as CoreKeyValue, row, col);
+      case "list":
+        return this.getListFormat(construct as CoreList, row, col);
       default:
         return null;
     }
@@ -165,32 +195,7 @@ export class ConstructFormatter {
     row: number,
     col: number
   ): CellFormat | null {
-    const cell = table.getCellAt(row, col);
-    if (!cell) {
-      return null;
-    }
-
-    const isDark = this.options.darkMode ?? false;
-    const { theme } = this.options;
-
-    if (cell.cellType === "header") {
-      return new CellFormat({
-        fontWeight: "bold",
-        backgroundColor: this.getTableHeaderColor(theme, isDark),
-        color: isDark ? "#ffffff" : "#000000",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        borderColor: isDark ? "#666666" : "#cccccc",
-      });
-    } else {
-      return new CellFormat({
-        backgroundColor: this.getTableBodyColor(theme, isDark),
-        color: isDark ? "#ffffff" : "#000000",
-        borderStyle: "solid",
-        borderWidth: "1px",
-        borderColor: isDark ? "#555555" : "#dddddd",
-      });
-    }
+    return this.tableFormatter.getCellFormat(table, row, col);
   }
 
   /**
@@ -201,106 +206,29 @@ export class ConstructFormatter {
     row: number,
     col: number
   ): CellFormat | null {
-    const cell = matrix.getCellAt(row, col);
-    if (!cell) {
-      return null;
-    }
-
-    const isDark = this.options.darkMode ?? false;
-    const { theme } = this.options;
-
-    switch (cell.cellType) {
-      case "primary-header":
-        return new CellFormat({
-          fontWeight: "bold",
-          backgroundColor: this.getMatrixPrimaryHeaderColor(theme, isDark),
-          color: isDark ? "#ffffff" : "#000000",
-          borderStyle: "solid",
-          borderWidth: "2px 1px 1px 2px",
-          borderColor: isDark ? "#777777" : "#999999",
-        });
-      case "secondary-header":
-        return new CellFormat({
-          fontWeight: "bold",
-          backgroundColor: this.getMatrixSecondaryHeaderColor(theme, isDark),
-          color: isDark ? "#ffffff" : "#000000",
-          borderStyle: "solid",
-          borderWidth: "1px 2px 2px 1px",
-          borderColor: isDark ? "#777777" : "#999999",
-        });
-      case "body":
-        return new CellFormat({
-          backgroundColor: this.getMatrixBodyColor(theme, isDark),
-          color: isDark ? "#ffffff" : "#000000",
-          borderStyle: "solid",
-          borderWidth: "1px",
-          borderColor: isDark ? "#555555" : "#dddddd",
-        });
-      default:
-        return null;
-    }
+    return this.matrixFormatter.getCellFormat(matrix, row, col);
   }
 
   /**
-   * Theme-specific color methods
+   * Get formatting for key-value construct
    */
-  private getTableHeaderColor(theme: string, isDark: boolean): string {
-    switch (theme) {
-      case "modern":
-        return isDark ? "#1976d2" : "#e3f2fd";
-      case "minimal":
-        return isDark ? "#404040" : "#f8f9fa";
-      case "bold":
-        return isDark ? "#d32f2f" : "#ffebee";
-      default:
-        return isDark ? "#333333" : "#f0f0f0";
-    }
+  private getKeyValueFormat(
+    keyValue: CoreKeyValue,
+    row: number,
+    col: number
+  ): CellFormat | null {
+    return this.keyValueFormatter.getCellFormat(keyValue, row, col);
   }
 
-  private getTableBodyColor(theme: string, isDark: boolean): string {
-    switch (theme) {
-      case "modern":
-        return isDark ? "#424242" : "#fafafa";
-      case "minimal":
-        return isDark ? "#2d2d2d" : "#ffffff";
-      case "bold":
-        return isDark ? "#616161" : "#f5f5f5";
-      default:
-        return isDark ? "#3a3a3a" : "#fdfdfd";
-    }
-  }
-
-  private getMatrixPrimaryHeaderColor(theme: string, isDark: boolean): string {
-    switch (theme) {
-      case "modern":
-        return isDark ? "#2e7d32" : "#e8f5e8";
-      case "minimal":
-        return isDark ? "#404040" : "#f8f9fa";
-      case "bold":
-        return isDark ? "#f57c00" : "#fff3e0";
-      default:
-        return isDark ? "#444444" : "#f8f8f8";
-    }
-  }
-
-  private getMatrixSecondaryHeaderColor(
-    theme: string,
-    isDark: boolean
-  ): string {
-    switch (theme) {
-      case "modern":
-        return isDark ? "#7b1fa2" : "#f3e5f5";
-      case "minimal":
-        return isDark ? "#505050" : "#f0f0f0";
-      case "bold":
-        return isDark ? "#5d4037" : "#efebe9";
-      default:
-        return isDark ? "#555555" : "#f0f0f0";
-    }
-  }
-
-  private getMatrixBodyColor(theme: string, isDark: boolean): string {
-    return this.getTableBodyColor(theme, isDark); // Same as table body
+  /**
+   * Get formatting for list construct
+   */
+  private getListFormat(
+    list: CoreList,
+    row: number,
+    col: number
+  ): CellFormat | null {
+    return this.listFormatter.getCellFormat(list, row, col);
   }
 
   /**
@@ -308,7 +236,25 @@ export class ConstructFormatter {
    */
   updateOptions(options: Partial<ConstructFormattingOptions>): void {
     this.options = { ...this.options, ...options };
+    
+    // Update all formatters with new options
     this.treeFormatter = this.treeFormatter.withOptions({
+      theme: this.options.theme,
+      darkMode: this.options.darkMode,
+    });
+    this.tableFormatter = this.tableFormatter.withOptions({
+      theme: this.options.theme,
+      darkMode: this.options.darkMode,
+    });
+    this.matrixFormatter = this.matrixFormatter.withOptions({
+      theme: this.options.theme,
+      darkMode: this.options.darkMode,
+    });
+    this.keyValueFormatter = this.keyValueFormatter.withOptions({
+      theme: this.options.theme,
+      darkMode: this.options.darkMode,
+    });
+    this.listFormatter = this.listFormatter.withOptions({
       theme: this.options.theme,
       darkMode: this.options.darkMode,
     });

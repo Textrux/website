@@ -136,10 +136,9 @@ export class CoreDetectionRules {
       cluster.filledPoints.map((p) => `${p.row},${p.col}`)
     );
 
-    // CRITICAL FIX: Cluster bounds are 0-indexed, but filled points are 1-indexed
-    // Convert cluster bounds to 1-indexed grid coordinates for R1C1-R2C2 mapping
-    const r1c1Row = cluster.topRow + 1; // Convert to 1-indexed grid coordinate
-    const r1c1Col = cluster.leftCol + 1; // Convert to 1-indexed grid coordinate
+    // Use cluster bounds directly since both bounds and filledPoints are now 1-indexed
+    const r1c1Row = cluster.topRow; // Already 1-indexed grid coordinate
+    const r1c1Col = cluster.leftCol; // Already 1-indexed grid coordinate
 
     const r1c1 = filledPointsSet.has(`${r1c1Row},${r1c1Col}`) ? 1 : 0;
     const r1c2 = filledPointsSet.has(`${r1c1Row},${r1c1Col + 1}`) ? 1 : 0;
@@ -210,9 +209,9 @@ export class CoreDetectionRules {
     if (height < 2) return false;
 
     // Check if first two cells in the column are filled (header + first item)
-    // FIXED: Cluster bounds are 0-indexed, convert to 1-indexed grid coordinates
-    const baseRow = cluster.topRow + 1; // Convert to 1-indexed
-    const baseCol = cluster.leftCol + 1; // Convert to 1-indexed
+    // Use cluster bounds directly since they are now 1-indexed
+    const baseRow = cluster.topRow; // Already 1-indexed
+    const baseCol = cluster.leftCol; // Already 1-indexed
     const r1c1Filled = this.isCellFilled(baseRow, baseCol);
     const r2c1Filled = this.isCellFilled(baseRow + 1, baseCol);
 
@@ -235,9 +234,9 @@ export class CoreDetectionRules {
     if (width < 2) return false;
 
     // Check if first two cells in the row are filled (header + first item)
-    // FIXED: Cluster bounds are 0-indexed, convert to 1-indexed grid coordinates
-    const baseRow = cluster.topRow + 1; // Convert to 1-indexed
-    const baseCol = cluster.leftCol + 1; // Convert to 1-indexed
+    // Use cluster bounds directly since they are now 1-indexed
+    const baseRow = cluster.topRow; // Already 1-indexed
+    const baseCol = cluster.leftCol; // Already 1-indexed
     const r1c1Filled = this.isCellFilled(baseRow, baseCol);
     const r1c2Filled = this.isCellFilled(baseRow, baseCol + 1);
 

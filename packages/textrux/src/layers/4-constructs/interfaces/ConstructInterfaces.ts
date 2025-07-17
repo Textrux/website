@@ -1,4 +1,18 @@
 /**
+ * Base element interface for all construct elements
+ */
+export interface BaseElement {
+  /** Position in the grid */
+  position: { row: number; col: number };
+  
+  /** Text content of the element */
+  content: string;
+  
+  /** Role/type within the construct (specific to each construct type) */
+  cellType: string;
+}
+
+/**
  * Base interface for all constructs
  */
 export interface BaseConstruct {
@@ -19,8 +33,17 @@ export interface BaseConstruct {
     rightCol: number;
   };
 
+  /** Elements contained within this construct for console navigation */
+  baseElements: BaseElement[];
+
   /** Metadata specific to the construct type */
   metadata: Record<string, any>;
+
+  /** Get element at specific position */
+  getElementAt?(row: number, col: number): BaseElement | null;
+  
+  /** Check if position is within construct bounds */
+  containsPosition?(row: number, col: number): boolean;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import { BaseConstruct, BaseElement } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core Matrix construct based on Cell Cluster Key system
@@ -99,9 +99,10 @@ export class CoreMatrix implements BaseConstruct {
    */
   organizeEntities(): void {
     // Create primary entities (columns) - each column is an entity
+    // Start from the first data column (after the secondary header column)
     for (
       let colIndex = 1;
-      colIndex < this.bounds.rightCol - this.bounds.leftCol + 1;
+      colIndex <= this.bounds.rightCol - this.bounds.leftCol;
       colIndex++
     ) {
       const col = this.bounds.leftCol + colIndex;
@@ -127,9 +128,10 @@ export class CoreMatrix implements BaseConstruct {
     }
 
     // Create secondary entities (rows) - each row is an entity
+    // Start from the first data row (after the primary header row)
     for (
       let rowIndex = 1;
-      rowIndex < this.bounds.bottomRow - this.bounds.topRow + 1;
+      rowIndex <= this.bounds.bottomRow - this.bounds.topRow;
       rowIndex++
     ) {
       const row = this.bounds.topRow + rowIndex;
@@ -323,6 +325,14 @@ export class CoreMatrix implements BaseConstruct {
   getEmptyCorner(): MatrixCell | null {
     return this.emptyCornerCell;
   }
+
+  /**
+   * Get elements for console navigation (BaseConstruct interface)
+   */
+  get baseElements(): BaseElement[] {
+    return this.cells as BaseElement[];
+  }
+
 
   /**
    * Create a matrix cell

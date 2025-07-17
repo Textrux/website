@@ -20,7 +20,8 @@
       "Bash(curl:*)",
       "Bash(npm run:*)",
       "Bash(ls:*)",
-      "WebFetch(domain:liveprog.org)"
+      "WebFetch(domain:liveprog.org)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }

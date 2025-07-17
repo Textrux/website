@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import { BaseConstruct, BaseElement } from "../interfaces/ConstructInterfaces";
 import GridModel from "../../1-substrate/GridModel";
 import CellCluster from "../../3-foundation/cell-cluster/CellCluster";
 
@@ -17,6 +17,7 @@ export interface TreeElement {
   children: TreeElement[];
   peers: TreeElement[];
   domainRegion?: DomainRegion;
+  items?: TreeElement[]; // For anchor and childHeader elements
 
   // Role-based methods
   isAnchor(): boolean;
@@ -703,25 +704,86 @@ export class CoreTree implements BaseConstruct {
 
       isChildHeader(): boolean {
         // Child headers are elements that label a group of children
-        // Detected based on spatial position: same row as parent but in child column
+        // They should be on the same row as parent AND have children positioned below/to the right
         if (!tree || !parent) return false;
         
-        // Check if this element is at the same row as its parent but offset in primary direction
+        // Check spatial position relative to parent
+        const isSameRowAsParent = position.row === parent.position.row;
+        const isSameColAsParent = position.col === parent.position.col;
+        
         if (tree.orientation === "regular") {
-          // Regular: child headers are same row as parent, but in different column
-          return position.row === parent.position.row && position.col > parent.position.col;
+          // Regular orientation: child headers are same row as parent, different column
+          // AND should have children positioned below them
+          if (!isSameRowAsParent || position.col <= parent.position.col) return false;
         } else {
-          // Transposed: child headers are same column as parent, but in different row  
-          return position.col === parent.position.col && position.row > parent.position.row;
+          // Transposed orientation: child headers are same column as parent, different row
+          // AND should have children positioned to the right of them
+          if (!isSameColAsParent || position.row <= parent.position.row) return false;
         }
+        
+        // Check if this element actually has children or siblings that would make it a header
+        return this.children.length > 0 || tree.elements.some(el => 
+          el.parent === this.parent && 
+          ((tree.orientation === "regular" && el.position.row > position.row && el.position.col === position.col) ||
+           (tree.orientation === "transposed" && el.position.col > position.col && el.position.row === position.row))
+        );
       },
 
       isPeer(): boolean {
+        // Anchor elements should never have peers
+        if (this.isAnchor()) return false;
+        
         // Elements at the same level that share the same parent
         return this.peers.length > 0;
       },
     };
 
+    // Populate items array for anchor and childHeader elements
+    if (tree && allFilledPoints) {
+      // For anchor elements, add all elements in the first column as items
+      if (element.isAnchor()) {
+        const firstCol = tree.bounds.leftCol;
+        element.items = tree.elements.filter(el => 
+          el.position.col === firstCol && el !== element
+        );
+      }
+      
+      // For childHeader elements, add child cells directly to their left (regular) or above (transposed)
+      if (element.isChildHeader()) {
+        element.items = tree.elements.filter(el => {
+          if (tree.orientation === "regular") {
+            // Regular: items are directly below the childHeader
+            return el.position.col === element.position.col && el.position.row > element.position.row;
+          } else {
+            // Transposed: items are directly to the right of the childHeader
+            return el.position.row === element.position.row && el.position.col > element.position.col;
+          }
+        });
+      }
+    }
+
     return element;
   }
+
+  /**
+   * Get elements for console navigation (BaseConstruct interface)
+   */
+  get baseElements(): BaseElement[] {
+    return this.elements.map(element => {
+      // Map TreeElement to BaseElement
+      const roles = [];
+      if (element.isAnchor?.()) roles.push('anchor');
+      if (element.isParent?.()) roles.push('parent');
+      if (element.isChild?.()) roles.push('child');
+      if (element.isChildHeader?.()) roles.push('child-header');
+      if (element.isPeer?.()) roles.push('peer');
+      
+      return {
+        position: element.position,
+        content: element.content,
+        cellType: roles.join(',') || 'node' // Join multiple roles or default to 'node'
+      };
+    });
+  }
+
 }

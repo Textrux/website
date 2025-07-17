@@ -587,11 +587,19 @@ export class CoreConstructParser {
         // Parent-child relationship established - roles are determined dynamically
       }
 
-      // Elements at the same level are peers
+      // Elements at the same level are peers, but anchor and childHeader elements are not peers
       for (const stackElement of levelStack) {
         if (stackElement.level === element.level && stackElement !== element) {
-          stackElement.peers.push(element);
-          element.peers.push(stackElement);
+          // Don't assign peer relationships to anchor elements or childHeader elements
+          const elementIsAnchor = element.isAnchor();
+          const stackElementIsAnchor = stackElement.isAnchor();
+          const elementIsChildHeader = element.isChildHeader();
+          const stackElementIsChildHeader = stackElement.isChildHeader();
+          
+          if (!elementIsAnchor && !stackElementIsAnchor && !elementIsChildHeader && !stackElementIsChildHeader) {
+            stackElement.peers.push(element);
+            element.peers.push(stackElement);
+          }
         }
       }
 
@@ -678,9 +686,17 @@ export class CoreConstructParser {
             const elem2 = levelElements[j];
 
             // Only consider elements peers if they have the same parent
+            // AND neither is an anchor or childHeader element
             if (elem1.parent === elem2.parent) {
-              if (!elem1.peers.includes(elem2)) elem1.peers.push(elem2);
-              if (!elem2.peers.includes(elem1)) elem2.peers.push(elem1);
+              const elem1IsAnchor = elem1.isAnchor();
+              const elem2IsAnchor = elem2.isAnchor();
+              const elem1IsChildHeader = elem1.isChildHeader();
+              const elem2IsChildHeader = elem2.isChildHeader();
+              
+              if (!elem1IsAnchor && !elem2IsAnchor && !elem1IsChildHeader && !elem2IsChildHeader) {
+                if (!elem1.peers.includes(elem2)) elem1.peers.push(elem2);
+                if (!elem2.peers.includes(elem1)) elem2.peers.push(elem1);
+              }
             }
           }
         }

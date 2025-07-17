@@ -119,12 +119,16 @@ export default class CellCluster {
       visited.add(key);
       component.push(current);
 
-      // Add neighbors (4-way connectivity: up, down, left, right)
+      // Add neighbors (8-way connectivity: up, down, left, right, and diagonals)
       const neighbors = [
         { row: current.row - 1, col: current.col }, // up
         { row: current.row + 1, col: current.col }, // down
         { row: current.row, col: current.col - 1 }, // left
         { row: current.row, col: current.col + 1 }, // right
+        { row: current.row - 1, col: current.col - 1 }, // up-left (NW)
+        { row: current.row - 1, col: current.col + 1 }, // up-right (NE)
+        { row: current.row + 1, col: current.col - 1 }, // down-left (SW)
+        { row: current.row + 1, col: current.col + 1 }, // down-right (SE)
       ];
 
       for (const neighbor of neighbors) {

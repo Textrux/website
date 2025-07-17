@@ -1115,6 +1115,9 @@ export function GridView({
       setStyleMap(sm);
       blockListRef.current = blockList;
       
+      // 🔍 DEBUG: Complete GridModel object for exploration
+      console.log("🏗️ Complete GridModel Hierarchy:", grid);
+      
       // 🔍 DEBUG: Log parsed constructs to console
       console.group("🔍 Textrux Parse Results");
       console.log("📊 Blocks found:", blockList.length);
@@ -1216,6 +1219,19 @@ export function GridView({
         console.log(csv);
         console.groupEnd();
         return csv;
+      };
+
+      window.textruxDebug.inspectGrid = () => {
+        console.group("🏗️ Complete GridModel Object");
+        console.log("📋 Full GridModel hierarchy with all layers:", grid);
+        console.log("📐 Dimensions:", `${grid.rowCount} rows × ${grid.columnCount} columns`);
+        console.log("🔢 Total cells:", grid.rowCount * grid.columnCount);
+        console.log("📝 Filled cells:", grid.getFilledCells().length);
+        if (grid.blockClusters) {
+          console.log("🏢 Block clusters:", grid.blockClusters.length);
+        }
+        console.groupEnd();
+        return grid;
       };
 
       (window.textruxDebug as any).inspectElements = (row?: number, col?: number) => {
@@ -1498,6 +1514,7 @@ export function GridView({
       console.log("🔍 Textrux Debug Interface Ready!");
       console.log("Available commands:");
       console.log("• textruxDebug.parseGrid() - Re-parse the current grid");
+      console.log("• textruxDebug.inspectGrid() - Dump complete GridModel object for exploration");
       console.log("• textruxDebug.inspectCell(row, col) - Inspect a specific cell");
       console.log("• textruxDebug.showAllConstructs() - Show all detected constructs");
       console.log("• textruxDebug.inspectElements() - Show detailed element breakdown for all constructs");
@@ -5264,6 +5281,7 @@ declare global {
   interface Window {
     textruxDebug: {
       parseGrid: () => void;
+      inspectGrid: () => any;
       inspectCell: (row: number, col: number) => void;
       showAllConstructs: () => void;
       getGridData: () => string;

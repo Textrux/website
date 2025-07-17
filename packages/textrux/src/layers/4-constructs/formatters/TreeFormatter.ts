@@ -208,6 +208,39 @@ export class TreeFormatter {
   }
 
   /**
+   * Get formatting for empty cells within tree bounds
+   */
+  getEmptyTreeCellFormat(): CellFormat {
+    const isDark = this.options.darkMode ?? false;
+    const { theme } = this.options;
+
+    // Provide subtle background formatting for empty tree cells
+    const emptyFormat = new CellFormat({
+      fontWeight: "normal",
+      fontSize: "14px",
+    });
+
+    // Apply theme-specific colors for empty tree cells
+    switch (theme) {
+      case "modern":
+        emptyFormat.backgroundColor = isDark ? "#303030" : "#fafafa";
+        break;
+      case "minimal":
+        emptyFormat.backgroundColor = isDark ? "#2a2a2a" : "#ffffff";
+        break;
+      case "bold":
+        emptyFormat.backgroundColor = isDark ? "#404040" : "#f8f8f8";
+        break;
+      default:
+        emptyFormat.backgroundColor = isDark ? "#333333" : "#fdfdfd";
+    }
+
+    emptyFormat.color = isDark ? "#666666" : "#cccccc";
+
+    return emptyFormat;
+  }
+
+  /**
    * Create a formatter with updated options
    */
   withOptions(options: Partial<TreeFormattingOptions>): TreeFormatter {

@@ -156,7 +156,7 @@ export default class GridModel {
     this.constructFormatter = new ConstructFormatter({
       theme: "default",
       darkMode: false,
-      enableFormatting: false, // Disabled by default to improve performance
+      enableFormatting: true, // Enable formatting for construct elements
     });
   }
 

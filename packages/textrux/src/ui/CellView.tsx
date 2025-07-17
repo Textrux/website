@@ -212,11 +212,8 @@ export function CellView(props: CellViewProps) {
     ? "!border-1 !border-dashed !border-slate-600 "
     : "bg-white";
 
-  const styleFormat: React.CSSProperties = {
-    backgroundColor: format.backgroundColor,
-    color: format.color,
-    fontWeight: format.fontWeight,
-  };
+  // Use complete CellFormat formatting instead of manual property mapping
+  const styleFormat: React.CSSProperties = format.toInlineStyles();
 
   const combinedClasses = [
     "absolute",
@@ -245,8 +242,11 @@ export function CellView(props: CellViewProps) {
         width,
         height,
         fontSize,
+        // Apply default border only if no specific border formatting is provided
+        border: styleFormat.borderWidth || styleFormat.borderStyle || styleFormat.borderColor
+          ? undefined 
+          : ".5px solid #D2D2D2",
         ...styleFormat,
-        border: ".5px solid #D2D2D2",
       }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}

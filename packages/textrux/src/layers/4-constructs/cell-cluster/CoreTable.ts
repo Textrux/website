@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import { BaseConstruct, BaseElement } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core Table construct based on Cell Cluster Key system
@@ -37,9 +37,8 @@ export class CoreTable implements BaseConstruct {
   cells: TableCell[];
   headerCells: TableCell[];
   bodyCells: TableCell[];
-  entities: TableEntity[]; // Rows (or columns if transposed)
-  attributes: TableEntity[]; // Columns (or rows if transposed)
-  hasHeaders: boolean;
+  entities: TableEntity[]; // Data rows only (excluding header row)
+  attributes: TableEntity[]; // Columns with headers and data cells
 
   constructor(
     id: string,
@@ -54,7 +53,6 @@ export class CoreTable implements BaseConstruct {
     this.bodyCells = [];
     this.entities = [];
     this.attributes = [];
-    this.hasHeaders = false;
     this.metadata = {};
   }
 
@@ -66,39 +64,44 @@ export class CoreTable implements BaseConstruct {
     
     if (cell.cellType === "header") {
       this.headerCells.push(cell);
-      this.hasHeaders = true;
     } else {
       this.bodyCells.push(cell);
     }
   }
 
   /**
-   * Organize cells into entities (rows) and attributes (columns)
+   * Organize cells into entities (data rows) and attributes (columns)
    */
   organizeEntitiesAndAttributes(): void {
     const rowCount = this.bounds.bottomRow - this.bounds.topRow + 1;
     const colCount = this.bounds.rightCol - this.bounds.leftCol + 1;
 
-    // Create entities (rows)
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-      const rowCells = this.cells.filter(
-        cell => cell.position.row === this.bounds.topRow + rowIndex
-      );
+    // Create entities - only for data rows (excluding header row)
+    // Start from row 1 to skip the header row
+    for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
+      const currentRow = this.bounds.topRow + rowIndex;
+      
+      // Get all cells in this row, sorted by column position
+      const rowCells = this.cells
+        .filter(cell => cell.position.row === currentRow)
+        .sort((a, b) => a.position.col - b.position.col);
       
       const entity: TableEntity = {
         type: "entity",
-        index: rowIndex,
-        headerCell: rowCells.find(cell => cell.cellType === "header"),
-        bodyCells: rowCells.filter(cell => cell.cellType === "body")
+        index: rowIndex - 1, // 0-indexed for data rows only
+        headerCell: undefined, // Data rows don't have header cells
+        bodyCells: rowCells // All cells in this data row
       };
       
       this.entities.push(entity);
     }
 
-    // Create attributes (columns)
+    // Create attributes (columns) - include headers and corresponding body cells
     for (let colIndex = 0; colIndex < colCount; colIndex++) {
+      const currentCol = this.bounds.leftCol + colIndex;
+      
       const colCells = this.cells.filter(
-        cell => cell.position.col === this.bounds.leftCol + colIndex
+        cell => cell.position.col === currentCol
       );
       
       const attribute: TableEntity = {
@@ -266,6 +269,14 @@ export class CoreTable implements BaseConstruct {
            col >= this.bounds.leftCol &&
            col <= this.bounds.rightCol;
   }
+
+  /**
+   * Get elements for console navigation (BaseConstruct interface)
+   */
+  get baseElements(): BaseElement[] {
+    return this.cells as BaseElement[];
+  }
+
 
   /**
    * Create a table cell

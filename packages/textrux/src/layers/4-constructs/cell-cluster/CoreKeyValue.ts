@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import { BaseConstruct, BaseElement } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core Key-Value construct based on Cell Cluster Key system
@@ -312,6 +312,14 @@ export class CoreKeyValue implements BaseConstruct {
     
     return result;
   }
+
+  /**
+   * Get elements for console navigation (BaseConstruct interface)
+   */
+  get baseElements(): BaseElement[] {
+    return this.cells as BaseElement[];
+  }
+
 
   /**
    * Create a key-value cell

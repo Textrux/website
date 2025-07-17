@@ -1,4 +1,4 @@
-import { BaseConstruct } from "../interfaces/ConstructInterfaces";
+import { BaseConstruct, BaseElement } from "../interfaces/ConstructInterfaces";
 
 /**
  * Core List construct based on Cell Cluster Key system
@@ -321,6 +321,14 @@ export class CoreList implements BaseConstruct {
     
     return cell;
   }
+
+  /**
+   * Get elements for console navigation (BaseConstruct interface)
+   */
+  get baseElements(): BaseElement[] {
+    return this.cells as BaseElement[];
+  }
+
 
   /**
    * Create a list element for tree domain usage

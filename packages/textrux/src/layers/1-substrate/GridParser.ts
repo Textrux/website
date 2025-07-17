@@ -86,14 +86,14 @@ export function parseAndFormatGrid(grid: GridModel): {
       grid.columnCount
     );
     // each sub-container => array of filled points
-    // CRITICAL FIX: Convert from 1-indexed Container coordinates to 0-indexed CellCluster coordinates
+    // Use consistent 1-indexed coordinates for both bounds and filledPoints
     const cellClusters = subContainers.map(
       (ctr) =>
         new CellCluster(
-          ctr.topRow - 1,    // Convert from 1-indexed to 0-indexed
-          ctr.bottomRow - 1, // Convert from 1-indexed to 0-indexed
-          ctr.leftColumn - 1, // Convert from 1-indexed to 0-indexed
-          ctr.rightColumn - 1, // Convert from 1-indexed to 0-indexed
+          ctr.topRow,    // Keep 1-indexed coordinates
+          ctr.bottomRow, // Keep 1-indexed coordinates
+          ctr.leftColumn, // Keep 1-indexed coordinates
+          ctr.rightColumn, // Keep 1-indexed coordinates
           ctr.filledPoints
         )
     );
