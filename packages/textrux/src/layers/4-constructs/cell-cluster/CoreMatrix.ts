@@ -99,12 +99,9 @@ export class CoreMatrix implements BaseConstruct {
    */
   organizeEntities(): void {
     // Create primary entities (columns) - each column is an entity
-    // Start from the first data column (after the secondary header column)
-    for (
-      let colIndex = 1;
-      colIndex <= this.bounds.rightCol - this.bounds.leftCol;
-      colIndex++
-    ) {
+    // Start from the first data column (skip the empty corner column and secondary header column)
+    const colCount = this.bounds.rightCol - this.bounds.leftCol + 1;
+    for (let colIndex = 1; colIndex < colCount; colIndex++) {
       const col = this.bounds.leftCol + colIndex;
 
       const headerCell = this.primaryHeaders.find(
@@ -118,7 +115,7 @@ export class CoreMatrix implements BaseConstruct {
       if (headerCell) {
         const entity: MatrixEntity = {
           type: "primary",
-          index: colIndex, // Keep 1-indexed
+          index: colIndex - 1, // 0-indexed for entity arrays
           headerCell,
           bodyCells: columnBodyCells,
         };
@@ -128,12 +125,9 @@ export class CoreMatrix implements BaseConstruct {
     }
 
     // Create secondary entities (rows) - each row is an entity
-    // Start from the first data row (after the primary header row)
-    for (
-      let rowIndex = 1;
-      rowIndex <= this.bounds.bottomRow - this.bounds.topRow;
-      rowIndex++
-    ) {
+    // Start from the first data row (skip the empty corner row and primary header row)
+    const rowCount = this.bounds.bottomRow - this.bounds.topRow + 1;
+    for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
       const row = this.bounds.topRow + rowIndex;
 
       const headerCell = this.secondaryHeaders.find(
@@ -147,7 +141,7 @@ export class CoreMatrix implements BaseConstruct {
       if (headerCell) {
         const entity: MatrixEntity = {
           type: "secondary",
-          index: rowIndex, // Keep 1-indexed
+          index: rowIndex - 1, // 0-indexed for entity arrays
           headerCell,
           bodyCells: rowBodyCells,
         };

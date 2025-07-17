@@ -70,10 +70,9 @@ export class CoreConstructParser {
       const content = this.grid.getCellRaw(point.row, point.col);
       if (content && content.trim()) {
         // Determine cell type for table: only first row OR only first column are headers, not both
-        // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
-        // Convert cluster bounds to 1-indexed for comparison
-        const isFirstRow = point.row === cluster.topRow + 1;
-        const isFirstCol = point.col === cluster.leftCol + 1;
+        // Use cluster bounds directly since they are now 1-indexed
+        const isFirstRow = point.row === cluster.topRow;
+        const isFirstCol = point.col === cluster.leftCol;
 
         // For this table structure: only first row contains headers
         // First column of subsequent rows are body cells, not headers
@@ -156,10 +155,11 @@ export class CoreConstructParser {
     );
 
     // Add all cells except the empty corner (R1C1) by definition of key=7
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
-      for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
+    // Use cluster bounds directly since they are now 1-indexed
+    for (let row = cluster.topRow; row <= cluster.bottomRow; row++) {
+      for (let col = cluster.leftCol; col <= cluster.rightCol; col++) {
         // Skip R1C1 (empty corner) - this is what makes it key=7
-        if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
+        if (row === cluster.topRow && col === cluster.leftCol) {
           continue;
         }
 
@@ -168,16 +168,16 @@ export class CoreConstructParser {
           // Determine cell type
           let cellType: "primary-header" | "secondary-header" | "body";
 
-          if (row === cluster.topRow + 1) {
+          if (row === cluster.topRow) {
             cellType = "primary-header"; // First row headers
-          } else if (col === cluster.leftCol + 1) {
+          } else if (col === cluster.leftCol) {
             cellType = "secondary-header"; // First column headers
           } else {
             cellType = "body"; // Body cells
           }
 
           const cell = CoreMatrix.createCell(
-            { row: row, col: col }, // Keep 1-indexed coordinates
+            { row: row, col: col }, // Use actual 1-indexed coordinates
             content.trim(),
             cellType
           );
@@ -238,17 +238,17 @@ export class CoreConstructParser {
     cluster: CellCluster,
     keyValue: CoreKeyValue
   ): void {
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
-      for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
+    for (let row = cluster.topRow; row <= cluster.bottomRow; row++) {
+      for (let col = cluster.leftCol; col <= cluster.rightCol; col++) {
         const content = this.grid.getCellRaw(row, col);
         if (content && content.trim()) {
           let cellType: "main-header" | "key" | "value" | "marker";
 
-          if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
+          if (row === cluster.topRow && col === cluster.leftCol) {
             cellType = "main-header"; // R1C1 is main header
-          } else if (col === cluster.leftCol + 2) {
+          } else if (col === cluster.leftCol + 1) {
             cellType = "key"; // Second column contains keys (starting at R2C2)
-          } else if (col > cluster.leftCol + 2) {
+          } else if (col > cluster.leftCol + 1) {
             cellType = "value"; // Columns beyond second contain values
           } else {
             // Skip gap cells (R2C1, R1C2) - these are empty by definition of key=9
@@ -256,7 +256,7 @@ export class CoreConstructParser {
           }
 
           const cell = CoreKeyValue.createCell(
-            { row: row, col: col }, // Keep 1-indexed coordinates
+            { row: row, col: col }, // Use actual 1-indexed coordinates
             content.trim(),
             cellType
           );
@@ -274,17 +274,17 @@ export class CoreConstructParser {
     cluster: CellCluster,
     keyValue: CoreKeyValue
   ): void {
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
-      for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
+    for (let row = cluster.topRow; row <= cluster.bottomRow; row++) {
+      for (let col = cluster.leftCol; col <= cluster.rightCol; col++) {
         const content = this.grid.getCellRaw(row, col);
         if (content && content.trim()) {
           let cellType: "main-header" | "key" | "value" | "marker";
 
-          if (row === cluster.topRow + 1 && col === cluster.leftCol + 1) {
+          if (row === cluster.topRow && col === cluster.leftCol) {
             cellType = "main-header"; // R1C1 is main header
-          } else if (row === cluster.topRow + 2) {
+          } else if (row === cluster.topRow + 1) {
             cellType = "key"; // Second row contains keys (starting at R2C2)
-          } else if (row > cluster.topRow + 2) {
+          } else if (row > cluster.topRow + 1) {
             cellType = "value"; // Rows beyond second contain values
           } else {
             // Skip gap cells (R1C2, R2C1) - these are empty by definition of key=9
@@ -292,7 +292,7 @@ export class CoreConstructParser {
           }
 
           const cell = CoreKeyValue.createCell(
-            { row: row, col: col }, // Keep 1-indexed coordinates
+            { row: row, col: col }, // Use actual 1-indexed coordinates
             content.trim(),
             cellType
           );
@@ -344,22 +344,22 @@ export class CoreConstructParser {
    * Cluster is guaranteed to be single column with at least 2 cells
    */
   private processVerticalList(cluster: CellCluster, list: CoreList): void {
-    const col = cluster.leftCol + 1; // Single column for vertical lists
+    const col = cluster.leftCol; // Single column for vertical lists (now 1-indexed)
 
-    for (let row = cluster.topRow + 1; row <= cluster.bottomRow + 1; row++) {
+    for (let row = cluster.topRow; row <= cluster.bottomRow; row++) {
       const content = this.grid.getCellRaw(row, col);
 
       if (content && content.trim()) {
         let cellType: "header" | "item";
 
-        if (row === cluster.topRow + 1) {
+        if (row === cluster.topRow) {
           cellType = "header"; // R1C1 is header
         } else {
           cellType = "item"; // R2C1 and beyond are items
         }
 
         const cell = CoreList.createCell(
-          { row: row, col: col }, // Keep 1-indexed coordinates
+          { row: row, col: col }, // Use actual 1-indexed coordinates
           content.trim(),
           cellType
         );
@@ -374,22 +374,22 @@ export class CoreConstructParser {
    * Cluster is guaranteed to be single row with at least 2 cells
    */
   private processHorizontalList(cluster: CellCluster, list: CoreList): void {
-    const row = cluster.topRow + 1; // Single row for horizontal lists
+    const row = cluster.topRow; // Single row for horizontal lists (now 1-indexed)
 
-    for (let col = cluster.leftCol + 1; col <= cluster.rightCol + 1; col++) {
+    for (let col = cluster.leftCol; col <= cluster.rightCol; col++) {
       const content = this.grid.getCellRaw(row, col);
 
       if (content && content.trim()) {
         let cellType: "header" | "item";
 
-        if (col === cluster.leftCol + 1) {
+        if (col === cluster.leftCol) {
           cellType = "header"; // R1C1 is header
         } else {
           cellType = "item"; // R1C2 and beyond are items
         }
 
         const cell = CoreList.createCell(
-          { row: row, col: col }, // Keep 1-indexed coordinates
+          { row: row, col: col }, // Use actual 1-indexed coordinates
           content.trim(),
           cellType
         );
@@ -541,14 +541,12 @@ export class CoreConstructParser {
     let spatialLevel = 0;
     if (orientation === "regular") {
       // Column position determines level: leftmost = 0, next column = 1, etc.
-      // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
-      // Convert cluster bounds to 1-indexed for comparison
-      spatialLevel = col - (cluster.leftCol + 1);
+      // Use cluster bounds directly since they are now 1-indexed
+      spatialLevel = col - cluster.leftCol;
     } else {
       // Transposed orientation: row position determines level  
-      // CRITICAL: cluster bounds are 0-indexed, but filled points are 1-indexed
-      // Convert cluster bounds to 1-indexed for comparison
-      spatialLevel = row - (cluster.topRow + 1);
+      // Use cluster bounds directly since they are now 1-indexed
+      spatialLevel = row - cluster.topRow;
     }
 
     // Use the maximum of content level and spatial level
@@ -613,6 +611,9 @@ export class CoreConstructParser {
 
     // Recategorize elements now that parent-child relationships are established
     this.recategorizeTreeElements(tree);
+
+    // Populate items arrays for anchor and childHeader elements after tree is fully built
+    this.populateTreeElementItems(tree);
 
     // Calculate domain regions for parent elements
     for (const parent of tree.parentElements) {
@@ -700,6 +701,40 @@ export class CoreConstructParser {
             }
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Populate items arrays for anchor and childHeader elements after tree is fully built
+   */
+  private populateTreeElementItems(tree: CoreTree): void {
+    // Populate items for anchor element
+    if (tree.anchorElement) {
+      tree.anchorElement.items = [];
+      // For anchor elements, add all other elements in the first column as items
+      const firstCol = tree.bounds.leftCol + 1; // Convert to 1-indexed
+      tree.anchorElement.items = tree.elements.filter(el => 
+        el.position.col === firstCol && el !== tree.anchorElement
+      );
+    }
+
+    // Populate items for childHeader elements
+    for (const childHeader of tree.childHeaderElements) {
+      childHeader.items = [];
+      
+      if (tree.orientation === "regular") {
+        // Regular orientation: items are directly below the childHeader
+        childHeader.items = tree.elements.filter(el => 
+          el.position.col === childHeader.position.col && 
+          el.position.row > childHeader.position.row
+        );
+      } else {
+        // Transposed orientation: items are directly to the right of the childHeader
+        childHeader.items = tree.elements.filter(el => 
+          el.position.row === childHeader.position.row && 
+          el.position.col > childHeader.position.col
+        );
       }
     }
   }
