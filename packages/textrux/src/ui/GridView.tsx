@@ -197,6 +197,11 @@ export function GridView({
   handleChangeDefaultSizes,
 }: GridViewProps) {
   //
+  // DEBUG: Toggle for textruxDebug console messages
+  //
+  const SHOW_DEBUG_MESSAGES = false; // Set to true to see debug messages
+
+  //
   // 1) We'll create a local "zoom" state. If autoLoadLocalStorage is true,
   // we'll load it once from LocalStorageManager on mount.
   //
@@ -323,18 +328,18 @@ export function GridView({
   // Add state update tracking in the GridView component
   // Sync grid values with UI state when grid prop changes
   useEffect(() => {
-    console.log(
-      "Grid prop changed in GridView",
-      "grid.index:",
-      grid.index,
-      "grid.zoomLevel:",
-      grid.zoomLevel,
-      "grid.delimiter:",
-      grid.delimiter
-    );
+    // console.log(
+    //   "Grid prop changed in GridView",
+    //   "grid.index:",
+    //   grid.index,
+    //   "grid.zoomLevel:",
+    //   grid.zoomLevel,
+    //   "grid.delimiter:",
+    //   grid.delimiter
+    // );
 
     // Check what our current state is vs the new grid
-    console.log("Current state", "zoom:", zoom, "delimiter:", currentDelimiter);
+    // console.log("Current state", "zoom:", zoom, "delimiter:", currentDelimiter);
 
     // Only sync on initial load or when switching tabs, not when user zooms
     // This prevents overriding the zoom when user scrolls with Ctrl+wheel
@@ -1111,120 +1116,178 @@ export function GridView({
 
   const reparse = useCallback(() => {
     if (!isFormattingDisabled) {
-      const { styleMap: sm, formatMap: fm, blockList } = parseAndFormatGrid(grid);
+      const {
+        styleMap: sm,
+        formatMap: fm,
+        blockList,
+      } = parseAndFormatGrid(grid);
       setStyleMap(sm);
       blockListRef.current = blockList;
-      
+
       // 🔍 DEBUG: Complete GridModel object for exploration
-      console.log("🏗️ Complete GridModel Hierarchy:", grid);
-      
-      // 🔍 DEBUG: Detailed formatting analysis for each filled cell in each cluster
-      console.group("🎨 Detailed Cell Formatting Analysis");
-      console.log("📊 Blocks found:", blockList.length);
-      
-      blockList.forEach((block, blockIndex) => {
-        if (block.cellClusters && block.cellClusters.length > 0) {
-          console.group(`📦 Block ${blockIndex + 1} (${block.cellClusters.length} clusters)`);
-          
-          block.cellClusters.forEach((cluster, clusterIndex) => {
-            const detectionResult = cluster.detectConstructType(grid);
-            if (detectionResult && cluster.constructs.length > 0) {
-              const construct = cluster.constructs[0];
-              console.group(`🎯 Cluster ${clusterIndex + 1}: ${detectionResult.constructType} (Key: ${detectionResult.key})`);
-              console.log(`   Bounds: R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
-              
-              // Analyze each filled cell in this cluster
-              cluster.filledPoints.forEach(point => {
-                const row = point.row;
-                const col = point.col;
-                const content = grid.getCellRaw(row, col);
-                const actualFormat = fm[`R${row}C${col}`] || null;
-                
-                // Determine what element this should be
-                let expectedElementType = "unknown";
-                let expectedFormatting = "none";
-                
-                if (construct.type === "tree") {
-                  const treeConstruct = construct as any;
-                  const element = treeConstruct.findElementAt(row, col);
-                  if (element) {
-                    if (element.isAnchor()) {
-                      expectedElementType = "tree-anchor";
-                      expectedFormatting = "bold, larger font, thick accent border";
-                    } else if (element.isParent()) {
-                      expectedElementType = "tree-parent";
-                      expectedFormatting = "right AND bottom borders, centered";
-                    } else if (element.isChildHeader()) {
-                      expectedElementType = "tree-childHeader";
-                      expectedFormatting = "centered";
-                    } else if (element.isChild()) {
-                      expectedElementType = "tree-child";
-                      expectedFormatting = "centered";
-                    } else {
-                      expectedElementType = "tree-other";
-                      expectedFormatting = "centered";
-                    }
-                  }
-                  
-                  // Check for nested constructs
-                  if (treeConstruct.childConstructs) {
-                    for (const childConstruct of treeConstruct.childConstructs) {
-                      if (row >= childConstruct.bounds.topRow && row <= childConstruct.bounds.bottomRow &&
-                          col >= childConstruct.bounds.leftCol && col <= childConstruct.bounds.rightCol) {
-                        if (childConstruct.type === "matrix") {
-                          // Check if this is primary header, secondary header, or body
-                          if ((row === childConstruct.bounds.topRow && col > childConstruct.bounds.leftCol) ||
-                              (col === childConstruct.bounds.leftCol && row > childConstruct.bounds.topRow)) {
-                            expectedElementType = "matrix-header";
-                            expectedFormatting = "thick border, centered, bold";
-                          } else {
-                            expectedElementType = "matrix-body";
-                            expectedFormatting = "centered";
-                          }
-                        } else if (childConstruct.type === "table") {
-                          expectedElementType = "table-cell";
-                          expectedFormatting = "centered, possible header styling";
-                        } else if (childConstruct.type === "key-value") {
-                          expectedElementType = "key-value";
-                          expectedFormatting = "keys: right border, italics, light green bg; values: centered";
-                        }
-                        break;
+      if (SHOW_DEBUG_MESSAGES) {
+        console.log("🏗️ Complete GridModel Hierarchy:", grid);
+
+        // 🔍 DEBUG: Detailed formatting analysis for each filled cell in each cluster
+        console.group("🎨 Detailed Cell Formatting Analysis");
+        console.log("📊 Blocks found:", blockList.length);
+      }
+
+      if (SHOW_DEBUG_MESSAGES) {
+        blockList.forEach((block, blockIndex) => {
+          if (block.cellClusters && block.cellClusters.length > 0) {
+            console.group(
+              `📦 Block ${blockIndex + 1} (${
+                block.cellClusters.length
+              } clusters)`
+            );
+
+            block.cellClusters.forEach((cluster, clusterIndex) => {
+              const detectionResult = cluster.detectConstructType(grid);
+              if (detectionResult && cluster.constructs.length > 0) {
+                const construct = cluster.constructs[0];
+                console.group(
+                  `🎯 Cluster ${clusterIndex + 1}: ${
+                    detectionResult.constructType
+                  } (Key: ${detectionResult.key})`
+                );
+                console.log(
+                  `   Bounds: R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${
+                    cluster.bottomRow + 1
+                  }C${cluster.rightCol + 1}`
+                );
+
+                // Analyze each filled cell in this cluster
+                cluster.filledPoints.forEach((point) => {
+                  const row = point.row;
+                  const col = point.col;
+                  const content = grid.getCellRaw(row, col);
+                  const actualFormat = fm[`R${row}C${col}`] || null;
+
+                  // Determine what element this should be
+                  let expectedElementType = "unknown";
+                  let expectedFormatting = "none";
+
+                  if (construct.type === "tree") {
+                    const treeConstruct = construct as any;
+                    const element = treeConstruct.findElementAt(row, col);
+                    if (element) {
+                      if (element.isAnchor()) {
+                        expectedElementType = "tree-anchor";
+                        expectedFormatting =
+                          "bold, larger font, thick accent border";
+                      } else if (element.isParent()) {
+                        expectedElementType = "tree-parent";
+                        expectedFormatting =
+                          "right AND bottom borders, centered";
+                      } else if (element.isChildHeader()) {
+                        expectedElementType = "tree-childHeader";
+                        expectedFormatting = "centered";
+                      } else if (element.isChild()) {
+                        expectedElementType = "tree-child";
+                        expectedFormatting = "centered";
+                      } else {
+                        expectedElementType = "tree-other";
+                        expectedFormatting = "centered";
                       }
                     }
+
+                    // Check for nested constructs
+                    if (treeConstruct.childConstructs) {
+                      for (const childConstruct of treeConstruct.childConstructs) {
+                        if (
+                          row >= childConstruct.bounds.topRow &&
+                          row <= childConstruct.bounds.bottomRow &&
+                          col >= childConstruct.bounds.leftCol &&
+                          col <= childConstruct.bounds.rightCol
+                        ) {
+                          if (childConstruct.type === "matrix") {
+                            // Check if this is primary header, secondary header, or body
+                            if (
+                              (row === childConstruct.bounds.topRow &&
+                                col > childConstruct.bounds.leftCol) ||
+                              (col === childConstruct.bounds.leftCol &&
+                                row > childConstruct.bounds.topRow)
+                            ) {
+                              expectedElementType = "matrix-header";
+                              expectedFormatting =
+                                "thick border, centered, bold";
+                            } else {
+                              expectedElementType = "matrix-body";
+                              expectedFormatting = "centered";
+                            }
+                          } else if (childConstruct.type === "table") {
+                            expectedElementType = "table-cell";
+                            expectedFormatting =
+                              "centered, possible header styling";
+                          } else if (childConstruct.type === "key-value") {
+                            expectedElementType = "key-value";
+                            expectedFormatting =
+                              "keys: right border, italics, light green bg; values: centered";
+                          }
+                          break;
+                        }
+                      }
+                    }
+                  } else if (construct.type === "matrix") {
+                    expectedElementType = "matrix-cell";
+                    expectedFormatting = "matrix header or body styling";
+                  } else if (construct.type === "table") {
+                    expectedElementType = "table-cell";
+                    expectedFormatting = "table header or body styling";
+                  } else if (construct.type === "key-value") {
+                    expectedElementType = "key-value-cell";
+                    expectedFormatting = "key or value styling";
                   }
-                } else if (construct.type === "matrix") {
-                  expectedElementType = "matrix-cell";
-                  expectedFormatting = "matrix header or body styling";
-                } else if (construct.type === "table") {
-                  expectedElementType = "table-cell";
-                  expectedFormatting = "table header or body styling";
-                } else if (construct.type === "key-value") {
-                  expectedElementType = "key-value-cell";
-                  expectedFormatting = "key or value styling";
-                }
-                
-                console.log(`     📍 (${row + 1},${col + 1}) "${content}": Expected=${expectedElementType} (${expectedFormatting}), Actual=${actualFormat ? 'styled' : 'no style'}`);
-                if (actualFormat) {
-                  const formatDetails = [];
-                  if (actualFormat.fontWeight === 'bold') formatDetails.push('bold');
-                  if (actualFormat.fontStyle === 'italic') formatDetails.push('italic');
-                  if (actualFormat.textAlign === 'center') formatDetails.push('centered');
-                  if (actualFormat.borderBottom && actualFormat.borderBottom !== 'none') formatDetails.push('bottom-border');
-                  if (actualFormat.borderRight && actualFormat.borderRight !== 'none') formatDetails.push('right-border');
-                  if (actualFormat.backgroundColor && actualFormat.backgroundColor !== '#ffffff') formatDetails.push(`bg:${actualFormat.backgroundColor}`);
-                  console.log(`       Applied: ${formatDetails.join(', ') || 'basic styling'}`);
-                }
-              });
-              
-              console.groupEnd();
-            }
-          });
-          
-          console.groupEnd();
-        }
-      });
-      
-      console.groupEnd();
+
+                  console.log(
+                    `     📍 (${row + 1},${
+                      col + 1
+                    }) "${content}": Expected=${expectedElementType} (${expectedFormatting}), Actual=${
+                      actualFormat ? "styled" : "no style"
+                    }`
+                  );
+                  if (actualFormat) {
+                    const formatDetails = [];
+                    if (actualFormat.fontWeight === "bold")
+                      formatDetails.push("bold");
+                    if (actualFormat.fontStyle === "italic")
+                      formatDetails.push("italic");
+                    if (actualFormat.textAlign === "center")
+                      formatDetails.push("centered");
+                    if (
+                      actualFormat.borderBottom &&
+                      actualFormat.borderBottom !== "none"
+                    )
+                      formatDetails.push("bottom-border");
+                    if (
+                      actualFormat.borderRight &&
+                      actualFormat.borderRight !== "none"
+                    )
+                      formatDetails.push("right-border");
+                    if (
+                      actualFormat.backgroundColor &&
+                      actualFormat.backgroundColor !== "#ffffff"
+                    )
+                      formatDetails.push(`bg:${actualFormat.backgroundColor}`);
+                    console.log(
+                      `       Applied: ${
+                        formatDetails.join(", ") || "basic styling"
+                      }`
+                    );
+                  }
+                });
+
+                console.groupEnd();
+              }
+            });
+
+            console.groupEnd();
+          }
+        });
+
+        console.groupEnd();
+      }
     } else {
       setStyleMap({});
       blockListRef.current = [];
@@ -1238,31 +1301,43 @@ export function GridView({
   // Run parse whenever version changes
   useEffect(() => {
     reparse();
-    
+
     // 🔍 Update global debug interface with current grid context
-    if (typeof window !== 'undefined' && window.textruxDebug) {
+    if (typeof window !== "undefined" && window.textruxDebug) {
       window.textruxDebug.parseGrid = () => {
         console.log("🔄 Re-parsing grid...");
         reparse();
       };
-      
+
       window.textruxDebug.inspectCell = (row: number, col: number) => {
         const content = grid.getCellRaw(row, col);
         console.group(`🔍 Cell R${row}C${col}`);
         console.log("Content:", content ? `"${content}"` : "(empty)");
-        
+
         // Find which block/cluster contains this cell
         const blocks = blockListRef.current;
         for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
           const block = blocks[blockIndex];
           if (block.cellClusters) {
-            for (let clusterIndex = 0; clusterIndex < block.cellClusters.length; clusterIndex++) {
+            for (
+              let clusterIndex = 0;
+              clusterIndex < block.cellClusters.length;
+              clusterIndex++
+            ) {
               const cluster = block.cellClusters[clusterIndex];
-              const isInCluster = cluster.filledPoints.some(p => p.row === row && p.col === col);
+              const isInCluster = cluster.filledPoints.some(
+                (p) => p.row === row && p.col === col
+              );
               if (isInCluster) {
                 const detection = cluster.detectConstructType(grid);
-                console.log(`📦 In Block ${blockIndex + 1}, Cluster ${clusterIndex + 1}`);
-                console.log(`🎯 Construct: ${detection?.constructType || 'unknown'} (Key: ${detection?.key || 'N/A'})`);
+                console.log(
+                  `📦 In Block ${blockIndex + 1}, Cluster ${clusterIndex + 1}`
+                );
+                console.log(
+                  `🎯 Construct: ${
+                    detection?.constructType || "unknown"
+                  } (Key: ${detection?.key || "N/A"})`
+                );
                 break;
               }
             }
@@ -1270,30 +1345,36 @@ export function GridView({
         }
         console.groupEnd();
       };
-      
+
       window.textruxDebug.showAllConstructs = () => {
         console.group("📋 All Detected Constructs");
         const blocks = blockListRef.current;
         let totalConstructs = 0;
-        
+
         blocks.forEach((block, blockIndex) => {
           if (block.cellClusters && block.cellClusters.length > 0) {
             block.cellClusters.forEach((cluster, clusterIndex) => {
               const detection = cluster.detectConstructType(grid);
               if (detection) {
                 totalConstructs++;
-                console.log(`${totalConstructs}. ${detection.constructType} (Key: ${detection.key}) at R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
+                console.log(
+                  `${totalConstructs}. ${detection.constructType} (Key: ${
+                    detection.key
+                  }) at R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${
+                    cluster.bottomRow + 1
+                  }C${cluster.rightCol + 1}`
+                );
               }
             });
           }
         });
-        
+
         if (totalConstructs === 0) {
           console.log("No constructs found. Try adding some data to the grid!");
         }
         console.groupEnd();
       };
-      
+
       window.textruxDebug.getGridData = () => {
         const csv = sheetToCsv(grid);
         console.group("📊 Grid Data (CSV)");
@@ -1305,7 +1386,10 @@ export function GridView({
       window.textruxDebug.inspectGrid = () => {
         console.group("🏗️ Complete GridModel Object");
         console.log("📋 Full GridModel hierarchy with all layers:", grid);
-        console.log("📐 Dimensions:", `${grid.rowCount} rows × ${grid.columnCount} columns`);
+        console.log(
+          "📐 Dimensions:",
+          `${grid.rowCount} rows × ${grid.columnCount} columns`
+        );
         console.log("🔢 Total cells:", grid.rowCount * grid.columnCount);
         console.log("📝 Filled cells:", grid.getFilledCells().length);
         if (grid.blockClusters) {
@@ -1315,10 +1399,13 @@ export function GridView({
         return grid;
       };
 
-      (window.textruxDebug as any).inspectElements = (row?: number, col?: number) => {
+      (window.textruxDebug as any).inspectElements = (
+        row?: number,
+        col?: number
+      ) => {
         console.group("🔬 Element-Level Inspection");
         const blocks = blockListRef.current;
-        
+
         blocks.forEach((block, blockIndex) => {
           if (block.cellClusters && block.cellClusters.length > 0) {
             block.cellClusters.forEach((cluster, clusterIndex) => {
@@ -1326,75 +1413,143 @@ export function GridView({
               if (construct) {
                 // Filter by specific cell if provided
                 if (row !== undefined && col !== undefined) {
-                  const isInCluster = cluster.filledPoints.some(p => p.row === row && p.col === col);
+                  const isInCluster = cluster.filledPoints.some(
+                    (p) => p.row === row && p.col === col
+                  );
                   if (!isInCluster) return;
                 }
-                
-                console.group(`🎯 ${construct.type.toUpperCase()} at R${cluster.topRow + 1}C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${cluster.rightCol + 1}`);
-                
-                if (construct.type === 'table') {
+
+                console.group(
+                  `🎯 ${construct.type.toUpperCase()} at R${
+                    cluster.topRow + 1
+                  }C${cluster.leftCol + 1}:R${cluster.bottomRow + 1}C${
+                    cluster.rightCol + 1
+                  }`
+                );
+
+                if (construct.type === "table") {
                   const table = construct as any; // Type assertion for table properties
                   console.log(`📊 Table Elements:`);
                   console.log(`  • Total cells: ${table.cells?.length || 0}`);
-                  console.log(`  • Header cells: ${table.headerCells?.length || 0}`);
-                  console.log(`  • Body cells: ${table.bodyCells?.length || 0}`);
+                  console.log(
+                    `  • Header cells: ${table.headerCells?.length || 0}`
+                  );
+                  console.log(
+                    `  • Body cells: ${table.bodyCells?.length || 0}`
+                  );
                   if (table.headerCells?.length > 0) {
-                    console.log(`  • Headers:`, table.headerCells.map((h: any) => `(${h.position.row},${h.position.col}): "${h.content}"`));
+                    console.log(
+                      `  • Headers:`,
+                      table.headerCells.map(
+                        (h: any) =>
+                          `(${h.position.row},${h.position.col}): "${h.content}"`
+                      )
+                    );
                   }
-                  console.log(`  • Entities (rows): ${table.entities?.length || 0}`);
-                  console.log(`  • Attributes (columns): ${table.attributes?.length || 0}`);
-                }
-                
-                else if (construct.type === 'tree') {
+                  console.log(
+                    `  • Entities (rows): ${table.entities?.length || 0}`
+                  );
+                  console.log(
+                    `  • Attributes (columns): ${table.attributes?.length || 0}`
+                  );
+                } else if (construct.type === "tree") {
                   const tree = construct as any; // Type assertion for tree properties
                   console.log(`🌳 Tree Elements:`);
-                  console.log(`  • Total elements: ${tree.elements?.length || 0}`);
-                  console.log(`  • Anchor: ${tree.anchorElement ? `(${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"` : 'none'}`);
-                  console.log(`  • Parents: ${tree.parentElements?.length || 0}`);
-                  console.log(`  • Children: ${tree.childElements?.length || 0}`);
-                  console.log(`  • Max depth: ${tree.getMaxDepth ? tree.getMaxDepth() : 0}`);
-                  
+                  console.log(
+                    `  • Total elements: ${tree.elements?.length || 0}`
+                  );
+                  console.log(
+                    `  • Anchor: ${
+                      tree.anchorElement
+                        ? `(${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"`
+                        : "none"
+                    }`
+                  );
+                  console.log(
+                    `  • Parents: ${tree.parentElements?.length || 0}`
+                  );
+                  console.log(
+                    `  • Children: ${tree.childElements?.length || 0}`
+                  );
+                  console.log(
+                    `  • Max depth: ${
+                      tree.getMaxDepth ? tree.getMaxDepth() : 0
+                    }`
+                  );
+
                   if (tree.elements?.length > 0) {
                     console.log(`  • Element details:`);
                     tree.elements.forEach((el: any) => {
                       const roles = [];
-                      if (el.isAnchor?.()) roles.push('anchor');
-                      if (el.isParent?.()) roles.push('parent');
-                      if (el.isChild?.()) roles.push('child');
-                      if (el.isChildHeader?.()) roles.push('child-header');
-                      if (el.isPeer?.()) roles.push('peer');
-                      console.log(`    (${el.position.row},${el.position.col}): "${el.content}" [${roles.join(', ')}, level ${el.level}]`);
+                      if (el.isAnchor?.()) roles.push("anchor");
+                      if (el.isParent?.()) roles.push("parent");
+                      if (el.isChild?.()) roles.push("child");
+                      if (el.isChildHeader?.()) roles.push("child-header");
+                      if (el.isPeer?.()) roles.push("peer");
+                      console.log(
+                        `    (${el.position.row},${el.position.col}): "${
+                          el.content
+                        }" [${roles.join(", ")}, level ${el.level}]`
+                      );
                     });
                   }
-                }
-                
-                else if (construct.type === 'matrix') {
+                } else if (construct.type === "matrix") {
                   const matrix = construct as any; // Type assertion for matrix properties
                   console.log(`🔢 Matrix Elements:`);
                   console.log(`  • Total cells: ${matrix.cells?.length || 0}`);
-                  console.log(`  • Primary headers: ${matrix.primaryHeaders?.length || 0}`);
-                  console.log(`  • Secondary headers: ${matrix.secondaryHeaders?.length || 0}`);
-                  console.log(`  • Body cells: ${matrix.bodyCells?.length || 0}`);
-                }
-                
-                else if (construct.type === 'key-value') {
+                  console.log(
+                    `  • Primary headers: ${matrix.primaryHeaders?.length || 0}`
+                  );
+                  console.log(
+                    `  • Secondary headers: ${
+                      matrix.secondaryHeaders?.length || 0
+                    }`
+                  );
+                  console.log(
+                    `  • Body cells: ${matrix.bodyCells?.length || 0}`
+                  );
+                } else if (construct.type === "key-value") {
                   const keyValue = construct as any; // Type assertion for key-value properties
                   console.log(`🗝️ Key-Value Elements:`);
-                  console.log(`  • Total cells: ${keyValue.cells?.length || 0}`);
-                  console.log(`  • Key cells: ${keyValue.keyCells?.length || 0}`);
-                  console.log(`  • Value cells: ${keyValue.valueCells?.length || 0}`);
-                  console.log(`  • Key-value pairs: ${keyValue.keyValuePairs?.length || 0}`);
-                  console.log(`  • Main header: "${keyValue.getMainHeaderText ? keyValue.getMainHeaderText() : 'N/A'}"`);
-                }
-                
-                else if (construct.type === 'list') {
+                  console.log(
+                    `  • Total cells: ${keyValue.cells?.length || 0}`
+                  );
+                  console.log(
+                    `  • Key cells: ${keyValue.keyCells?.length || 0}`
+                  );
+                  console.log(
+                    `  • Value cells: ${keyValue.valueCells?.length || 0}`
+                  );
+                  console.log(
+                    `  • Key-value pairs: ${
+                      keyValue.keyValuePairs?.length || 0
+                    }`
+                  );
+                  console.log(
+                    `  • Main header: "${
+                      keyValue.getMainHeaderText
+                        ? keyValue.getMainHeaderText()
+                        : "N/A"
+                    }"`
+                  );
+                } else if (construct.type === "list") {
                   const list = construct as any; // Type assertion for list properties
                   console.log(`📜 List Elements:`);
-                  console.log(`  • Orientation: ${list.orientation || 'N/A'}`);
-                  console.log(`  • Header: "${list.getHeaderContent ? list.getHeaderContent() : 'N/A'}"`);
-                  console.log(`  • Items: ${list.itemCount || 0} [${list.getItemContents ? list.getItemContents().join(', ') : 'N/A'}]`);
+                  console.log(`  • Orientation: ${list.orientation || "N/A"}`);
+                  console.log(
+                    `  • Header: "${
+                      list.getHeaderContent ? list.getHeaderContent() : "N/A"
+                    }"`
+                  );
+                  console.log(
+                    `  • Items: ${list.itemCount || 0} [${
+                      list.getItemContents
+                        ? list.getItemContents().join(", ")
+                        : "N/A"
+                    }]`
+                  );
                 }
-                
+
                 console.groupEnd();
               }
             });
@@ -1403,7 +1558,10 @@ export function GridView({
         console.groupEnd();
       };
 
-      (window.textruxDebug as any).inspectCellElements = (row: number, col: number) => {
+      (window.textruxDebug as any).inspectCellElements = (
+        row: number,
+        col: number
+      ) => {
         console.log(`🔬 Inspecting elements at R${row}C${col}:`);
         (window.textruxDebug as any).inspectElements(row, col);
       };
@@ -1417,9 +1575,9 @@ export function GridView({
           matrices: 0,
           keyValues: 0,
           lists: 0,
-          totalElements: 0
+          totalElements: 0,
         };
-        
+
         blocks.forEach((block) => {
           if (block.cellClusters) {
             block.cellClusters.forEach((cluster) => {
@@ -1427,23 +1585,23 @@ export function GridView({
               if (construct) {
                 const anyConstruct = construct as any; // Type assertion for properties
                 switch (construct.type) {
-                  case 'table':
+                  case "table":
                     summary.tables++;
                     summary.totalElements += anyConstruct.cells?.length || 0;
                     break;
-                  case 'tree':
+                  case "tree":
                     summary.trees++;
                     summary.totalElements += anyConstruct.elements?.length || 0;
                     break;
-                  case 'matrix':
+                  case "matrix":
                     summary.matrices++;
                     summary.totalElements += anyConstruct.cells?.length || 0;
                     break;
-                  case 'key-value':
+                  case "key-value":
                     summary.keyValues++;
                     summary.totalElements += anyConstruct.cells?.length || 0;
                     break;
-                  case 'list':
+                  case "list":
                     summary.lists++;
                     summary.totalElements += anyConstruct.cells?.length || 0;
                     break;
@@ -1452,45 +1610,53 @@ export function GridView({
             });
           }
         });
-        
+
         console.log(`📊 Construct Summary:`);
         console.log(`  • Tables: ${summary.tables}`);
         console.log(`  • Trees: ${summary.trees}`);
         console.log(`  • Matrices: ${summary.matrices}`);
         console.log(`  • Key-Values: ${summary.keyValues}`);
         console.log(`  • Lists: ${summary.lists}`);
-        console.log(`  • Total elements across all constructs: ${summary.totalElements}`);
+        console.log(
+          `  • Total elements across all constructs: ${summary.totalElements}`
+        );
         console.groupEnd();
       };
 
       (window.textruxDebug as any).testFormattingPerformance = () => {
         console.group("⚡ Formatting Performance Test");
         const startTime = performance.now();
-        
+
         // Test formatting for a range of cells
         const testRows = 50;
         const testCols = 20;
         let formatCalls = 0;
-        
-        console.log(`Testing formatting for ${testRows}x${testCols} grid (${testRows * testCols} cells)...`);
-        
+
+        console.log(
+          `Testing formatting for ${testRows}x${testCols} grid (${
+            testRows * testCols
+          } cells)...`
+        );
+
         for (let row = 1; row <= testRows; row++) {
           for (let col = 1; col <= testCols; col++) {
             grid.getCellFormat(row, col);
             formatCalls++;
           }
         }
-        
+
         const endTime = performance.now();
         const duration = endTime - startTime;
         const callsPerMs = formatCalls / duration;
-        
+
         console.log(`📊 Performance Results:`);
         console.log(`  • Total format calls: ${formatCalls}`);
         console.log(`  • Duration: ${duration.toFixed(2)}ms`);
         console.log(`  • Calls per millisecond: ${callsPerMs.toFixed(2)}`);
-        console.log(`  • Average time per call: ${(duration / formatCalls).toFixed(4)}ms`);
-        
+        console.log(
+          `  • Average time per call: ${(duration / formatCalls).toFixed(4)}ms`
+        );
+
         if (duration < 100) {
           console.log("✅ Excellent performance!");
         } else if (duration < 500) {
@@ -1498,113 +1664,159 @@ export function GridView({
         } else {
           console.log("❌ Performance needs improvement");
         }
-        
+
         console.groupEnd();
       };
 
       (window.textruxDebug as any).testSpecificPatterns = () => {
         console.group("🔍 Testing Specific Construct Patterns");
-        
+
         // Test 1: Matrix pattern (empty top-left, other 3 filled)
         console.log("Test 1: Matrix pattern (empty top-left)");
         console.log("Expected: 2x2 with empty R1C1, filled R1C2, R2C1, R2C2");
         console.log("This should produce binary key 7 (0111) = Matrix");
-        
+
         // Test 2: Vertical list pattern (2 cells, one on top of the other)
         console.log("\nTest 2: Vertical list pattern");
-        console.log("Expected: 2 cells in single column, should be detected as VL (Vertical List)");
-        
+        console.log(
+          "Expected: 2 cells in single column, should be detected as VL (Vertical List)"
+        );
+
         // Show current grid status
         console.log("\n📊 Current Grid Analysis:");
         (window.textruxDebug as any).showAllConstructs();
-        
+
         console.groupEnd();
       };
 
       (window.textruxDebug as any).testThemeAwareFormatting = () => {
         console.group("🎨 Theme-Aware Formatting Test");
-        
+
         // Test different themes and modes
         const themes = ["default", "modern", "minimal", "bold"];
         const modes = [false, true]; // light and dark mode
-        
+
         // Get some sample constructs
         const blocks = blockListRef.current;
-        const testConstruct = blocks.find(block => 
-          block.cellClusters?.some(cluster => cluster.createConstruct(grid))
-        )?.cellClusters?.find(cluster => cluster.createConstruct(grid));
-        
+        const testConstruct = blocks
+          .find((block) =>
+            block.cellClusters?.some((cluster) => cluster.createConstruct(grid))
+          )
+          ?.cellClusters?.find((cluster) => cluster.createConstruct(grid));
+
         if (!testConstruct) {
-          console.log("❌ No constructs found to test formatting. Add some data to the grid first!");
+          console.log(
+            "❌ No constructs found to test formatting. Add some data to the grid first!"
+          );
           console.groupEnd();
           return;
         }
-        
+
         const construct = testConstruct.createConstruct(grid);
         const firstCell = testConstruct.filledPoints[0];
-        
-        console.log(`🎯 Testing formatting on ${construct?.type || 'unknown'} construct at R${firstCell.row}C${firstCell.col}`);
+
+        console.log(
+          `🎯 Testing formatting on ${
+            construct?.type || "unknown"
+          } construct at R${firstCell.row}C${firstCell.col}`
+        );
         console.log("");
-        
-        themes.forEach(theme => {
-          modes.forEach(isDark => {
+
+        themes.forEach((theme) => {
+          modes.forEach((isDark) => {
             const modeLabel = isDark ? "Dark" : "Light";
             console.group(`${theme.toUpperCase()} theme (${modeLabel} mode)`);
-            
+
             // Test the current grid's formatter
-            const currentFormat = grid.getCellFormat(firstCell.row, firstCell.col);
-            console.log("Current format:", currentFormat ? {
-              backgroundColor: currentFormat.backgroundColor,
-              color: currentFormat.color,
-              fontWeight: currentFormat.fontWeight,
-              borderStyle: currentFormat.borderStyle
-            } : "none");
-            
+            const currentFormat = grid.getCellFormat(
+              firstCell.row,
+              firstCell.col
+            );
+            console.log(
+              "Current format:",
+              currentFormat
+                ? {
+                    backgroundColor: currentFormat.backgroundColor,
+                    color: currentFormat.color,
+                    fontWeight: currentFormat.fontWeight,
+                    borderStyle: currentFormat.borderStyle,
+                  }
+                : "none"
+            );
+
             // Test the ConstructFormatter directly
             const formatter = grid.getConstructFormatter();
             if (formatter) {
               const oldOptions = formatter.getOptions();
-              formatter.updateOptions({ theme: theme as any, darkMode: isDark });
-              
+              formatter.updateOptions({
+                theme: theme as any,
+                darkMode: isDark,
+              });
+
               const testFormat = formatter.getFormatForPosition(
-                firstCell.row, 
-                firstCell.col, 
+                firstCell.row,
+                firstCell.col,
                 grid.getAllConstructs()
               );
-              
-              console.log("Direct formatter result:", testFormat ? {
-                backgroundColor: testFormat.backgroundColor,
-                color: testFormat.color,
-                fontWeight: testFormat.fontWeight,
-                borderStyle: testFormat.borderStyle
-              } : "none");
-              
+
+              console.log(
+                "Direct formatter result:",
+                testFormat
+                  ? {
+                      backgroundColor: testFormat.backgroundColor,
+                      color: testFormat.color,
+                      fontWeight: testFormat.fontWeight,
+                      borderStyle: testFormat.borderStyle,
+                    }
+                  : "none"
+              );
+
               // Restore original options
               formatter.updateOptions(oldOptions);
             }
-            
+
             console.groupEnd();
           });
         });
-        
+
         console.log("✅ Theme testing complete!");
         console.groupEnd();
       };
-      
+
       // 🎉 Show helpful console message
-      console.log("🔍 Textrux Debug Interface Ready!");
-      console.log("Available commands:");
-      console.log("• textruxDebug.parseGrid() - Re-parse the current grid");
-      console.log("• textruxDebug.inspectGrid() - Dump complete GridModel object for exploration");
-      console.log("• textruxDebug.inspectCell(row, col) - Inspect a specific cell");
-      console.log("• textruxDebug.showAllConstructs() - Show all detected constructs");
-      console.log("• textruxDebug.inspectElements() - Show detailed element breakdown for all constructs");
-      console.log("• textruxDebug.inspectCellElements(row, col) - Show elements for constructs containing specific cell");
-      console.log("• textruxDebug.showElementSummary() - Show summary of all elements");
-      console.log("• textruxDebug.testFormattingPerformance() - Test formatting system performance");
-      console.log("• textruxDebug.testThemeAwareFormatting() - Test theme-aware formatting across all themes");
-      console.log("• textruxDebug.testSpecificPatterns() - Test specific construct patterns");
-      console.log("• textruxDebug.getGridData() - Get current grid as CSV");
+      if (SHOW_DEBUG_MESSAGES) {
+        console.log("🔍 Textrux Debug Interface Ready!");
+        console.log("Available commands:");
+        console.log("• textruxDebug.parseGrid() - Re-parse the current grid");
+        console.log(
+          "• textruxDebug.inspectGrid() - Dump complete GridModel object for exploration"
+        );
+        console.log(
+          "• textruxDebug.inspectCell(row, col) - Inspect a specific cell"
+        );
+        console.log(
+          "• textruxDebug.showAllConstructs() - Show all detected constructs"
+        );
+        console.log(
+          "• textruxDebug.inspectElements() - Show detailed element breakdown for all constructs"
+        );
+        console.log(
+          "• textruxDebug.inspectCellElements(row, col) - Show elements for constructs containing specific cell"
+        );
+        console.log(
+          "• textruxDebug.showElementSummary() - Show summary of all elements"
+        );
+        console.log(
+          "• textruxDebug.testFormattingPerformance() - Test formatting system performance"
+        );
+        console.log(
+          "• textruxDebug.testThemeAwareFormatting() - Test theme-aware formatting across all themes"
+        );
+        console.log(
+          "• textruxDebug.testSpecificPatterns() - Test specific construct patterns"
+        );
+        console.log("• textruxDebug.getGridData() - Get current grid as CSV");
+      }
     }
   }, [version, reparse, grid]);
 
@@ -4496,7 +4708,7 @@ export function GridView({
   // has sizing settings loaded from its persisted state
   useEffect(() => {
     if (grid.sizingSettings) {
-      console.log("Syncing sizing state from grid model:", grid.sizingSettings);
+      // console.log("Syncing sizing state from grid model:", grid.sizingSettings);
       setSizingModeState(grid.sizingSettings.sizingMode);
       setGridSizingSettings(grid.sizingSettings);
     } else if (!autoLoadLocalStorage) {
@@ -4528,10 +4740,10 @@ export function GridView({
   // Sync local sizing state when grid.sizingSettings changes (e.g., from localStorage load)
   useEffect(() => {
     if (grid.sizingSettings && grid.sizingSettings.sizingMode === "grid") {
-      console.log(
-        "Syncing sizing state from grid.sizingSettings:",
-        grid.sizingSettings
-      );
+      // console.log(
+      //   "Syncing sizing state from grid.sizingSettings:",
+      //   grid.sizingSettings
+      // );
 
       if (
         grid.sizingSettings.rowHeights &&
@@ -5378,7 +5590,7 @@ declare global {
 }
 
 // Add debugging interface to window when in development
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   (window as any).textruxDebug = {
     parseGrid: () => {
       console.log("🔄 Re-parsing grid...");
@@ -5407,7 +5619,7 @@ if (typeof window !== 'undefined') {
     getGridData: () => {
       console.log("📊 Use this in the browser console after the grid loads");
       return "";
-    }
+    },
   };
 }
 

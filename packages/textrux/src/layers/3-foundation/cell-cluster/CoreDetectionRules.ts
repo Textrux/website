@@ -107,7 +107,7 @@ export class CoreDetectionRules {
         };
 
       default:
-        console.log(`⚠️ Unknown key detected: ${key}`);
+        // console.log(`⚠️ Unknown key detected: ${key}`);
         return null; // Unknown key
     }
   }
@@ -150,28 +150,28 @@ export class CoreDetectionRules {
     const key = (r1c1 << 3) | (r1c2 << 2) | (r2c1 << 1) | r2c2;
 
     // Debug logging
-    console.log(
-      `Cell Cluster Key Debug:
-    Cluster bounds (0-indexed): topRow=${cluster.topRow}, leftCol=${cluster.leftCol}, bottomRow=${cluster.bottomRow}, rightCol=${cluster.rightCol}
-    Cluster filled points (${cluster.filledPoints.length}):`,
-      cluster.filledPoints.map((p) => `(${p.row},${p.col})`)
-    );
-    console.log(`Grid coordinates for R1C1-R2C2 region: r1c1Row=${r1c1Row}, r1c1Col=${r1c1Col}
-    Checking binary key cells:
-    - R1C1 (${r1c1Row},${r1c1Col}): ${
-      r1c1 ? "filled" : "empty"
-    } content="${this.grid.getCellRaw(r1c1Row, r1c1Col)}"
-    - R1C2 (${r1c1Row},${r1c1Col + 1}): ${
-      r1c2 ? "filled" : "empty"
-    } content="${this.grid.getCellRaw(r1c1Row, r1c1Col + 1)}"
-    - R2C1 (${r1c1Row + 1},${r1c1Col}): ${
-      r2c1 ? "filled" : "empty"
-    } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col)}"
-    - R2C2 (${r1c1Row + 1},${r1c1Col + 1}): ${
-      r2c2 ? "filled" : "empty"
-    } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col + 1)}"
-    Binary pattern: ${r1c1}${r1c2}\\n${r2c1}${r2c2}
-    Calculated key: ${key}`);
+    // console.log(
+    //   `Cell Cluster Key Debug:
+    // Cluster bounds (0-indexed): topRow=${cluster.topRow}, leftCol=${cluster.leftCol}, bottomRow=${cluster.bottomRow}, rightCol=${cluster.rightCol}
+    // Cluster filled points (${cluster.filledPoints.length}):`,
+    //   cluster.filledPoints.map((p) => `(${p.row},${p.col})`)
+    // );
+    // console.log(`Grid coordinates for R1C1-R2C2 region: r1c1Row=${r1c1Row}, r1c1Col=${r1c1Col}
+    // Checking binary key cells:
+    // - R1C1 (${r1c1Row},${r1c1Col}): ${
+    //   r1c1 ? "filled" : "empty"
+    // } content="${this.grid.getCellRaw(r1c1Row, r1c1Col)}"
+    // - R1C2 (${r1c1Row},${r1c1Col + 1}): ${
+    //   r1c2 ? "filled" : "empty"
+    // } content="${this.grid.getCellRaw(r1c1Row, r1c1Col + 1)}"
+    // - R2C1 (${r1c1Row + 1},${r1c1Col}): ${
+    //   r2c1 ? "filled" : "empty"
+    // } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col)}"
+    // - R2C2 (${r1c1Row + 1},${r1c1Col + 1}): ${
+    //   r2c2 ? "filled" : "empty"
+    // } content="${this.grid.getCellRaw(r1c1Row + 1, r1c1Col + 1)}"
+    // Binary pattern: ${r1c1}${r1c2}\\n${r2c1}${r2c2}
+    // Calculated key: ${key}`);
 
     return key;
   }

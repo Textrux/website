@@ -83,7 +83,7 @@ function testCase1_RegularTreeWithKeyValue() {
 
   const tree = cluster.createConstruct(grid) as CoreTree;
   if (tree) {
-    console.log(`   Tree elements: ${tree.elements.length}`);
+    // console.log(`   Tree elements: ${tree.elements.length}`);
     
     // Find the key element
     const keyElement = tree.elements.find(el => el.content === "Key");
@@ -124,14 +124,14 @@ function testCase2_RegularTreeWithMultipleValues() {
 
   const tree = cluster.createConstruct(grid) as CoreTree;
   if (tree) {
-    console.log(`   Tree elements: ${tree.elements.length}`);
+    // console.log(`   Tree elements: ${tree.elements.length}`);
     
     // Find the key element
     const keyElement = tree.elements.find(el => el.content === "Key");
     if (keyElement) {
-      console.log(`   Key element isKey(): ${keyElement.isKey()}`);
-      console.log(`   Key element isChildHeader(): ${keyElement.isChildHeader()}`);
-      console.log(`   Key element has ${keyElement.valueElements?.length || 0} value elements`);
+      // console.log(`   Key element isKey(): ${keyElement.isKey()}`);
+      // console.log(`   Key element isChildHeader(): ${keyElement.isChildHeader()}`);
+      // console.log(`   Key element has ${keyElement.valueElements?.length || 0} value elements`);
       
       // Check value elements
       const value1Element = tree.elements.find(el => el.content === "Value1");
@@ -166,15 +166,15 @@ function testCase3_TransposedTreeWithValues() {
 
   const tree = cluster.createConstruct(grid) as CoreTree;
   if (tree) {
-    console.log(`   Tree elements: ${tree.elements.length}`);
+    // console.log(`   Tree elements: ${tree.elements.length}`);
     console.log(`   Tree orientation: ${tree.orientation}`);
     
     // Find the key element
     const keyElement = tree.elements.find(el => el.content === "Key");
     if (keyElement) {
-      console.log(`   Key element isKey(): ${keyElement.isKey()}`);
-      console.log(`   Key element isChildHeader(): ${keyElement.isChildHeader()}`);
-      console.log(`   Key element has ${keyElement.valueElements?.length || 0} value elements`);
+      // console.log(`   Key element isKey(): ${keyElement.isKey()}`);
+      // console.log(`   Key element isChildHeader(): ${keyElement.isChildHeader()}`);
+      // console.log(`   Key element has ${keyElement.valueElements?.length || 0} value elements`);
       
       // Check value elements
       const value1Element = tree.elements.find(el => el.content === "Value1");

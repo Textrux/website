@@ -29,10 +29,14 @@ export class MatrixFormatter {
   /**
    * Get formatting for a matrix cell based on its type
    */
-  getCellFormat(matrix: CoreMatrix, row: number, col: number): CellFormat | null {
+  getCellFormat(
+    matrix: CoreMatrix,
+    row: number,
+    col: number
+  ): CellFormat | null {
     const cell = matrix.getCellAt(row, col);
     if (!cell) {
-      console.log(`[MatrixFormatter] No cell found at (${row},${col})`);
+      // console.log(`[MatrixFormatter] No cell found at (${row},${col})`);
       return null;
     }
 
@@ -40,7 +44,7 @@ export class MatrixFormatter {
     const theme = CELL_THEMES[this.options.theme] || CELL_THEMES.default;
     const orientation = this.detectOrientation(matrix);
 
-    console.log(`[MatrixFormatter] Formatting cell at (${row},${col}) with type: ${cell.cellType}`);
+    // console.log(`[MatrixFormatter] Formatting cell at (${row},${col}) with type: ${cell.cellType}`);
 
     switch (cell.cellType) {
       case "primary-header":
@@ -52,7 +56,7 @@ export class MatrixFormatter {
       case "empty-corner":
         return this.getEmptyCornerFormat(theme);
       default:
-        console.log(`[MatrixFormatter] Unknown cell type: ${cell.cellType}`);
+        // console.log(`[MatrixFormatter] Unknown cell type: ${cell.cellType}`);
         return null;
     }
   }
@@ -60,10 +64,10 @@ export class MatrixFormatter {
   /**
    * Detect matrix orientation based on structure
    */
-  private detectOrientation(matrix: CoreMatrix): 'regular' | 'transposed' {
+  private detectOrientation(matrix: CoreMatrix): "regular" | "transposed" {
     // For now, assume regular orientation. In future, this could be enhanced
     // to detect based on matrix structure or metadata
-    return 'regular';
+    return "regular";
   }
 
   /**
@@ -71,14 +75,14 @@ export class MatrixFormatter {
    */
   private getEmptyCornerFormat(theme: any): CellFormat {
     return new CellFormat({
-      backgroundColor: '#f8f9fa',
-      color: theme.colors?.muted || '#6b7280',
-      borderStyle: 'solid',
-      borderWidth: '1px',
-      borderColor: theme.colors?.border || '#e1e5e9',
-      textAlign: 'center',
-      fontSize: '12px',
-      fontStyle: 'italic',
+      backgroundColor: "#f8f9fa",
+      color: theme.colors?.muted || "#6b7280",
+      borderStyle: "solid",
+      borderWidth: "1px",
+      borderColor: theme.colors?.border || "#e1e5e9",
+      textAlign: "center",
+      fontSize: "12px",
+      fontStyle: "italic",
       fontFamily: theme.typography?.fontFamily,
       padding: theme.spacing?.padding,
       transition: theme.effects?.transition,

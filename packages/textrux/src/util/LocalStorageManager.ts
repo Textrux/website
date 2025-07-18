@@ -38,10 +38,10 @@ export class LocalStorageManager {
 
   static loadGalleryIndexes(): number[] {
     const raw = localStorage.getItem("galleryIndexes");
-    console.log("Raw galleryIndexes from localStorage:", raw);
+    // console.log("Raw galleryIndexes from localStorage:", raw);
 
     if (!raw) {
-      console.warn("No galleryIndexes found in localStorage");
+      // console.warn("No galleryIndexes found in localStorage");
       return [];
     }
 
@@ -51,7 +51,7 @@ export class LocalStorageManager {
 
       // Make sure arr is actually an array
       if (!Array.isArray(arr)) {
-        console.warn("galleryIndexes is not an array, returning empty array");
+        // console.warn("galleryIndexes is not an array, returning empty array");
         return [];
       }
 
@@ -61,7 +61,7 @@ export class LocalStorageManager {
 
       // Make sure we haven't filtered out all values
       if (numericArr.length === 0 && arr.length > 0) {
-        console.warn("All indexes were filtered out, attempting to recover");
+        // console.warn("All indexes were filtered out, attempting to recover");
         // Try to recover by converting strings to numbers
         const recovered = arr
           .map((x: any) => {
@@ -264,18 +264,18 @@ export class LocalStorageManager {
     gridIndex: number,
     settings: AppearanceSettings
   ) {
-    console.log(
-      `🎨 SAVING appearance settings for grid ${gridIndex}:`,
-      settings
-    );
+    // console.log(
+    //   `🎨 SAVING appearance settings for grid ${gridIndex}:`,
+    //   settings
+    // );
 
     // Load the existing grid state
     const key = `grid_${gridIndex}_state`;
     const raw = localStorage.getItem(key);
-    console.log(
-      `📦 Existing state for key ${key}:`,
-      raw ? JSON.parse(raw) : "null"
-    );
+    // console.log(
+    //   `📦 Existing state for key ${key}:`,
+    //   raw ? JSON.parse(raw) : "null"
+    // );
 
     if (raw) {
       try {
@@ -283,11 +283,11 @@ export class LocalStorageManager {
         // Add appearance settings to the existing state
         parsed.appearanceSettings = settings;
         localStorage.setItem(key, JSON.stringify(parsed));
-        console.log(`✅ Updated existing state with appearance settings`);
-        console.log(
-          `💾 New state:`,
-          JSON.parse(localStorage.getItem(key) || "{}")
-        );
+        // console.log(`✅ Updated existing state with appearance settings`);
+        // console.log(
+        //   `💾 New state:`,
+        //   JSON.parse(localStorage.getItem(key) || "{}")
+        // );
       } catch (err) {
         console.warn(
           "Failed to update grid state with appearance settings:",
@@ -300,16 +300,16 @@ export class LocalStorageManager {
         appearanceSettings: settings,
       };
       localStorage.setItem(key, JSON.stringify(minimalState));
-      console.log(`🆕 Created new state with appearance settings`);
-      console.log(
-        `💾 New state:`,
-        JSON.parse(localStorage.getItem(key) || "{}")
-      );
+      // console.log(`🆕 Created new state with appearance settings`);
+      // console.log(
+      //   `💾 New state:`,
+      //   JSON.parse(localStorage.getItem(key) || "{}")
+      // );
     }
   }
 
   static loadAppearanceSettings(gridIndex: number): AppearanceSettings {
-    console.log(`🔍 LOADING appearance settings for grid ${gridIndex}`);
+    // console.log(`🔍 LOADING appearance settings for grid ${gridIndex}`);
 
     const key = `grid_${gridIndex}_state`;
     const stored = localStorage.getItem(key);
@@ -318,11 +318,11 @@ export class LocalStorageManager {
     if (stored) {
       try {
         const gridState = JSON.parse(stored);
-        console.log(`📊 Parsed grid state:`, gridState);
-        console.log(
-          `🎨 Appearance settings in state:`,
-          gridState.appearanceSettings
-        );
+        // console.log(`📊 Parsed grid state:`, gridState);
+        // console.log(
+        //   `🎨 Appearance settings in state:`,
+        //   gridState.appearanceSettings
+        // );
 
         if (gridState.appearanceSettings) {
           const settings = gridState.appearanceSettings;
@@ -335,7 +335,7 @@ export class LocalStorageManager {
             settings.cellDefaults?.fontColor ||
             settings.cellDefaults?.backgroundColor
           ) {
-            console.log(`🔄 Migrating old fontColor/backgroundColor settings`);
+            // console.log(`🔄 Migrating old fontColor/backgroundColor settings`);
             const fontColor = settings.cellDefaults.fontColor || "#000000";
             const backgroundColor =
               settings.cellDefaults.backgroundColor || "#ffffff";
@@ -372,7 +372,7 @@ export class LocalStorageManager {
             migratedSettings.cellDefaults = cleanedCellDefaults;
 
             // Save the migrated settings back to localStorage
-            console.log(`💾 Saving migrated settings back to localStorage`);
+            // console.log(`💾 Saving migrated settings back to localStorage`);
             this.saveAppearanceSettings(gridIndex, migratedSettings);
           }
 
@@ -391,20 +391,20 @@ export class LocalStorageManager {
             customColors: migratedSettings.customColors,
           };
 
-          console.log(`✅ Returning loaded settings:`, finalSettings);
+          // console.log(`✅ Returning loaded settings:`, finalSettings);
           return finalSettings;
         } else {
-          console.log(`⚠️ No appearance settings found in grid state`);
+          // console.log(`⚠️ No appearance settings found in grid state`);
         }
       } catch (error) {
         console.error("Error loading appearance settings:", error);
       }
     } else {
-      console.log(`📭 No stored data found for key ${key}`);
+      // console.log(`📭 No stored data found for key ${key}`);
     }
 
     // Return default settings if nothing was found or on error
-    console.log(`🏠 Returning default appearance settings`);
+    // console.log(`🏠 Returning default appearance settings`);
     return DEFAULT_APPEARANCE_SETTINGS;
   }
 }

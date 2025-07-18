@@ -96,38 +96,38 @@ export class CoreConstructParser {
     // Organize into entities and attributes
     table.organizeEntitiesAndAttributes();
 
-    // Debug: Show parsed table structure
-    console.log(`📊 Table Structure Debug:
-    Table ID: ${table.id}
-    Bounds: R${table.bounds.topRow}C${table.bounds.leftCol} to R${table.bounds.bottomRow}C${table.bounds.rightCol}
-    Total cells: ${table.cells.length}
-    Header cells: ${table.headerCells.length}
-    Body cells: ${table.bodyCells.length}
-    Entities (rows): ${table.entities.length}
-    Attributes (columns): ${table.attributes.length}`);
+    // // Debug: Show parsed table structure
+    // console.log(`📊 Table Structure Debug:
+    // Table ID: ${table.id}
+    // Bounds: R${table.bounds.topRow}C${table.bounds.leftCol} to R${table.bounds.bottomRow}C${table.bounds.rightCol}
+    // Total cells: ${table.cells.length}
+    // Header cells: ${table.headerCells.length}
+    // Body cells: ${table.bodyCells.length}
+    // Entities (rows): ${table.entities.length}
+    // Attributes (columns): ${table.attributes.length}`);
 
-    // Show header cells
-    if (table.headerCells.length > 0) {
-      console.log(
-        "Header cells:",
-        table.headerCells.map(
-          (h) => `(${h.position.row},${h.position.col}): "${h.content}"`
-        )
-      );
-    }
+    // // Show header cells
+    // if (table.headerCells.length > 0) {
+    //   console.log(
+    //     "Header cells:",
+    //     table.headerCells.map(
+    //       (h) => `(${h.position.row},${h.position.col}): "${h.content}"`
+    //     )
+    //   );
+    // }
 
-    // Show entities structure
-    if (table.entities.length > 0) {
-      console.log(
-        "Entities (rows):",
-        table.entities.map(
-          (e) =>
-            `Row ${e.index}: ${
-              e.headerCell ? `"${e.headerCell.content}"` : "no header"
-            } + ${e.bodyCells.length} body cells`
-        )
-      );
-    }
+    // // Show entities structure
+    // if (table.entities.length > 0) {
+    //   console.log(
+    //     "Entities (rows):",
+    //     table.entities.map(
+    //       (e) =>
+    //         `Row ${e.index}: ${
+    //           e.headerCell ? `"${e.headerCell.content}"` : "no header"
+    //         } + ${e.bodyCells.length} body cells`
+    //     )
+    //   );
+    // }
 
     return table;
   }
@@ -428,45 +428,45 @@ export class CoreConstructParser {
     // Process tree elements based on spatial hierarchy
     this.processTreeElements(cluster, tree, detection.orientation || "regular");
 
-    // Debug: Show parsed tree structure
-    console.log(`🌳 Tree Structure Debug:
-    Tree ID: ${tree.id}
-    Orientation: ${tree.orientation}
-    Bounds: R${tree.bounds.topRow}C${tree.bounds.leftCol} to R${
-      tree.bounds.bottomRow
-    }C${tree.bounds.rightCol}
-    Total elements: ${tree.elements.length}
-    Has child header: ${tree.childHeaderElements?.length > 0 || false}
-    Parent elements: ${tree.parentElements.length}
-    Child elements: ${tree.childElements.length}
-    Child header elements: ${tree.childHeaderElements?.length || 0}
-    Peer elements: ${tree.peerElements.length}`);
+    // // Debug: Show parsed tree structure
+    // console.log(`🌳 Tree Structure Debug:
+    // Tree ID: ${tree.id}
+    // Orientation: ${tree.orientation}
+    // Bounds: R${tree.bounds.topRow}C${tree.bounds.leftCol} to R${
+    //   tree.bounds.bottomRow
+    // }C${tree.bounds.rightCol}
+    // Total elements: ${tree.elements.length}
+    // Has child header: ${tree.childHeaderElements?.length > 0 || false}
+    // Parent elements: ${tree.parentElements.length}
+    // Child elements: ${tree.childElements.length}
+    // Child header elements: ${tree.childHeaderElements?.length || 0}
+    // Peer elements: ${tree.peerElements.length}`);
 
-    // Show tree hierarchy
-    if (tree.elements.length > 0) {
-      console.log(
-        "Tree elements:",
-        tree.elements.map((e) => {
-          const roles = [];
-          if (e.isAnchor()) roles.push("anchor");
-          if (e.isParent()) roles.push("parent");
-          if (e.isChild()) roles.push("child");
-          if (e.isChildHeader()) roles.push("child-header");
-          if (e.isPeer()) roles.push("peer");
+    // // Show tree hierarchy
+    // if (tree.elements.length > 0) {
+    //   console.log(
+    //     "Tree elements:",
+    //     tree.elements.map((e) => {
+    //       const roles = [];
+    //       if (e.isAnchor()) roles.push("anchor");
+    //       if (e.isParent()) roles.push("parent");
+    //       if (e.isChild()) roles.push("child");
+    //       if (e.isChildHeader()) roles.push("child-header");
+    //       if (e.isPeer()) roles.push("peer");
 
-          return `(${e.position.row},${e.position.col}): "${
-            e.content
-          }" [${roles.join(", ")}, level ${e.level}]`;
-        })
-      );
-    }
+    //       return `(${e.position.row},${e.position.col}): "${
+    //         e.content
+    //       }" [${roles.join(", ")}, level ${e.level}]`;
+    //     })
+    //   );
+    // }
 
-    // Show anchor element
-    if (tree.anchorElement) {
-      console.log(
-        `Anchor: (${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"`
-      );
-    }
+    // // Show anchor element
+    // if (tree.anchorElement) {
+    //   console.log(
+    //     `Anchor: (${tree.anchorElement.position.row},${tree.anchorElement.position.col}): "${tree.anchorElement.content}"`
+    //   );
+    // }
 
     return tree;
   }
@@ -638,7 +638,7 @@ export class CoreConstructParser {
     for (const parent of tree.parentElements) {
       tree.calculateDomainRegion(parent, this.grid);
     }
-    
+
     // Calculate domain regions for elements with values
     for (const element of tree.elements) {
       if (element.valueElements && element.valueElements.length > 0) {
@@ -740,13 +740,15 @@ export class CoreConstructParser {
     }
   }
 
-
   /**
    * Detect domain construct types for parent elements
    */
   private detectDomainConstructTypes(tree: CoreTree): void {
     for (const parentElement of tree.parentElements) {
-      const constructType = tree.detectDomainConstructType(parentElement, this.grid);
+      const constructType = tree.detectDomainConstructType(
+        parentElement,
+        this.grid
+      );
       parentElement.domainConstructType = constructType;
     }
   }
@@ -757,17 +759,22 @@ export class CoreConstructParser {
   private createDomainConstructs(tree: CoreTree): void {
     for (const parentElement of tree.parentElements) {
       const constructType = parentElement.domainConstructType;
-      
-      if (constructType === 'matrix' || constructType === 'table') {
+
+      if (constructType === "matrix" || constructType === "table") {
         // Create the construct instance
-        const construct = tree.createDomainConstruct(parentElement, constructType, this.grid, this);
-        
+        const construct = tree.createDomainConstruct(
+          parentElement,
+          constructType,
+          this.grid,
+          this
+        );
+
         if (construct) {
           // Remove child relationships for matrix/table elements
           // The entire domain is now a single construct
           this.removeChildRelationshipsForConstruct(parentElement, tree);
         }
-      } else if (constructType === 'children') {
+      } else if (constructType === "children") {
         // For regular children, detect value elements
         this.detectValueElementsForParent(parentElement, tree);
       }
@@ -778,23 +785,27 @@ export class CoreConstructParser {
    * Remove child relationships for elements that have matrix/table constructs
    * Also removes elements that are within the domain region from tree categorization
    */
-  private removeChildRelationshipsForConstruct(parentElement: TreeElement, tree: CoreTree): void {
+  private removeChildRelationshipsForConstruct(
+    parentElement: TreeElement,
+    tree: CoreTree
+  ): void {
     // Remove children from parent
     const childrenToRemove = [...parentElement.children];
     parentElement.children = [];
-    
+
     // Get the domain region to find all elements that should be removed
     const domainRegion = parentElement.domainRegion;
     if (!domainRegion) return;
-    
+
     // Find all tree elements that are within the domain region
-    const elementsInDomain = tree.elements.filter(element => 
-      element.position.row >= domainRegion.topRow &&
-      element.position.row <= domainRegion.bottomRow &&
-      element.position.col >= domainRegion.leftCol &&
-      element.position.col <= domainRegion.rightCol
+    const elementsInDomain = tree.elements.filter(
+      (element) =>
+        element.position.row >= domainRegion.topRow &&
+        element.position.row <= domainRegion.bottomRow &&
+        element.position.col >= domainRegion.leftCol &&
+        element.position.col <= domainRegion.rightCol
     );
-    
+
     // Remove all domain elements from tree's child categorization
     for (const element of elementsInDomain) {
       // Remove from tree's childElements array
@@ -802,33 +813,38 @@ export class CoreConstructParser {
       if (childIndex >= 0) {
         tree.childElements.splice(childIndex, 1);
       }
-      
+
       // Remove from tree's childHeaderElements array
       const childHeaderIndex = tree.childHeaderElements.indexOf(element);
       if (childHeaderIndex >= 0) {
         tree.childHeaderElements.splice(childHeaderIndex, 1);
       }
-      
+
       // Remove from tree's peerElements array
       const peerIndex = tree.peerElements.indexOf(element);
       if (peerIndex >= 0) {
         tree.peerElements.splice(peerIndex, 1);
       }
-      
+
       // Remove from tree's parentElements array if it's there
       const parentIndex = tree.parentElements.indexOf(element);
       if (parentIndex >= 0) {
         tree.parentElements.splice(parentIndex, 1);
       }
     }
-    
-    console.log(`Removed ${elementsInDomain.length} elements from tree categorization for ${parentElement.domainConstructType} construct`);
+
+    // console.log(
+    //   `Removed ${elementsInDomain.length} elements from tree categorization for ${parentElement.domainConstructType} construct`
+    // );
   }
 
   /**
    * Detect value elements for a specific parent element (used for 'children' construct type)
    */
-  private detectValueElementsForParent(parentElement: TreeElement, tree: CoreTree): void {
+  private detectValueElementsForParent(
+    parentElement: TreeElement,
+    tree: CoreTree
+  ): void {
     for (const child of parentElement.children) {
       // Skip elements that already have children
       if (child.children.length > 0) {
@@ -836,19 +852,20 @@ export class CoreConstructParser {
       }
 
       const valueElements: TreeElement[] = [];
-      
+
       if (tree.orientation === "regular") {
         // Regular orientation: look for filled cells to the right
         const baseRow = child.position.row;
         let currentCol = child.position.col + 1;
-        
+
         // Look for contiguous filled cells to the right
         while (currentCol <= tree.bounds.rightCol) {
           const content = this.grid.getCellRaw(baseRow, currentCol);
           if (content && content.trim()) {
             // Find the tree element at this position
-            const valueElement = tree.elements.find(el => 
-              el.position.row === baseRow && el.position.col === currentCol
+            const valueElement = tree.elements.find(
+              (el) =>
+                el.position.row === baseRow && el.position.col === currentCol
             );
             if (valueElement) {
               valueElements.push(valueElement);
@@ -863,14 +880,15 @@ export class CoreConstructParser {
         // Transposed orientation: look for filled cells below
         const baseCol = child.position.col;
         let currentRow = child.position.row + 1;
-        
+
         // Look for contiguous filled cells below
         while (currentRow <= tree.bounds.bottomRow) {
           const content = this.grid.getCellRaw(currentRow, baseCol);
           if (content && content.trim()) {
             // Find the tree element at this position
-            const valueElement = tree.elements.find(el => 
-              el.position.row === currentRow && el.position.col === baseCol
+            const valueElement = tree.elements.find(
+              (el) =>
+                el.position.row === currentRow && el.position.col === baseCol
             );
             if (valueElement) {
               valueElements.push(valueElement);

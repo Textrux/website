@@ -614,9 +614,9 @@ export class CoreTree implements BaseConstruct {
         }
         this.childConstructs.push(construct);
 
-        console.log(
-          `Created ${constructType} construct with bounds: rows ${construct.bounds.topRow}-${construct.bounds.bottomRow}, cols ${construct.bounds.leftCol}-${construct.bounds.rightCol}`
-        );
+        // console.log(
+        //   `Created ${constructType} construct with bounds: rows ${construct.bounds.topRow}-${construct.bounds.bottomRow}, cols ${construct.bounds.leftCol}-${construct.bounds.rightCol}`
+        // );
 
         return construct;
       }

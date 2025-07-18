@@ -148,11 +148,11 @@ export default function GridGalleryView(props: GridGalleryProps) {
           link.click();
           URL.revokeObjectURL(link.href);
 
-          console.log(
-            `Saved grid "${activeGrid.name}" as ${
-              delimiter === "tab" ? "TSV" : "CSV"
-            }`
-          );
+          // console.log(
+          //   `Saved grid "${activeGrid.name}" as ${
+          //     delimiter === "tab" ? "TSV" : "CSV"
+          //   }`
+          // );
         }
       }
     };
@@ -168,24 +168,24 @@ export default function GridGalleryView(props: GridGalleryProps) {
     // Add debug output to inspect localStorage directly
     try {
       const rawIndexes = localStorage.getItem("galleryIndexes");
-      console.log("Raw galleryIndexes in localStorage:", rawIndexes);
+      // console.log("Raw galleryIndexes in localStorage:", rawIndexes);
 
       // Inspect some random grid data to see if it exists
       for (let i = 0; i <= 10; i++) {
         const gridData = localStorage.getItem(`grid_${i}_state`);
         if (gridData) {
-          console.log(
-            `Found grid_${i}_state in localStorage with length ${gridData.length}`
-          );
+          // console.log(
+          //   `Found grid_${i}_state in localStorage with length ${gridData.length}`
+          // );
         }
       }
     } catch (e) {
       console.error("Error accessing localStorage:", e);
     }
 
-    console.log("Starting initial load effect");
+    // console.log("Starting initial load effect");
     if (!autoLoadLocalStorage) {
-      console.log("autoLoadLocalStorage is false, creating default grids");
+      // console.log("autoLoadLocalStorage is false, creating default grids");
       // Just create default grids without loading from storage
       setGallery((prev) => {
         const newGal = new GridGalleryModel();
@@ -219,10 +219,10 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
     // Load from localStorage
     const savedIndexes = LocalStorageManager.loadGalleryIndexes();
-    console.log("Loaded savedIndexes from localStorage:", savedIndexes);
+    // console.log("Loaded savedIndexes from localStorage:", savedIndexes);
 
     if (savedIndexes.length === 0) {
-      console.log("No saved grids found, creating default ones");
+      // console.log("No saved grids found, creating default ones");
       // No saved grids, create default ones
       setGallery(() => {
         const newGal = new GridGalleryModel();
@@ -256,7 +256,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
     }
 
     // We have saved indexes, reconstruct each grid from localStorage
-    console.log("Found saved grid indexes, loading from localStorage");
+    // console.log("Found saved grid indexes, loading from localStorage");
     setGallery(() => {
       const loadedGal = new GridGalleryModel();
 
@@ -264,10 +264,10 @@ export default function GridGalleryView(props: GridGalleryProps) {
       const validIndexes = savedIndexes.filter(
         (ix) => Number.isFinite(ix) && ix > 0
       );
-      console.log("Valid indexes:", validIndexes);
+      // console.log("Valid indexes:", validIndexes);
 
       if (validIndexes.length === 0) {
-        console.log("No valid indexes found, creating default grids");
+        // console.log("No valid indexes found, creating default grids");
         // All indexes were invalid, create defaults
         loadedGal.nextGridIndex = 1; // Reset the next index
         for (let i = 0; i < initialGridCount; i++) {
@@ -306,7 +306,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
       // Load each grid from localStorage
       loadedGal.grids = validIndexes.map((idx) => {
-        console.log(`Loading grid ${idx} from localStorage`);
+        // console.log(`Loading grid ${idx} from localStorage`);
         // Always initialize these properties to ensure they exist
         const g = new GridModel(defaultRows, defaultCols, idx);
         g.zoomLevel = 1.0;
@@ -314,14 +314,14 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
         // Load the grid state from localStorage (if exists)
         const wasLoaded = LocalStorageManager.loadGrid(g);
-        console.log(
-          `Grid ${idx} loaded successfully:`,
-          wasLoaded,
-          "zoom:",
-          g.zoomLevel,
-          "delimiter:",
-          g.delimiter
-        );
+        // console.log(
+        //   `Grid ${idx} loaded successfully:`,
+        //   wasLoaded,
+        //   "zoom:",
+        //   g.zoomLevel,
+        //   "delimiter:",
+        //   g.delimiter
+        // );
 
         // Ensure the grid has a name
         if (!g.name || g.name.trim() === "") {
@@ -351,16 +351,16 @@ export default function GridGalleryView(props: GridGalleryProps) {
       // Set the next index to be one more than the max
       const maxIndex = Math.max(...validIndexes);
       loadedGal.nextGridIndex = maxIndex + 1;
-      console.log("Setting nextGridIndex to:", loadedGal.nextGridIndex);
+      // console.log("Setting nextGridIndex to:", loadedGal.nextGridIndex);
 
       // Load which grid was active
       const savedActiveIndex = LocalStorageManager.loadActiveGridIndex();
-      console.log("Loaded activeGridIndex:", savedActiveIndex);
+      // console.log("Loaded activeGridIndex:", savedActiveIndex);
 
       // Make sure the active index is valid
       loadedGal.activeGridIndex =
         savedActiveIndex < loadedGal.grids.length ? savedActiveIndex : 0;
-      console.log("Final activeGridIndex:", loadedGal.activeGridIndex);
+      // console.log("Final activeGridIndex:", loadedGal.activeGridIndex);
 
       return loadedGal;
     });
@@ -370,7 +370,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
   useEffect(() => {
     setGallery((prev) => {
       if (prev.grids.length === 0) {
-        console.log("No grids found in gallery, creating default grid");
+        // console.log("No grids found in gallery, creating default grid");
 
         // Create a copy of the gallery while preserving its type
         const newGal = Object.assign(new GridGalleryModel(), prev);
@@ -423,7 +423,7 @@ export default function GridGalleryView(props: GridGalleryProps) {
 
     // Only proceed if we have grids
     if (gallery.grids.length === 0) {
-      console.warn("Auto-save: No grids to save");
+      // console.warn("Auto-save: No grids to save");
       return;
     }
 

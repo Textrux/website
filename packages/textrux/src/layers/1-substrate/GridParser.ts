@@ -41,7 +41,7 @@ export function parseAndFormatGrid(grid: GridModel): {
   formatMap: Record<string, CellFormat>;
   blockList: Block[];
 } {
-  console.log('[GridParser] parseAndFormatGrid called');
+  // console.log('[GridParser] parseAndFormatGrid called');
   // 1) Collect all non-empty (filled) cell positions:
   const filledPoints = grid
     .getFilledCells()
@@ -91,7 +91,7 @@ export function parseAndFormatGrid(grid: GridModel): {
     const cellClusters = subContainers.map(
       (ctr) =>
         new CellCluster(
-          ctr.topRow,    // Keep 1-indexed coordinates
+          ctr.topRow, // Keep 1-indexed coordinates
           ctr.bottomRow, // Keep 1-indexed coordinates
           ctr.leftColumn, // Keep 1-indexed coordinates
           ctr.rightColumn, // Keep 1-indexed coordinates
@@ -295,19 +295,28 @@ export function parseAndFormatGrid(grid: GridModel): {
   }
 
   // 8) Apply construct-specific formatting for all filled cells
-  console.log(`[GridParser] Applying construct formatting to ${filledPoints.length} filled cells`);
+  // console.log(`[GridParser] Applying construct formatting to ${filledPoints.length} filled cells`);
   let formatsApplied = 0;
   for (const filledPoint of filledPoints) {
-    const constructFormat = grid.getCellFormat(filledPoint.row, filledPoint.col);
+    const constructFormat = grid.getCellFormat(
+      filledPoint.row,
+      filledPoint.col
+    );
     if (constructFormat) {
-      addFormatAndClass(styleMap, formatMap, filledPoint.row, filledPoint.col, constructFormat);
+      addFormatAndClass(
+        styleMap,
+        formatMap,
+        filledPoint.row,
+        filledPoint.col,
+        constructFormat
+      );
       formatsApplied++;
-      console.log(`[GridParser] Applied format to (${filledPoint.row},${filledPoint.col}): fontWeight=${constructFormat.fontWeight}, textAlign=${constructFormat.textAlign}, borderBottom=${constructFormat.borderBottom}`);
+      // console.log(`[GridParser] Applied format to (${filledPoint.row},${filledPoint.col}): fontWeight=${constructFormat.fontWeight}, textAlign=${constructFormat.textAlign}, borderBottom=${constructFormat.borderBottom}`);
     } else {
-      console.log(`[GridParser] No format for (${filledPoint.row},${filledPoint.col}): constructFormat is null/undefined`);
+      // console.log(`[GridParser] No format for (${filledPoint.row},${filledPoint.col}): constructFormat is null/undefined`);
     }
   }
-  console.log(`[GridParser] Total formats applied: ${formatsApplied}/${filledPoints.length}`);
+  // console.log(`[GridParser] Total formats applied: ${formatsApplied}/${filledPoints.length}`);
 
   return { styleMap, formatMap, blockList: blocks };
 }

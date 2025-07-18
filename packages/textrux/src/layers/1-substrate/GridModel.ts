@@ -406,7 +406,7 @@ export default class GridModel {
 
     // Performance optimization: Get relevant constructs for this position
     const relevantConstructs = this.getRelevantConstructsForPosition(row, col);
-    console.log(`[GridModel] getCellFormat(${row},${col}): found ${relevantConstructs.length} relevant constructs`);
+    // console.log(`[GridModel] getCellFormat(${row},${col}): found ${relevantConstructs.length} relevant constructs`);
 
     // Apply construct formatting if enabled (only to relevant constructs)
     const constructFormat = this.constructFormatter.getFormatForPosition(
@@ -415,7 +415,10 @@ export default class GridModel {
       relevantConstructs
     );
 
-    console.log(`[GridModel] constructFormat for (${row},${col}):`, constructFormat);
+    // console.log(
+    //   `[GridModel] constructFormat for (${row},${col}):`,
+    //   constructFormat
+    // );
 
     // Cache the result
     this.constructFormatCache.set(cacheKey, constructFormat);
@@ -430,20 +433,24 @@ export default class GridModel {
   /**
    * Get constructs that potentially contain this position (bounds pre-filtering)
    */
-  private getRelevantConstructsForPosition(row: number, col: number): BaseConstruct[] {
+  private getRelevantConstructsForPosition(
+    row: number,
+    col: number
+  ): BaseConstruct[] {
     const cacheKey = `${row},${col}`;
-    
+
     // Check bounds cache first
     if (this.constructBoundsCache.has(cacheKey)) {
       return this.constructBoundsCache.get(cacheKey)!;
     }
 
     // Filter constructs by bounds
-    const relevant = this.cachedConstructs.filter(construct => 
-      row >= construct.bounds.topRow &&
-      row <= construct.bounds.bottomRow &&
-      col >= construct.bounds.leftCol &&
-      col <= construct.bounds.rightCol
+    const relevant = this.cachedConstructs.filter(
+      (construct) =>
+        row >= construct.bounds.topRow &&
+        row <= construct.bounds.bottomRow &&
+        col >= construct.bounds.leftCol &&
+        col <= construct.bounds.rightCol
     );
 
     // Cache for future use
@@ -461,8 +468,16 @@ export default class GridModel {
 
   /** Update cached constructs for formatting */
   updateCachedConstructs(constructs: BaseConstruct[]): void {
-    console.log(`[GridModel] Updating cached constructs: ${constructs.length} constructs`);
-    console.log(`[GridModel] Construct types:`, constructs.map(c => `${c.type} at (${c.bounds.topRow}-${c.bounds.bottomRow}, ${c.bounds.leftCol}-${c.bounds.rightCol})`));
+    // console.log(
+    //   `[GridModel] Updating cached constructs: ${constructs.length} constructs`
+    // );
+    // console.log(
+    //   `[GridModel] Construct types:`,
+    //   constructs.map(
+    //     (c) =>
+    //       `${c.type} at (${c.bounds.topRow}-${c.bounds.bottomRow}, ${c.bounds.leftCol}-${c.bounds.rightCol})`
+    //   )
+    // );
     this.cachedConstructs = constructs;
     // Clear all caches when constructs change
     this.constructFormatCache.clear();
@@ -599,7 +614,9 @@ export default class GridModel {
   /**
    * Update construct formatter options
    */
-  public updateFormattingOptions(options: Partial<ConstructFormattingOptions>): void {
+  public updateFormattingOptions(
+    options: Partial<ConstructFormattingOptions>
+  ): void {
     this.constructFormatter.updateOptions(options);
     this.constructFormatCache.clear();
     this.constructBoundsCache.clear();
