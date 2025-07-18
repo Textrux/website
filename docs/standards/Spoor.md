@@ -21,6 +21,90 @@ By transmitting a single spatially-encoded file, systems can share **the complet
 
 ---
 
+## Spoor Files: Distributed Spatial Coordination
+
+**Spoor files** represent a practical implementation of spatial coordination for distributed systems. Rather than being a specific file format, Spoor refers to the practice of exchanging spatially-encoded coordination information to maintain a **Common Model of Understanding (CMU)** across distributed networks.
+
+### Core Principles
+
+**Spoor files** enable systems to:
+
+- **Exchange spatial grids** containing structures interpreted using Binary Spatial Semantics
+- **Update partial structures** rather than replacing entire system models
+- **Add versional depth** to existing spatial arrangements
+- **Maintain coordination** without centralized orchestration
+- **Merge changes naturally** through spatial relationship algorithms
+
+### How Spoor Files Work
+
+In a distributed spatial coordination system:
+
+1. **Initial State Sharing**: Systems exchange base spatial structures that establish the foundational CMU
+2. **Incremental Updates**: Rather than sending complete models, systems transmit **Spoor files** containing:
+
+   - Partial spatial modifications to existing structures
+   - New spatial patterns that extend current capabilities
+   - Version metadata encoded spatially within the grid
+   - Merge directives expressed through spatial relationships
+
+3. **Natural Merging**: Unlike traditional conflict resolution, spatial merging leverages the semantic relationships encoded in the grid structure itself to resolve conflicts and integrate changes
+
+4. **Distributed Synchronization**: Each system maintains its local CMU and periodically exchanges Spoor files to stay synchronized with network state
+
+### Alternative to Traditional APIs
+
+Spoor files provide a **speculative alternative** to REST/GraphQL/JSON API paradigms:
+
+| Traditional APIs               | Spoor File Coordination                |
+| ------------------------------ | -------------------------------------- |
+| **Request/Response** cycles    | **Continuous spatial synchronization** |
+| **Separate schema and data**   | **Unified spatial encoding**           |
+| **Manual conflict resolution** | **Spatial relationship-based merging** |
+| **Centralized orchestration**  | **Distributed coordination**           |
+| **Stateless interactions**     | **Persistent spatial state**           |
+| **Imperative commands**        | **Declarative spatial patterns**       |
+
+### Practical Implementation
+
+Systems using Spoor coordination might:
+
+- **Exchange CSV-like files** where spatial arrangements encode coordination logic
+- **Use differential spatial patches** to propagate changes efficiently
+- **Leverage spatial topology** for automatic conflict resolution
+- **Maintain version trees** through spatial branching patterns
+- **Discover capabilities** through spatial pattern matching
+
+### Example Scenario
+
+Consider a distributed e-commerce system:
+
+1. **Product Catalog**: Initial spatial structure shared across all nodes
+2. **Price Update**: One node sends a Spoor file containing spatial modifications to pricing data
+3. **Inventory Change**: Another node contributes spatial updates about stock levels
+4. **Natural Merge**: The spatial relationships automatically coordinate pricing with availability
+5. **Propagation**: All nodes receive combined spatial updates and maintain synchronized state
+
+### Version Management
+
+Spoor files can become **out of sync** with other systems, requiring:
+
+- **Spatial version indicators** embedded within grid structures
+- **Reconciliation patterns** that merge conflicting spatial arrangements
+- **Rollback capabilities** through spatial state restoration
+- **Conflict resolution algorithms** that respect spatial semantic relationships
+
+### Unknown Algorithms
+
+The **merging methodology** for Spoor files remains a **speculative area of research**. Potential approaches include:
+
+- **Spatial topology analysis** to identify compatible arrangements
+- **Semantic distance calculations** between conflicting spatial patterns
+- **Graph-based merging** using spatial relationships as edges
+- **Machine learning** approaches to predict optimal spatial arrangements
+- **Consensus mechanisms** based on spatial pattern voting
+
+---
+
 ## Beyond Passive Data Transfer
 
 Traditional data formats serve as passive containers that require external systems to interpret structure, apply validations, execute business rules, and render interfaces. Spatial coordination embeds these capabilities directly into the data structure itself.

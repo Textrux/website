@@ -1372,6 +1372,20 @@ TreeTable shares many fundamental ideas with other projects.
 
   - This page is an attempt to do the same thing for TreeTable.
 
+- Future of Software Development Interfaces
+
+  - Amjad Masad, CEO of Replit, discussed in a [Y Combinator podcast interview](https://www.youtube.com/watch?v=oOylEw3tPQ8) his vision for the future of software development, stating that in the next 5-10 years it will be possible to invent a new way to build software that is "higher level" - focused on defining how you want the software to work and look, rather than writing traditional code. This vision aligns closely with the spatial semantic approach of BSS, which enables developers to express intent through spatial arrangements rather than linear text.
+
+  - In a July 2025 discussion on visual programming and user interfaces, important insights emerged about the limitations of current development paradigms:
+
+    > A question I had related to that point is about the user interface. So for something like Cursor or Windsurf, it's pretty obvious that the primary UI element is the code. You see code, you have a little chat window, but primarily it's about diffs, it's about changes to code. And for a tool like Repl.it, the primary interface is the graphical user interface. It's the buttons and the fonts. With WYSIWYG, you see what you're building. Exactly, and that's great for building user interfaces. But when you're trying to build more complicated logical flows, I found it a little bit difficult because there was no way I could see the code. I can't visualize what's going on behind the scenes. It's almost a black box. Fast forwarding here, if you're trying to build more complex internal workflows, how does a product manager or an operations manager at a big company visualize that workflow and the kind of logical branching that happens?
+
+    The discussion continues with insights about visual programming history and future possibilities:
+
+    > If you look back in the history of computing, there was always this vision of visual programming. It never worked very well because ultimately it's about Turing completeness. These systems are not universal computing devices. And now we go to CodeGen. Obviously CodeGen is Turing complete, but you're interfacing with it primarily via natural language. Natural language is fuzzy. It's really hard to know whether it's doing the right thing. I think the synthesis of these two things is probably coming, where you are interfacing with natural language, but you can, instead of just staring at code, there's maybe an interface or a different view on top of code.
+
+    This points toward exactly the kind of spatial semantic approach that BSS provides - a way to visualize and manipulate program structure that goes beyond traditional text while maintaining computational completeness.
+
 - Data Flow Programming
 
   - A quote from a journal [article](https://www.deepdyve.com/lp/spie/on-programming-languages-for-vlsi-array-processors-AzLDUYymgD) titled "On Programming Languages for VLSI Array Processors" gives a very good explanation of data flow programming that also applies well to TreeTable.
